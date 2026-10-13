@@ -31,7 +31,10 @@ describe("research summaries, de-identification and survival threshold", () => {
   beforeEach(() => { resetStore(); const c = createCohort("m", { stage: ["metastatic", "deceased"] }, "x"); submitCohort(c.id); snapId = createSnapshot(c.id, "2026-10-13").id; });
   it("every use case carries a summary with n, events, followUpMedian and cutoff", () => {
     const o = researchUseCase("overview", snapId);
-    expect(o.summary).toEqual({ n: o.n, events: o.events.metastasis + o.events.progression + o.events.death, followUpMedian: o.followUpMonths.median, cutoff: "2026-10-13" });
+    const snap = getStore().snapshots.find(s => s.id === snapId)!;
+    const withEvent = snap.patients.filter(p => p.outcomes.some(e => e.type === "distant_metastasis" || e.type === "progression" || e.type === "death")).length;
+    expect(o.summary).toEqual({ n: o.n, events: withEvent, followUpMedian: o.followUpMonths.median, cutoff: "2026-10-13" });
+    expect(o.summary.events).toBeLessThanOrEqual(o.summary.n);
     const p = researchUseCase("patterns", snapId);
     expect(p.summary.n).toBe(p.patterns.n); expect(p.summary.events).toBeGreaterThan(0); expect(p.summary.followUpMedian).toBeGreaterThan(0); expect(p.summary.cutoff).toBe("2026-10-13");
     const f = researchUseCase("feasibility", snapId);

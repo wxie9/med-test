@@ -15,7 +15,9 @@ function overview(ps: Patient[], cutoff: string) {
   const fu = followUpMonths(ps);
   const events = { metastasis: withOutcome(ps, "distant_metastasis"), progression: withOutcome(ps, "progression"), death: withOutcome(ps, "death") };
   const followUp = { median: q(fu, 0.5), p25: q(fu, 0.25), p75: q(fu, 0.75) };
-  const summary: StatSummary = { n: ps.length, events: events.metastasis + events.progression + events.death, followUpMedian: followUp.median, cutoff };
+  // events = patients with at least one metastasis / progression / death outcome (never exceeds n)
+  const withAnyEvent = ps.filter(p => p.outcomes.some(o => o.type === "distant_metastasis" || o.type === "progression" || o.type === "death")).length;
+  const summary: StatSummary = { n: ps.length, events: withAnyEvent, followUpMedian: followUp.median, cutoff };
   return {
     n: ps.length, events, followUpMonths: followUp, survivalEstimable: events.death >= 10,
     missing: {

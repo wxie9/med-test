@@ -39,10 +39,10 @@ export default function OverviewPage() {
         </ResearchCard>
       </div>
       {o.survivalEstimable
-        ? <ResearchCard title="生存曲线：可估计（本演示不绘制曲线）"><StatFooter {...o.summary} /></ResearchCard>
+        ? <ResearchCard title="生存曲线：可估计（本演示不绘制曲线）"><StatFooter {...o.summary} events={o.events.death} /></ResearchCard>
         : <section data-testid="survival-not-estimable" className="rounded-xl border border-gray-200 bg-gray-100 p-4 text-gray-500">
             <h2 className="text-sm font-semibold">生存曲线：事件数 &lt; 10，不可估计</h2>
-            <StatFooter {...o.summary} />
+            <StatFooter {...o.summary} events={o.events.death} />
           </section>}
     </div>
   );
