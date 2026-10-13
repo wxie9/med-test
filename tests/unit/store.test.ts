@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getStore, resetStore, serializeLite } from "@/lib/state/store";
+import { getStore, resetStore, serialize, serializeLite } from "@/lib/state/store";
 import { loadSeed } from "@/lib/seed/load";
 import type { Alert, Patient } from "@/lib/domain/types";
 describe("store", () => {
@@ -25,5 +25,13 @@ describe("store", () => {
   it("serializeLite omits patients and reports patientCount", () => {
     const lite = serializeLite(getStore()) as Record<string, unknown>;
     expect(lite.patients).toBeUndefined(); expect(lite.patientCount).toBe(getStore().patients.size); expect(lite.seedVersion).toBe(getStore().seedVersion);
+  });
+  it("serializeLite strips snapshot patients and reports per-snapshot patientCount; serialize keeps them", () => {
+    const pts = [...getStore().patients.values()].slice(0, 3);
+    getStore().snapshots.push({ id: "SNAP-x-v1", cohortId: "c", cutoff: "2026-10-13", createdAt: "t", patients: pts, quality: { n: 3 } });
+    const snap = (serializeLite(getStore()).snapshots as Record<string, unknown>[])[0];
+    expect("patients" in snap).toBe(false); expect(snap.patientCount).toBe(3); expect(snap.id).toBe("SNAP-x-v1");
+    expect(serialize(getStore()).snapshots[0].patients).toHaveLength(3);
+    resetStore();
   });
 });
