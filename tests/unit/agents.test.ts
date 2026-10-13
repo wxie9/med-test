@@ -232,6 +232,20 @@ describe("agents: fix round 1 — stop-medication guard", () => {
   });
 });
 
+describe("agents: research_snapshot_size (统计一致: assistant == snapshot n)", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  it("routes 快照…多少例 / 样本量 and answers the snapshot n with its cutoff via count_cohort({})", async () => {
+    for (const q of ["当前快照共有多少例？", "这个快照有多少例", "样本量是多少"]) expect(pickTemplate("research", "feasibility", q)).toBe("research_snapshot_size");
+    expect(pickTemplate("research", "feasibility", "符合已知条件的有多少例？")).toBe("research_count");
+    const snap = metSnapshot();
+    const r = await chat({ agent: "research", messages: [{ role: "user", content: "当前快照共有多少例？" }], context: { snapshotId: snap.id, page: "feasibility" } });
+    expect(r.text).toMatch(new RegExp(`^当前快照共 ${snap.patients.length} 例（数据截止 2026-10-13）`));
+    expect(r.toolCalls).toEqual([{ name: "count_cohort", args: { snapshotId: snap.id, filter: {} }, result: { n: snap.patients.length, matched: snap.patients.length, cutoff: "2026-10-13" } }]);
+    const { researchUseCase } = await import("@/lib/research/usecases");
+    expect(researchUseCase("overview", snap.id).n).toBe(snap.patients.length);
+  });
+});
+
 describe("POST /api/agent", () => {
   beforeEach(() => { resetStore(); clearEnv(); });
   it("returns ChatResponse and writes agentMode to the store; 400 on bad body", async () => {

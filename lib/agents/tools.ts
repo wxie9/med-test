@@ -119,7 +119,7 @@ export const TOOLS = {
     description: "在当前研究快照内按筛选条件计数（仅返回计数）。",
     agents: ["research"], schema: z.object({ snapshotId: z.string(), filter: CohortFilter }), bound: ["snapshotId"],
     parameters: { type: "object", properties: { filter: { type: "object", description: "可选键：hrPositive(boolean)、her2(low|zero|positive 数组)、stage(early_adjuvant|metastatic|survivorship|lost|deceased 数组)、everMetastatic(boolean，曾远处转移)、priorCdk46(boolean)、intent、currentTreatmentType" } }, required: [] },
-    run: ({ snapshotId, filter }) => { const s = snapshotOf(snapshotId); return { n: s.patients.length, matched: applyFilter(s.patients, filter).length }; },
+    run: ({ snapshotId, filter }) => { const s = snapshotOf(snapshotId); return { n: s.patients.length, matched: applyFilter(s.patients, filter).length, cutoff: s.cutoff }; },
   }),
   funnel: defineTool({
     description: "当前快照按 XX-ADC-301（虚构）方案的三态入组漏斗：各步骤符合/不符合/信息不足计数及原因（仅计数）。",

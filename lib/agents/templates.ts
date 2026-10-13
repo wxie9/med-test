@@ -3,7 +3,7 @@ import type { AgentKind, ToolCallRecord } from "./types";
 export type TemplateId =
   | "patient_stop_med" | "patient_next_visit" | "patient_research"
   | "doctor_summary" | "doctor_ctcae" | "doctor_guideline"
-  | "research_count" | "research_gap" | "research_line_transition" | "research_boundary"
+  | "research_count" | "research_snapshot_size" | "research_gap" | "research_line_transition" | "research_boundary"
   | "generic_boundary";
 export const GENERIC_BOUNDARY = "这个问题超出了演示助手的范围。您可以尝试下方的快捷问题，或联系您的医生/个案管理师。";
 export const RESEARCH_BOUNDARY = "当前快照数据不支持回答该问题：本演示只提供描述性统计与入组可行性评估，不提供疗效或生存结论。";
@@ -27,6 +27,7 @@ const RULES: Record<AgentKind, Rule[]> = {
   ],
   research: [
     { id: "research_boundary", match: (t: string) => OUTCOME(t) || any("对比", "比较")(t) },
+    { id: "research_snapshot_size", match: (t: string) => /快照.*(共|有)多少例|样本量/.test(t) },
     { id: "research_gap", match: all(any("信息不足"), any("原因", "补齐", "补录")) },
     { id: "research_line_transition", match: any("一线", "二线", "下一线", "进入") },
     { id: "research_count", match: all(any("符合", "多少例"), not(OUTCOME)) },
@@ -55,6 +56,7 @@ export function runTemplateTools(id: TemplateId, call: Call, userText: string): 
     }
     case "doctor_guideline": call("search_guidelines", { query: userText }); return;
     case "research_count": call("funnel"); return;
+    case "research_snapshot_size": call("count_cohort", { filter: {} }); return;
     case "research_gap": {
       const g = call("gap_reasons") as ToolResult<"gap_reasons">;
       if (g.reasons.length) call("create_gap_task", { field: g.reasons[0].reason });
@@ -125,6 +127,10 @@ export function renderTemplate(id: TemplateId, toolResults: ToolCallRecord[]): s
         `按${f.protocol}标准，快照共 ${f.n} 例：符合已知条件 ${f.finalMetCount} 例（仍需现场核查 ECOG 等 ${ecog} 例）${f.finalUnknownCount ? `，信息不足暂无法判断 ${f.finalUnknownCount} 例` : ""}，其余为不符合。`,
         `各步骤（符合／不符合／信息不足）：${f.steps.map(s => `${s.label} ${s.met}／${s.notMet}／${s.unknown}`).join("；")}。`,
       ].join("\n");
+    }
+    case "research_snapshot_size": {
+      const c = res("count_cohort");
+      return `当前快照共 ${c.n} 例（数据截止 ${c.cutoff}）。快照创建后冻结，该人数与数据治理台快照卡片、研究门户概览页的 n 一致。`;
     }
     case "research_gap": {
       const g = res("gap_reasons"); const task = res("create_gap_task");

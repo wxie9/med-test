@@ -24,3 +24,28 @@ describe("POST /api/cohorts", () => {
     expect(getStore().cohorts).toHaveLength(0);
   });
 });
+
+describe("POST /api/cohorts/export (统计一致：page == export == preview == expected.json)", () => {
+  beforeEach(() => resetStore());
+  it("exports one CSV data row per patient of the current filter; the row count equals the preview count and expected.json", async () => {
+    const { POST: EXPORT } = await import("@/app/api/cohorts/export/route");
+    const { POST: PREVIEW } = await import("@/app/api/cohorts/preview/route");
+    for (const e of expected) {
+      const body = JSON.stringify({ filter: e.filter });
+      const r = await EXPORT(new Request("http://x/api/cohorts/export", { method: "POST", body }));
+      expect(r.status).toBe(200); expect(r.headers.get("content-type")).toMatch(/^text\/csv/);
+      const text = (await r.text()).replace(/^\uFEFF/, ""); const lines = text.split("\r\n").filter(Boolean);
+      expect(lines[0]).toBe("patient_id,stage,her2,hr_positive,current_treatment,last_contact");
+      const preview = (await (await PREVIEW(new Request("http://x/api/cohorts/preview", { method: "POST", body }))).json()) as { count: number };
+      expect(lines.length - 1, e.key).toBe(preview.count); expect(preview.count, e.key).toBe(e.expectedCount);
+      expect(Number(r.headers.get("x-row-count"))).toBe(preview.count);
+    }
+  });
+  it("rows carry id, stage, HER2 class, HR status, current treatment and last contact; 400 on a bad body", async () => {
+    const { POST: EXPORT } = await import("@/app/api/cohorts/export/route");
+    const r = await EXPORT(new Request("http://x/api/cohorts/export", { method: "POST", body: JSON.stringify({ filter: { stage: ["metastatic"], currentTreatmentType: ["adc"] } }) }));
+    const row = (await r.text()).split("\r\n").find(l => l.startsWith("P-B,"))!;
+    expect(row).toBe(`P-B,metastatic,low,true,德曲妥珠单抗,${getStore().patients.get("P-B")!.lastContact}`);
+    expect((await EXPORT(new Request("http://x/api/cohorts/export", { method: "POST", body: "{}" }))).status).toBe(400);
+  });
+});

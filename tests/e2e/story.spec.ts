@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
 import { test, expect, type Page } from "@playwright/test";
+type Expected = { key: string; filter: Record<string, unknown>; expectedCount: number };
+const EXPECTED = JSON.parse(readFileSync("data/seed/expected.json", "utf8")) as Expected[];
 
 /** Waits until the cohort count shows the preview for the current filter (also proves the form has hydrated). */
 async function waitCountSettled(page: Page) {
@@ -35,6 +38,15 @@ test("full chain story: patient → clinic → governance → research → back 
   for (const id of ["f-hrpos", "f-evermet", "f-cdk46"]) await page.getByTestId(id).check();
   await waitCountSettled(page);
   await page.getByTestId("cohort-name").fill("HR+ 曾转移 CDK4/6 经治");
+  // 统计一致：页面人数 == 导出 CSV 数据行数 == 预览接口 == expected.json（单元测试同样断言）
+  const demo = EXPECTED.find(e => e.key === "hrpos_evermet_cdk46")!;
+  const pageCount = Number(await page.getByTestId("cohort-count").textContent());
+  expect(pageCount).toBe(demo.expectedCount);
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("cohort-export").click()]);
+  const csv = readFileSync((await download.path())!, "utf8").replace(/^\uFEFF/, "");
+  expect(csv.split("\r\n").filter(Boolean).length - 1).toBe(pageCount);
+  const preview = (await (await request.post("/api/cohorts/preview", { data: { filter: demo.filter } })).json()) as { count: number };
+  expect(preview.count).toBe(pageCount);
   expect(Number(await page.getByTestId("cohort-count").textContent())).toBeGreaterThan(0);
   await page.getByTestId("cohort-submit").click();
   await expect(page.getByTestId("cohort-submitted")).toBeVisible();
@@ -52,6 +64,13 @@ test("full chain story: patient → clinic → governance → research → back 
   // 无 HER2 预筛：HER2 低表达一步出现真实的“信息不足”（IHC 2+ 缺 ISH）
   const her2Unknown = Number(await page.locator('[data-testid="funnel-step"][data-step="her2_low"]').getByTestId("funnel-unknown").textContent());
   expect(her2Unknown).toBeGreaterThan(0);
+  // 研究助手报告的快照人数 == 概览页 n（== 治理台快照卡片 n）
+  await page.getByRole("button", { name: "当前快照共有多少例？", exact: true }).click();
+  const sizeReply = page.getByTestId("agent-reply").last();
+  await expect(sizeReply).toContainText("当前快照共");
+  const assistantN = Number((await sizeReply.textContent())!.match(/当前快照共 (\d+) 例/)![1]);
+  const overview = (await (await request.get("/api/research/overview?snapshotId=SNAP-2026-10-13-v1")).json()) as { n: number };
+  expect(assistantN).toBe(overview.n);
   await page.getByTestId("request-candidates").click();
   await expect(page.getByTestId("candidates-requested")).toBeVisible();
   await expect(page.getByTestId("candidates-requested")).toContainText("已向科室发出候选核查请求");

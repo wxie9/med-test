@@ -30,6 +30,16 @@ export default function CohortsPage() {
     }, 300);
     return () => { cancelled = true; clearTimeout(t); };
   }, [filter]);
+  async function exportCsv() {
+    setErr(null);
+    try {
+      const res = await post("/api/cohorts/export", { filter });
+      if (!res.ok) throw new Error(`导出失败（${res.status}）`);
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a"); a.href = url; a.download = `cohort-${filterKey === "{}" ? "all" : "filtered"}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+  }
   async function submit() {
     setBusy(true); setErr(null); setMsg(null);
     try {
@@ -50,6 +60,7 @@ export default function CohortsPage() {
           </label>
           <p className="text-xs text-gray-400">创建人：{identity}</p>
           <button type="button" data-testid="cohort-submit" disabled={busy} onClick={() => void submit()} className="w-full rounded bg-pink-600 px-3 py-2 text-sm font-semibold text-white hover:bg-pink-700 disabled:opacity-50">保存并提交数据治理</button>
+          <button type="button" data-testid="cohort-export" disabled={pending} onClick={() => void exportCsv()} className="w-full rounded border border-pink-300 px-3 py-2 text-sm text-pink-700 hover:bg-pink-50 disabled:opacity-50">导出 CSV（当前筛选 {count ?? "…"} 例）</button>
           {msg && <p role="status" data-testid="cohort-submitted" className="text-sm text-green-700">{msg}</p>}
           {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
         </Card>
