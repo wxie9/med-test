@@ -15,7 +15,7 @@ export default function PatientHome() {
   useEffect(() => setLastSeen(getLastSeen(id)), [id]);
   if (!data) return <PatientStatus error={error} />;
   const { patient, messages, today } = data;
-  const next = buildFollowUpPlan(patient, today)[0];
+  const next = buildFollowUpPlan(patient, today, data.tasks)[0];
   const unread = messages.filter(m => m.at > lastSeen).length;
   const research = messages.filter(m => m.kind === "research_opportunity").length;
   const drugs = currentTreatments(patient);

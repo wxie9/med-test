@@ -306,6 +306,27 @@ describe("agents: F8 quick questions bound to context", () => {
   });
 });
 
+describe("agents: F10 clinician follow-up reaches the patient", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  it("get_followup_plan includes the task created on close; 医生怎么说 answers with the latest feedback (no ids)", async () => {
+    const { submitPro } = await import("@/lib/pro/submit"); const { actOnAlert, closeAlertWithTask } = await import("@/lib/clinic/actions");
+    const ask = () => chat({ agent: "patient", messages: [{ role: "user", content: "医生怎么说？" }], context: { patientId: "P-A", page: "assistant" } });
+    for (const q of ["医生怎么说？", "我的报告处理结果如何", "有反馈了吗"]) expect(pickTemplate("patient", "assistant", q)).toBe("patient_feedback");
+    expect((await ask()).text).toMatch(/还没有医生对您报告的处理反馈/);
+    const id = submitPro({ patientId: "P-A", scaleId: "endocrine_monthly_v1", items: { 关节痛: 3 }, flags: {} }).alerts[0].id;
+    actOnAlert(id, "accept", "x"); actOnAlert(id, "start", "x"); actOnAlert(id, "submit_review", "x", "已沟通，建议复评");
+    closeAlertWithTask(id, "张医生", "2 周后复评", { type: "复评", due: "2026-10-27", owner: "个案管理师小陈" });
+    const plan = runTool("get_followup_plan", {}, { patientId: "P-A", page: "assistant" }) as { title: string; due: string }[];
+    expect(plan).toContainEqual({ title: "复评（医生安排）", due: "2026-10-27", kind: "visit" });
+    const r = await ask();
+    expect(r.text).toContain("医生已处理您的报告：2 周后复评。新增随访：复评（2026-10-27）。");
+    expect(r.text).toContain("已加入您的随访计划：2026-10-27 复评（医生安排）");
+    expect(r.toolCalls.map(c => c.name)).toEqual(["get_latest_feedback", "get_followup_plan"]);
+    expect(JSON.stringify(r.toolCalls)).not.toMatch(/msg-|task-|alert-/);
+    expect(validateResponse(r, guidelineIds(), collectToolNumbers(r.toolCalls))).toEqual({ ok: true });
+  });
+});
+
 describe("agents: F9 medication boundary and emergency escalation", () => {
   beforeEach(() => { resetStore(); clearEnv(); });
   afterEach(() => { vi.unstubAllGlobals(); clearEnv(); });

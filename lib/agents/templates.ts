@@ -1,7 +1,7 @@
 import { pct1, type ToolName, type ToolResult } from "./tools";
 import type { AgentKind, ToolCallRecord } from "./types";
 export type TemplateId =
-  | "patient_emergency" | "patient_stop_med" | "patient_next_visit" | "patient_research"
+  | "patient_emergency" | "patient_stop_med" | "patient_feedback" | "patient_next_visit" | "patient_research"
   | "doctor_summary" | "doctor_ctcae" | "doctor_draft" | "doctor_guideline"
   | "research_count" | "research_snapshot_size" | "research_gap" | "research_line_transition" | "research_boundary"
   | "generic_boundary";
@@ -28,6 +28,7 @@ const RULES: Record<AgentKind, Rule[]> = {
   patient: [
     { id: "patient_emergency", match: EMERGENCY },
     { id: "patient_stop_med", match: STOP_MED },
+    { id: "patient_feedback", match: any("医生怎么说", "处理结果", "反馈") },
     { id: "patient_research", match: any("临床研究", "研究", "试验") },
     { id: "patient_next_visit", match: any("检查", "复查", "随访", "复诊") },
   ],
@@ -67,6 +68,7 @@ export const therapyTerms = (s: ToolResult<"get_patient_summary">) => [...new Se
 export function runTemplateTools(id: TemplateId, call: Call, userText: string): void {
   switch (id) {
     case "patient_emergency": return;
+    case "patient_feedback": call("get_latest_feedback"); call("get_followup_plan"); return;
     case "patient_stop_med": {
       const s = call("get_patient_summary") as ToolResult<"get_patient_summary">;
       call("search_guidelines", { query: onAi(s) ? "关节痛 停药" : activeSystemic(s) ? "不良反应 停药 恶心 乏力" : "不良反应 停药" }); return;
@@ -111,6 +113,12 @@ export function renderTemplate(id: TemplateId, toolResults: ToolCallRecord[]): s
   const res = <N extends ToolName>(name: N) => toolResults.find(c => c.name === name)?.result as ToolResult<N>;
   switch (id) {
     case "patient_emergency": return EMERGENCY_TEXT;
+    case "patient_feedback": {
+      const f = res("get_latest_feedback"); const plan = res("get_followup_plan");
+      if (!f) return "目前还没有医生对您报告的处理反馈。个案管理师处理后会通过“消息”通知您；如有不适加重，请及时联系或就诊。";
+      const arranged = plan.filter(i => i.title.endsWith("（医生安排）"));
+      return [`医生最近的反馈（${f.date} · ${f.kind}）：${f.text}`, ...(arranged.length ? [`已加入您的随访计划：${arranged.map(i => `${i.due} ${i.title}`).join("；")}。`] : []), "如有疑问，请在“消息”中联系个案管理师。"].join("\n");
+    }
     case "patient_stop_med": {
       const s = res("get_patient_summary");
       const ai = onAi(s);

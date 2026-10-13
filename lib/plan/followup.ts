@@ -1,7 +1,9 @@
-import type { Patient } from "@/lib/domain/types";
+import type { FollowUpTask, Patient } from "@/lib/domain/types";
 import { addDays, diffDays } from "@/lib/domain/dates";
-export function buildFollowUpPlan(p: Patient, today: string) {
-  const items: { title: string; due: string; kind: "visit" | "lab" | "imaging" | "pro" }[] = [];
+export type PlanItem = { title: string; due: string; kind: "visit" | "lab" | "imaging" | "pro" };
+/** Rule-based plan for the stage plus the clinician's OPEN follow-up tasks for this patient (e.g. 复评 created when an alert is closed). */
+export function buildFollowUpPlan(p: Patient, today: string, tasks: FollowUpTask[] = []) {
+  const items: PlanItem[] = tasks.filter(t => t.patientId === p.id && t.status === "open").map(t => ({ title: `${t.type}（医生安排）`, due: t.due, kind: "visit" as const }));
   if (p.stage === "early_adjuvant") {
     items.push({ title: "每月症状与用药问卷", due: addDays(today, 30), kind: "pro" });
     const anchor = p.surgeryDate ?? today;

@@ -17,4 +17,13 @@ describe("buildFollowUpPlan", () => {
     const img = buildFollowUpPlan(s.patients.get("P-A")!, "2026-10-14").find(i => i.kind === "imaging")!;
     expect(img.due).toBe("2027-07-10");
   });
+  it("merges the clinician's OPEN follow-up tasks for this patient as 医生安排 visit items", () => {
+    const p = getStore().patients.get("P-A")!;
+    const mk = (id: string, patientId: string, type: string, due: string, status: "open" | "done") => ({ id, patientId, type, due, owner: "x", status, createdAt: "2026-10-13T02:00:00.000Z" });
+    const plan = buildFollowUpPlan(p, "2026-10-14", [mk("t1", "P-A", "复评", "2026-10-27", "open"), mk("t2", "P-A", "门诊", "2026-10-20", "done"), mk("t3", "P-B", "检查", "2026-10-15", "open")]);
+    expect(plan).toContainEqual({ title: "复评（医生安排）", due: "2026-10-27", kind: "visit" });
+    expect(plan.some(i => i.title.startsWith("门诊（医生安排）") || i.title.startsWith("检查（医生安排）"))).toBe(false);
+    expect(plan.map(i => i.due)).toEqual([...plan.map(i => i.due)].sort());
+    expect(buildFollowUpPlan(p, "2026-10-14")).toEqual(buildFollowUpPlan(p, "2026-10-14", []));
+  });
 });

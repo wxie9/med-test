@@ -48,6 +48,11 @@ test("full chain story: patient → clinic → governance → research → back 
   await page.getByTestId("close-confirm").click();
   await expect(row.getByText("已关闭", { exact: true })).toBeVisible();
 
+  // 主线 A · 医生安排回到患者：随访计划出现“复评（医生安排）”
+  await page.goto("/patient/plan");
+  await expect(page.getByTestId("plan-item").filter({ hasText: "复评" })).toHaveCount(1);
+  await expect(page.getByTestId("plan-item").filter({ hasText: "复评（医生安排）" })).toContainText("2026-10-27");
+
   // 主线 B · 队列圈选：HR 阳性 + 曾发生远处转移（含已故/失访）+ CDK4/6 经治（不预设 HER2），提交数据治理
   await page.goto("/clinic/cohorts");
   await waitCountSettled(page); // hydrated and first preview resolved
