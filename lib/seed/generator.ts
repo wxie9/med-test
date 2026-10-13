@@ -42,7 +42,8 @@ function genPatient(r: Rng, id: string, cutoff: string): Patient {
   if (chemoEnd) push({ type: "chemo", intent: "adjuvant", drug: "AC-T", start: addDays(surgeryDate, 21), end: chemoEnd, stopReason: "completed", source: "in_house" });
   // 所有 HR+ 患者（不论 HER2）均行辅助内分泌，化疗结束后 10 天开始；无化疗则术后 40 天
   if (hrPos) push({ type: "endocrine", intent: "adjuvant", drug: pick(r, ["来曲唑", "阿那曲唑", "他莫昔芬"]), start: chemoEnd ? addDays(chemoEnd, 10) : addDays(surgeryDate, 40), end: null, stopReason: "ongoing", source: "in_house" });
-  if (subtype === "her2_pos") push({ type: "anti_her2", intent: "adjuvant", drug: "曲妥珠单抗", start: addDays(surgeryDate, 21), end: addDays(surgeryDate, 386), stopReason: "completed", source: "in_house" });
+  // 辅助抗 HER2 与紫杉类同步：AC 4 周期（56 天）之后开始，持续一年
+  if (subtype === "her2_pos") { const s = addDays(surgeryDate, 21 + 56); push({ type: "anti_her2", intent: "adjuvant", drug: "曲妥珠单抗", start: s, end: addDays(s, 365), stopReason: "completed", source: "in_house" }); }
 
   // 复发/转移：按分期与分型设置年风险；转移日不早于术后 150 天
   const annualRisk = (/N2/.test(stageT) ? 0.12 : /N1/.test(stageT) ? 0.07 : 0.03) * (subtype === "tnbc" ? 1.6 : 1);
@@ -62,7 +63,8 @@ function genPatient(r: Rng, id: string, cutoff: string): Patient {
     treatments = treatments.filter(t => t.intent !== "adjuvant" || t.type === "surgery" || t.start! <= met);
     for (const t of treatments) if (t.intent === "adjuvant" && t.type !== "surgery" && (t.end === null || t.end > met)) { t.end = met; t.stopReason = "progression"; }
     const metSpecimen = addDays(met, 5);
-    biomarkers.push({ ...bio, id: `${id}-b2`, specimenSite: "metastatic", specimenDate: metSpecimen, readVersion: readVersion(metSpecimen), her2Ihc: chance(r, 0.3) ? pick(r, ["0", "1+", "2+"]) : bio.her2Ihc });
+    const metIhc: Biomarker["her2Ihc"] = chance(r, 0.3) ? pick(r, ["0", "1+", "2+"]) : bio.her2Ihc;
+    if (metSpecimen <= cutoff) biomarkers.push({ ...bio, id: `${id}-b2`, specimenSite: "metastatic", specimenDate: metSpecimen, readVersion: readVersion(metSpecimen), her2Ihc: metIhc });
     // 一线
     const l1Start = addDays(met, between(r, 10, 30));
     const l1Dur = between(r, 90, 700); const l1End = addDays(l1Start, l1Dur);
@@ -77,7 +79,7 @@ function genPatient(r: Rng, id: string, cutoff: string): Patient {
       outcomes.push({ id: `${id}-o2`, type: "progression", date: l1End, evidence: "imaging", assessor: "Dr. Mock" });
       const l2Start = addDays(l1End, between(r, 10, 40));
       if (l2Start < cutoff) {
-        const her2 = biomarkers[1].her2Ihc;
+        const her2 = biomarkers[biomarkers.length - 1].her2Ihc;
         const drug = her2 === "3+" ? "德曲妥珠单抗" : her2 === "0" ? pick(r, ["戈沙妥珠单抗", "卡培他滨"]) : pick(r, ["德曲妥珠单抗", "戈沙妥珠单抗"]);
         const l2End = addDays(l2Start, between(r, 60, 400)); const l2Prog = l2End < cutoff;
         push({ type: drug === "卡培他滨" ? "chemo" : "adc", intent: "metastatic", drug, start: l2Start, end: l2Prog ? l2End : null, stopReason: l2Prog ? (chance(r, 0.25) ? "toxicity" : "progression") : "ongoing", source: "in_house" });
@@ -90,6 +92,9 @@ function genPatient(r: Rng, id: string, cutoff: string): Patient {
     const fiveYears = endo ? addDays(endo.start!, 1826) : null;
     if (endo && fiveYears && fiveYears < cutoff && chance(r, 0.5)) { stage = "survivorship"; endo.end = fiveYears; endo.stopReason = "completed"; }
   }
+  // 截止日裁剪：开始晚于截止日的事件删除；结束晚于截止日的事件改为进行中（截止日时尚未结束）
+  treatments = treatments.filter(t => t.start === null || t.start <= cutoff);
+  for (const t of treatments) if (t.end !== null && t.end > cutoff) { t.end = null; t.stopReason = "ongoing"; }
   // 失访：末次联系 = 最晚已知日期 + 0～100 天，且须早于截止日 200 天以上；进行中事件于末次联系日以 lost 结束
   const deathDate = outcomes.find(o => o.type === "death")?.date;
   let lastContact = deathDate ?? addDays(cutoff, -between(r, 0, 45));

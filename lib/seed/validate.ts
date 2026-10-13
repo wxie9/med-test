@@ -1,8 +1,15 @@
 import type { Patient } from "@/lib/domain/types";
 const OPEN_END = "9999-12-31";
-export function validatePatients(ps: Patient[]): string[] {
+export const DEFAULT_CUTOFF = "2026-10-13";
+/** Hard constraints (see docs/data-generation.md §5). `cutoff`: no treatment / outcome / PRO / adherence / biomarker date may lie after it. */
+export function validatePatients(ps: Patient[], cutoff: string = DEFAULT_CUTOFF): string[] {
   const errs: string[] = [];
   for (const p of ps) {
+    for (const t of p.treatments) for (const d of [t.start, t.end]) if (d && d > cutoff) errs.push(`${p.id}:${t.id} treatment date ${d} after cutoff`);
+    for (const o of p.outcomes) if (o.date > cutoff) errs.push(`${p.id}:${o.id} outcome after cutoff`);
+    for (const r of p.pro) if (r.submittedAt.slice(0, 10) > cutoff) errs.push(`${p.id}:${r.id} PRO after cutoff`);
+    for (const a of p.adherence) if (a.date > cutoff) errs.push(`${p.id} adherence ${a.date} after cutoff`);
+    for (const b of p.biomarkers) if (b.specimenDate > cutoff) errs.push(`${p.id}:${b.id} biomarker after cutoff`);
     const firstMet = p.outcomes.filter(o => o.type === "distant_metastasis").map(o => o.date).sort()[0];
     for (const t of p.treatments) {
       if (t.start && t.end && t.end < t.start) errs.push(`${p.id}:${t.id} end<start`);
