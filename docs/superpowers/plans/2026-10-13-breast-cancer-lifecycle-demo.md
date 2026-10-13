@@ -1090,7 +1090,7 @@ export function buildFollowUpPlan(p: Patient, today: string) {
 - `app/patient/page.tsx`：姓名化名（患者 A 显示"王女士"，B 显示"李女士"）、阶段、当前治疗、下一个随访项、未读消息数。
 - `app/patient/pro/page.tsx`：按 `scaleId`（A→`endocrine_monthly_v1`，B→`treatment_weekly_v1`）渲染 0–3 分滑块问卷；标注"演示用自拟问卷，非标准量表"；A 额外有"过去两周漏服次数"数字框与"是否有停药念头"开关；提交 POST `/api/pro`，成功后显示返回的反馈文案并跳转消息页。
 - `app/patient/plan/page.tsx`：`buildFollowUpPlan` 列表。
-- `app/patient/adherence/page.tsx`：近 60 天打卡日历（取 `adherence`），"今日已服"按钮 POST 同一路由的简化版（可直接在 `/api/pro` 旁加 `/api/adherence` POST `{patientId, taken}`）。
+- `app/patient/adherence/page.tsx`：近 60 天打卡日历（取 `adherence`），"今日已服"按钮 POST `/api/adherence` body `{ patientId, taken: 0|1, missedReason?: string }`，处理器向该患者 `adherence` 追加或覆盖当日记录（以 `today()` 为键）。
 - `app/patient/messages/page.tsx`：`messages` 按患者过滤倒序。
 
 - [ ] **Step 5: 手动验证**
@@ -1159,7 +1159,7 @@ export function closeAlertWithTask(id: string, by: string, note: string, task: {
   s.messages.push(message); return { alert, task: t, message };
 }
 ```
-`app/api/alerts/[id]/route.ts` PATCH：body `{ action, by, note?, task? }`，`action === "close"` 且带 `task` 时走 `closeAlertWithTask`，否则 `actOnAlert`；错误 400。`GET /api/alerts` 可选：先对 `s.alerts` 跑 `checkEscalations(s.alerts, now())` 写回再返回（也可在 `/api/state` 中统一做）。
+`app/api/alerts/[id]/route.ts` PATCH：body `{ action, by, note?, task? }`，`action === "close"` 且带 `task` 时走 `closeAlertWithTask`，否则 `actOnAlert`；错误 400。升级检查统一放在 `/api/state`：`GET` 处理器在序列化前执行 `s.alerts = checkEscalations(s.alerts, now())`，不单独提供 `/api/alerts` 的 GET。
 Run → 2 passed。
 
 - [ ] **Step 3: 页面与组件**
