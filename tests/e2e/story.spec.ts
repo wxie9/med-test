@@ -80,8 +80,11 @@ test("full chain story: patient → clinic → governance → research → back 
   await candidate.getByRole("button", { name: "确认", exact: true }).click();
   await expect(candidate.getByText("已确认", { exact: true })).toBeVisible();
 
-  // 闭环 · 患者端：该患者收到研究机会，患者管家回答参加研究的注意事项
-  await page.goto(`/patient/research?patient=${encodeURIComponent(pid!)}`);
+  await expect(candidate.getByTestId("candidate-consent")).toHaveText("科研同意：是");
+
+  // 闭环 · 患者端：从候选行“打开患者视图”进入该患者的研究机会页，患者管家回答参加研究的注意事项
+  await candidate.getByTestId("candidate-open").click();
+  await expect(page).toHaveURL(new RegExp(`/patient/research\\?patient=${pid}$`));
   await expect(page.getByText(/可能适合您/)).toBeVisible();
   await page.goto("/patient/assistant");
   await page.getByRole("button", { name: "参加临床研究需要注意什么？", exact: true }).click();

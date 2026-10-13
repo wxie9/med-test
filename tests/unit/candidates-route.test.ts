@@ -27,7 +27,7 @@ describe("/api/candidates", () => {
     await post({ snapshotId: snapId, protocolId: "XX-ADC-301" });
     const list = (await (await GET()).json()) as (CandidateRequest & { summaries: { patientId: string; her2: string; currentLine: string | null; latestPro: string | null }[] })[];
     expect(list).toHaveLength(1); const req = list[0]; expect(req.summaries).toHaveLength(req.candidates.length);
-    const s0 = req.summaries[0]; expect(Object.keys(s0).sort()).toEqual(["currentLine", "her2", "latestPro", "patientId"]);
+    const s0 = req.summaries[0]; expect(Object.keys(s0).sort()).toEqual(["consentResearch", "currentLine", "her2", "latestPro", "patientId"]); expect(req.summaries.every(s => (s as { consentResearch?: boolean }).consentResearch === true)).toBe(true);
     expect(s0.patientId).toBe(req.candidates[0].patientId); expect(s0.her2).toBe("HER2-low"); expect(s0.currentLine).toMatch(/^第 \d+ 线/);
     const pid = req.candidates[0].patientId;
     const r = await patch(req.id, { patientId: pid, status: "confirmed", by: "张医生" }); expect(r.status).toBe(200);

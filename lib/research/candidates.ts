@@ -5,11 +5,12 @@ import { currentHer2 } from "@/lib/domain/her2";
 import { HER2_LABEL } from "@/lib/clinic/labels";
 import { SCALE_TITLES } from "@/lib/pro/scales";
 import type { CandidateRequest, Patient } from "@/lib/domain/types";
-/** Candidates = funnel finalMet of the snapshot; the pharma side only ever sees counts (pharmaView). */
+/** Candidates = funnel finalMet ∩ consent.research (only patients who agreed to research contact); the pharma side only ever sees counts (pharmaView). */
 export function requestCandidates(snapshotId: string, protocolId: string): CandidateRequest {
   const s = getStore(); const snap = s.snapshots.find(x => x.id === snapshotId); if (!snap) throw new Error("snapshot not found");
   const { finalMet } = runFunnel(snap.patients, PROTOCOL_ADC_301);
-  const req: CandidateRequest = { id: newId("cand"), snapshotId, protocolId, candidates: finalMet.map(patientId => ({ patientId, status: "pending" as const })), createdAt: now() };
+  const consented = new Set(snap.patients.filter(p => p.consent.research).map(p => p.id));
+  const req: CandidateRequest = { id: newId("cand"), snapshotId, protocolId, candidates: finalMet.filter(id => consented.has(id)).map(patientId => ({ patientId, status: "pending" as const })), createdAt: now() };
   s.candidateRequests.push(req); return req;
 }
 export { pharmaView, type PharmaCandidateView } from "./pharmaView";
@@ -26,7 +27,7 @@ export function candidateSummary(p: Patient) {
   const drugs = line ? p.treatments.filter(t => line.eventIds.includes(t.id) && t.drug).map(t => t.drug as string) : [];
   const pro = [...p.pro].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0];
   return {
-    patientId: p.id, her2: HER2_LABEL[currentHer2(p.biomarkers)],
+    patientId: p.id, her2: HER2_LABEL[currentHer2(p.biomarkers)], consentResearch: p.consent.research,
     currentLine: line ? `第 ${line.lineNo} 线${drugs.length ? `（${drugs.join(" + ")}）` : ""}` : null,
     latestPro: pro ? `${pro.submittedAt.slice(0, 10)} · ${SCALE_TITLES[pro.scaleId]}` : null,
   };

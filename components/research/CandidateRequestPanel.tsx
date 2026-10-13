@@ -33,7 +33,7 @@ export function CandidateRequestPanel({ snapshotId, expectedCount }: { snapshotI
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm">
       <button type="button" data-testid="request-candidates" disabled={busy || exists} onClick={() => void request()} className="rounded bg-pink-600 px-3 py-1.5 font-semibold text-white hover:bg-pink-700 disabled:opacity-50">申请候选患者核查</button>
-      {count !== undefined && <span data-testid="candidates-requested" className="text-emerald-700">已向科室发出候选核查请求（{count} 例）</span>}
+      {count !== undefined && <span data-testid="candidates-requested" className="text-emerald-700">已向科室发出候选核查请求（{count} 例，仅含已同意科研联系者）</span>}
       {confirmed !== undefined && <span data-testid="candidates-confirmed" className="text-gray-700">已确认 {confirmed} 例</span>}
       {err && <span className="text-red-600">{err}</span>}
     </div>

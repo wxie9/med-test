@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
 import { requestCandidates, confirmCandidate, pharmaView } from "@/lib/research/candidates";
 import { getStore, resetStore } from "@/lib/state/store";
+import { runFunnel, PROTOCOL_ADC_301 } from "@/lib/compute";
 describe("candidates", () => {
   beforeEach(() => resetStore());
   it("confirm sends research opportunity message to patient", () => {
@@ -25,6 +26,20 @@ describe("candidates", () => {
     expect(pharmaView(req).confirmed).toBe(1);
     expect(getStore().messages.filter(m => m.patientId === b)).toHaveLength(0);
     expect(getStore().messages.find(m => m.patientId === a)?.text).toContain("可能适合您");
+  });
+  it("candidates = funnel finalMet ∩ research consent; pharma total counts only those", () => {
+    const c = createCohort("m", { hrPositive: true, everMetastatic: true, priorCdk46: true }, "x"); submitCohort(c.id); const snap = createSnapshot(c.id, "2026-10-13");
+    const { finalMet } = runFunnel(snap.patients, PROTOCOL_ADC_301);
+    const byId = new Map(snap.patients.map(p => [p.id, p]));
+    const req = requestCandidates(snap.id, "XX-ADC-301"); const ids = req.candidates.map(x => x.patientId);
+    expect(ids).toEqual(finalMet.filter(id => byId.get(id)!.consent.research));
+    expect(ids.every(id => byId.get(id)!.consent.research)).toBe(true);
+    expect(pharmaView(req).total).toBe(ids.length);
+    // a met patient without research consent is excluded
+    const live = getStore().patients.get(ids[0])!; live.consent.research = false;
+    const c2 = createCohort("m2", { hrPositive: true, everMetastatic: true, priorCdk46: true }, "x"); submitCohort(c2.id); const snap2 = createSnapshot(c2.id, "2026-10-13");
+    expect(runFunnel(snap2.patients, PROTOCOL_ADC_301).finalMet).toContain(ids[0]);
+    expect(requestCandidates(snap2.id, "XX-ADC-301").candidates.map(x => x.patientId)).not.toContain(ids[0]);
   });
   it("throws on unknown snapshot, request or candidate", () => {
     expect(() => requestCandidates("nope", "XX-ADC-301")).toThrow("snapshot not found");

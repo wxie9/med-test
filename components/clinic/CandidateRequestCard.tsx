@@ -40,7 +40,7 @@ export function CandidateRequestCard({ req, expanded, onToggle, onDecide }: {
         <div className="border-t border-gray-100 px-4 py-3">
           {err && <p role="alert" className="mb-2 text-sm text-red-600">{err}</p>}
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-gray-500"><th className="py-1">患者 ID</th><th>HER2</th><th>当前治疗线</th><th>最近 PRO</th><th className="text-right">核查</th></tr></thead>
+            <thead><tr className="text-left text-xs text-gray-500"><th className="py-1">患者 ID</th><th>HER2</th><th>当前治疗线</th><th>最近 PRO</th><th>科研同意</th><th>患者端</th><th className="text-right">核查</th></tr></thead>
             <tbody>
               {req.candidates.map(c => {
                 const s = summary.get(c.patientId);
@@ -50,6 +50,8 @@ export function CandidateRequestCard({ req, expanded, onToggle, onDecide }: {
                     <td>{s?.her2 ?? "—"}</td>
                     <td>{s?.currentLine ?? "—"}</td>
                     <td>{s?.latestPro ?? "—"}</td>
+                    <td data-testid="candidate-consent">科研同意：{s ? (s.consentResearch ? "是" : "否") : "—"}</td>
+                    <td><Link data-testid="candidate-open" href={`/patient/research?patient=${encodeURIComponent(c.patientId)}`} className="text-xs text-pink-700 hover:underline">打开患者视图</Link></td>
                     <td className="text-right">
                       {c.status === "pending" ? (
                         <span className="inline-flex gap-2">
