@@ -9,19 +9,18 @@ import { StatFooter } from "@/components/StatFooter";
 export default function FeasibilityPage() {
   const { snapshotId } = useParams<{ snapshotId: string }>();
   const id = decodeURIComponent(snapshotId);
-  const { data: f, snapshot, error } = useResearch("feasibility", id);
+  const { data: f, error } = useResearch("feasibility", id);
   if (!f) return <PageStatus error={error} />;
-  const n = f.steps.length ? f.steps[0].met + f.steps[0].notMet + f.steps[0].unknown : 0;
   const reasons = new Map<string, number>();
   for (const s of f.steps) for (const [k, v] of Object.entries(s.unknownReasons)) reasons.set(k, (reasons.get(k) ?? 0) + v);
-  const ecogPending = f.pendingVerification.find(p => p.criterionId === "ecog")?.patientIds.length ?? 0;
+  const ecogPending = f.pendingVerification.find(p => p.criterionId === "ecog")?.count ?? 0;
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">入组可行性评估 · {f.protocol} <span className="font-mono text-sm font-normal text-gray-500">{id}</span></h1>
       <div className="grid grid-cols-[1fr_20rem] gap-4">
         <ResearchCard title="三态入组漏斗（符合 / 不符合 / 信息不足）">
           <FunnelChart steps={f.steps} />
-          <StatFooter n={n} cutoff={snapshot?.cutoff ?? "—"} />
+          <StatFooter {...f.summary} />
         </ResearchCard>
         <div className="space-y-4">
           <ResearchCard title="信息不足原因">
@@ -38,10 +37,10 @@ export default function FeasibilityPage() {
       </div>
       <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
         <p className="text-sm" data-testid="funnel-summary">
-          符合已知条件 <b className="tabular-nums">{f.finalMet.length}</b> 例，仍需医生核查（ECOG 待现场核查 <span className="tabular-nums">{ecogPending}</span> 例）
-          {f.finalUnknown.length > 0 && <span className="text-gray-500">；另有 <span className="tabular-nums">{f.finalUnknown.length}</span> 例因信息不足暂无法判断</span>}
+          符合已知条件 <b className="tabular-nums">{f.finalMetCount}</b> 例，仍需医生核查（ECOG 待现场核查 <span className="tabular-nums">{ecogPending}</span> 例）
+          {f.finalUnknownCount > 0 && <span className="text-gray-500">；另有 <span className="tabular-nums">{f.finalUnknownCount}</span> 例因信息不足暂无法判断</span>}
         </p>
-        <CandidateRequestPanel snapshotId={id} expectedCount={f.finalMet.length} />
+        <CandidateRequestPanel snapshotId={id} expectedCount={f.finalMetCount} />
       </section>
     </div>
   );

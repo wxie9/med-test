@@ -15,7 +15,7 @@ export function LineGapBar({ gap }: { gap: LineGap }) {
     <div className="space-y-2" data-testid="line-gap-bar">
       <StackedBar segments={segments} height="h-8" />
       <SegmentLegend segments={GAP_SEGMENTS} />
-      <p className="text-xs text-gray-600 tabular-nums">{segments.map(s => `${s.label} ${s.value}`).join(" · ")}</p>
+      <p className="text-xs text-gray-600 tabular-nums">进入该线 {gapTotal(gap)} 例：{segments.map(s => `${s.label} ${s.value}`).join(" · ")}</p>
     </div>
   );
 }

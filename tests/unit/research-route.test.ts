@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
 import { researchUseCase } from "@/lib/research/usecases";
-import { resetStore } from "@/lib/state/store";
+import { getStore, resetStore } from "@/lib/state/store";
 describe("research use cases", () => {
   let snapId: string;
   beforeEach(() => { resetStore(); const c = createCohort("m", { stage: ["metastatic", "deceased"] }, "x"); submitCohort(c.id); snapId = createSnapshot(c.id, "2026-10-13").id; });
@@ -18,7 +18,38 @@ describe("GET /api/research/:useCase", () => {
     const { GET } = await import("@/app/api/research/[useCase]/route");
     return GET(new NextRequest(`http://x/api/research/${useCase}${qs}`), { params: Promise.resolve({ useCase }) });
   };
-  it("returns the use case JSON", async () => { const r = await get("feasibility", `?snapshotId=${snapId}`); expect(r.status).toBe(200); expect((await r.json()).steps).toHaveLength(6); });
+  it("returns the use case JSON (counts only for feasibility)", async () => {
+    const r = await get("feasibility", `?snapshotId=${snapId}`); expect(r.status).toBe(200);
+    const j = await r.json(); expect(j.steps).toHaveLength(6); expect(j.finalMetCount).toBeGreaterThan(0);
+    expect(j.pendingVerification).toEqual([{ criterionId: "ecog", label: expect.any(String), count: j.finalMetCount }]);
+  });
   it("400 for unknown use case or missing snapshotId", async () => { expect((await get("survival", `?snapshotId=${snapId}`)).status).toBe(400); expect((await get("overview", "")).status).toBe(400); });
   it("404 for unknown snapshot", async () => expect((await get("overview", "?snapshotId=nope")).status).toBe(404));
+});
+describe("research summaries, de-identification and survival threshold", () => {
+  let snapId: string;
+  beforeEach(() => { resetStore(); const c = createCohort("m", { stage: ["metastatic", "deceased"] }, "x"); submitCohort(c.id); snapId = createSnapshot(c.id, "2026-10-13").id; });
+  it("every use case carries a summary with n, events, followUpMedian and cutoff", () => {
+    const o = researchUseCase("overview", snapId);
+    expect(o.summary).toEqual({ n: o.n, events: o.events.metastasis + o.events.progression + o.events.death, followUpMedian: o.followUpMonths.median, cutoff: "2026-10-13" });
+    const p = researchUseCase("patterns", snapId);
+    expect(p.summary.n).toBe(p.patterns.n); expect(p.summary.events).toBeGreaterThan(0); expect(p.summary.followUpMedian).toBeGreaterThan(0); expect(p.summary.cutoff).toBe("2026-10-13");
+    const f = researchUseCase("feasibility", snapId);
+    expect(f.summary.n).toBe(o.n); expect(f.summary.events).toBeNull(); expect(f.summary.cutoff).toBe("2026-10-13");
+    const a = researchUseCase("adherence", snapId);
+    expect(a.summary).toEqual({ n: a.n, events: null, followUpMedian: null, cutoff: "2026-10-13" });
+  });
+  it("feasibility exposes counts only, never patient ids", () => {
+    const f = researchUseCase("feasibility", snapId); const json = JSON.stringify(f);
+    expect(f).not.toHaveProperty("finalMet"); expect(f).not.toHaveProperty("finalUnknown");
+    expect(json).not.toContain("patientIds"); expect(json).not.toMatch(/"P-[0-9A-Z]+"/);
+    expect(f.finalMetCount + f.finalUnknownCount).toBeGreaterThan(0);
+  });
+  it("survival is estimable with >= 10 deaths and not with fewer", () => {
+    resetStore(); const c = createCohort("d", { stage: ["deceased"] }, "x"); submitCohort(c.id); const snap = createSnapshot(c.id, "2026-10-13");
+    const many = researchUseCase("overview", snap.id); expect(many.events.death).toBeGreaterThanOrEqual(10); expect(many.survivalEstimable).toBe(true);
+    const dead = snap.patients.filter(p => p.outcomes.some(o => o.type === "death"));
+    getStore().snapshots.push({ ...snap, id: "SNAP-FEW", patients: dead.slice(0, 9) });
+    const few = researchUseCase("overview", "SNAP-FEW"); expect(few.events.death).toBe(9); expect(few.survivalEstimable).toBe(false);
+  });
 });
