@@ -41,4 +41,15 @@ describe("/api/candidates", () => {
     expect((await patch("nope", { patientId: "P-0001", status: "confirmed", by: "x" })).status).toBe(404);
     expect((await patch(id, { patientId: "P-NOPE", status: "confirmed", by: "x" })).status).toBe(404);
   });
+  it("GET /api/research/state returns the research-scoped payload (no messages, no patient ids) after a confirm", async () => {
+    const { GET: researchState } = await import("@/app/api/research/state/route");
+    const { id } = await (await post({ snapshotId: snapId, protocolId: "XX-ADC-301" })).json();
+    const pid = getStore().candidateRequests[0].candidates[0].patientId;
+    await patch(id, { patientId: pid, status: "confirmed", by: "张医生" });
+    const r = await researchState(); expect(r.status).toBe(200);
+    const j = await r.json(); const json = JSON.stringify(j);
+    for (const k of ["alerts", "tasks", "messages", "gapTasks", "patients"]) expect(j).not.toHaveProperty(k);
+    expect(j.candidateRequests[0]).toMatchObject({ id, total: expect.any(Number), confirmed: 1 }); expect(typeof j.serverNow).toBe("string");
+    expect(json).not.toContain("research_opportunity"); expect(json).not.toContain(`"${pid}"`); expect(json).not.toMatch(/\bP-(\d{4}|[A-Z])\b/);
+  });
 });

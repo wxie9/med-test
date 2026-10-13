@@ -23,17 +23,19 @@ export function CandidateRequestCard({ req, expanded, onToggle, onDecide }: {
   }
   return (
     <section data-testid="candidate-request" className="rounded-xl border border-gray-200 bg-white">
-      <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left text-sm">
-        <span className="font-semibold text-gray-800">{req.protocolId}</span>
-        <span className="text-gray-500">快照 {req.snapshotId}</span>
-        <span className="text-gray-500">{fmtDateTime(req.createdAt)}</span>
-        <span className="ml-auto tabular-nums">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
+        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={`展开或收起请求 ${req.protocolId}`} className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-1 text-left">
+          <span className="text-gray-400" aria-hidden>{expanded ? "▾" : "▸"}</span>
+          <span className="font-semibold text-gray-800">{req.protocolId}</span>
+          <span className="text-gray-500">快照 {req.snapshotId}</span>
+          <span className="text-gray-500">{fmtDateTime(req.createdAt)}</span>
+        </button>
+        <span className="tabular-nums">
           <span className="text-amber-700">待核查 {count(req, "pending")}</span><span className="mx-2 text-gray-300">|</span>
           <span className="text-green-700">已确认 {count(req, "confirmed")}</span><span className="mx-2 text-gray-300">|</span>
           <span className="text-gray-500">不适合 {count(req, "rejected")}</span>
         </span>
-        <span className="text-gray-400" aria-hidden>{expanded ? "▾" : "▸"}</span>
-      </button>
+      </div>
       {expanded && (
         <div className="border-t border-gray-100 px-4 py-3">
           {err && <p role="alert" className="mb-2 text-sm text-red-600">{err}</p>}

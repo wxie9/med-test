@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getStore, resetStore, serialize, serializeLite } from "@/lib/state/store";
+import { getStore, resetStore, serialize, serializeLite, serializeResearch } from "@/lib/state/store";
 import { loadSeed } from "@/lib/seed/load";
 import type { Alert, Patient } from "@/lib/domain/types";
 describe("store", () => {
@@ -50,6 +50,31 @@ describe("store", () => {
     const json = JSON.stringify(serializeLite(getStore()).candidateRequests);
     for (const pid of ["P-0001", "P-0002", "P-A"]) expect(json).not.toContain(pid);
     expect(serialize(getStore()).candidateRequests[0].candidates).toHaveLength(3);
+    resetStore();
+  });
+  it("serializeLite omits messages (no research_opportunity / patient ids); serialize keeps them", () => {
+    getStore().messages.push({ id: "m1", patientId: "P-0001", kind: "research_opportunity", text: "张医生认为有一项临床研究（XX-ADC-301）可能适合您", at: "t" });
+    const lite = serializeLite(getStore()) as Record<string, unknown>;
+    expect("messages" in lite).toBe(false); expect(JSON.stringify(lite)).not.toContain("research_opportunity");
+    expect(serialize(getStore()).messages).toHaveLength(1);
+    resetStore();
+  });
+  it("serializeResearch is research-scoped: summaries only, no alerts/tasks/messages/gapTasks, no patient ids", () => {
+    const s = getStore(); const pts = [...s.patients.values()].slice(0, 3);
+    s.cohorts.push({ id: "c1", name: "n", filter: {}, createdBy: "x", createdAt: "t", patientIds: ["P-0001", "P-0002"], status: "submitted" });
+    s.snapshots.push({ id: "SNAP-2026-10-13-v1", cohortId: "c1", cutoff: "2026-10-13", createdAt: "t", patients: pts, quality: { n: 3 } });
+    s.candidateRequests.push({ id: "cand-1", snapshotId: "SNAP-2026-10-13-v1", protocolId: "XX-ADC-301", createdAt: "t", candidates: [{ patientId: "P-0003", status: "confirmed" }] });
+    s.messages.push({ id: "m1", patientId: "P-0003", kind: "research_opportunity", text: "可能适合您", at: "t" });
+    s.alerts.push({ id: "a1", patientId: "P-0004" } as unknown as Alert);
+    s.tasks.push({ id: "t1", patientId: "P-0005", type: "复评", due: "2026-10-20", owner: "x", status: "open", createdAt: "t" });
+    s.gapTasks.push({ id: "g1", source: "his", field: "her2", patientCount: 2, status: "open", createdAt: "t" });
+    const r = serializeResearch(s) as Record<string, unknown>;
+    for (const k of ["alerts", "tasks", "messages", "gapTasks", "patients"]) expect(k in r).toBe(false);
+    expect(Object.keys(r).sort()).toEqual(["agentMode", "candidateRequests", "cohorts", "manifest", "seedVersion", "snapshots"]);
+    expect(r.cohorts).toEqual([{ id: "c1", name: "n", patientCount: 2 }]);
+    expect(r.candidateRequests).toEqual([{ id: "cand-1", snapshotId: "SNAP-2026-10-13-v1", protocolId: "XX-ADC-301", total: 1, confirmed: 1, createdAt: "t" }]);
+    expect((r.snapshots as Record<string, unknown>[])[0].patientCount).toBe(3);
+    const json = JSON.stringify(r); expect(json).not.toMatch(/\bP-(\d{4}|[A-Z])\b/); expect(json).not.toContain("research_opportunity");
     resetStore();
   });
 });

@@ -1,11 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useDemoState } from "@/lib/client/useDemoState";
+import { useResearchState } from "@/lib/client/useDemoState";
 import { fmtDateTime } from "@/lib/clinic/labels";
-import type { CohortSummary, SnapshotSummary } from "@/lib/state/store";
-type LiteState = { cohorts: CohortSummary[]; snapshots: SnapshotSummary[] };
+import type { ResearchState } from "@/lib/state/store";
 export default function ResearchSnapshotsPage() {
-  const { data, error } = useDemoState<LiteState>(3000);
+  const { data, error } = useResearchState<ResearchState>(3000);
   if (!data) return <p className="text-sm text-gray-500">{error ? `加载失败：${error.message}` : "加载中…"}</p>;
   const cohortName = (id: string) => data.cohorts.find(c => c.id === id)?.name ?? "（队列已删除）";
   const snaps = [...data.snapshots].sort((a, b) => b.createdAt.localeCompare(a.createdAt));

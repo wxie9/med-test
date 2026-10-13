@@ -21,5 +21,16 @@ export type SnapshotSummary = ReturnType<typeof snapshotSummary>;
 /** Cohort without its patient id list (an "all patients" cohort would otherwise add ~2000 ids to every poll). */
 export function cohortSummary(c: Cohort) { const { patientIds, ...rest } = c; return { ...rest, patientCount: patientIds.length }; }
 export type CohortSummary = ReturnType<typeof cohortSummary>;
-/** Lite state is also what the research (pharma) portal polls, so candidate requests go out as count-only summaries. */
-export function serializeLite(s: DemoStore) { const { patients, snapshots, cohorts, candidateRequests, ...rest } = s; return { ...rest, cohorts: cohorts.map(cohortSummary), snapshots: snapshots.map(snapshotSummary), candidateRequests: candidateRequests.map(pharmaView), patientCount: patients.size }; }
+/** Lite state for clinic/governance polls: no patient payloads, no patient messages, candidate requests as count-only summaries. */
+export function serializeLite(s: DemoStore) {
+  const { patients, snapshots, cohorts, candidateRequests, messages, ...rest } = s; // eslint-disable-line @typescript-eslint/no-unused-vars -- messages are dropped on purpose (read per patient via /api/patients/:id)
+  return { ...rest, cohorts: cohorts.map(cohortSummary), snapshots: snapshots.map(snapshotSummary), candidateRequests: candidateRequests.map(pharmaView), patientCount: patients.size };
+}
+/** Research (pharma) portal state: only de-identified summaries; no alerts, tasks, messages, gap tasks or patient ids. */
+export function serializeResearch(s: DemoStore) {
+  return {
+    snapshots: s.snapshots.map(snapshotSummary), cohorts: s.cohorts.map(c => ({ id: c.id, name: c.name, patientCount: c.patientIds.length })),
+    candidateRequests: s.candidateRequests.map(pharmaView), manifest: s.manifest, agentMode: s.agentMode, seedVersion: s.seedVersion,
+  };
+}
+export type ResearchState = ReturnType<typeof serializeResearch> & { serverNow: string };

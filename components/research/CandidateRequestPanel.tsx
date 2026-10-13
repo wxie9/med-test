@@ -1,17 +1,17 @@
 "use client";
 import { useState } from "react";
-import { useDemoState } from "@/lib/client/useDemoState";
+import { useResearchState } from "@/lib/client/useDemoState";
 import type { PharmaCandidateView } from "@/lib/research/pharmaView";
 const PROTOCOL_ID = "XX-ADC-301";
 type Requested = { id?: string; count: number; confirmed?: number };
 /**
- * Sends the candidate-verification request to the clinic and follows confirmations through the polled lite state,
+ * Sends the candidate-verification request to the clinic and follows confirmations through the polled research state (/api/research/state),
  * which carries count-only summaries (total/confirmed, never patient ids). One request per snapshot: the button is
  * disabled once a request exists (a 409 returns the existing summary). expectedCount (funnel finalMetCount) is
  * only a fallback until the response/state reports the actual total.
  */
 export function CandidateRequestPanel({ snapshotId, expectedCount }: { snapshotId: string; expectedCount: number }) {
-  const { data } = useDemoState<{ candidateRequests: PharmaCandidateView[] }>(3000);
+  const { data } = useResearchState<{ candidateRequests: PharmaCandidateView[] }>(3000);
   const [posted, setPosted] = useState<Requested | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);

@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
-export function useDemoState<T = unknown>(pollMs = 3000, include?: "patients") {
+/** Race-safe JSON poll: only the most recently issued request's response is applied. */
+function usePolledJson<T>(url: string, pollMs: number) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const seq = useRef(0); // id of the most recently issued request; only its response is applied
   const inFlight = useRef(false);
-  const url = include ? `/api/state?include=${include}` : "/api/state";
   const refresh = useCallback(async () => {
     const id = ++seq.current;
     inFlight.current = true;
@@ -26,4 +26,12 @@ export function useDemoState<T = unknown>(pollMs = 3000, include?: "patients") {
     return () => clearInterval(t);
   }, [refresh, pollMs]);
   return { data, error, refresh };
+}
+/** Clinic/governance/home poll of the lite (or, with include, full) demo state. */
+export function useDemoState<T = unknown>(pollMs = 3000, include?: "patients") {
+  return usePolledJson<T>(include ? `/api/state?include=${include}` : "/api/state", pollMs);
+}
+/** Research (pharma) portal poll: de-identified, research-scoped state only. */
+export function useResearchState<T = unknown>(pollMs = 3000) {
+  return usePolledJson<T>("/api/research/state", pollMs);
 }
