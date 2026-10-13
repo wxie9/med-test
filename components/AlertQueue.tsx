@@ -3,22 +3,22 @@ import { useState } from "react";
 import type { Alert } from "@/lib/domain/types";
 import { PatientName } from "@/components/clinic/PatientName";
 import { useClinicIdentity } from "@/lib/client/clinicIdentity";
-import { ALERT_KIND, ALERT_LEVEL, ALERT_STATUS, NEXT_ACTION, firstResponseHours, fmtHours, sortQueue } from "@/lib/clinic/labels";
+import { ALERT_KIND, ALERT_LEVEL, ALERT_STATUS, NEXT_ACTION, firstResponseHours, fmtHours, partitionQueue } from "@/lib/clinic/labels";
 import { CloseAlertDialog, type CloseInput } from "@/components/clinic/CloseAlertDialog";
 async function patchAlert(id: string, body: object) {
   const r = await fetch(`/api/alerts/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) { const j = (await r.json().catch(() => null)) as { error?: string } | null; throw new Error(j?.error ?? `操作失败（${r.status}）`); }
 }
 const STATUS_CLS: Partial<Record<Alert["status"], string>> = { escalated: "bg-red-100 text-red-700", unassigned: "bg-amber-50 text-amber-700", pending_review: "bg-blue-50 text-blue-700", closed: "bg-gray-100 text-gray-600" };
-/** Alert queue: open alerts (high first, oldest first) with the one legal next action per row; closed alerts in a collapsible section. */
+/** Alert queue: open alerts (high first, oldest first) with the one legal next action per row. Alerts closed during this page session stay inline (已关闭);
+ * alerts already closed when the page loaded sit in a collapsible section. */
 export function AlertQueue({ alerts, today, onChanged }: { alerts: Alert[]; today: string; onChanged: () => void | Promise<void> }) {
   const { identity } = useClinicIdentity();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState<Alert | null>(null);
-  const [showClosed, setShowClosed] = useState(false);
-  const open = sortQueue(alerts.filter(a => a.status !== "closed"));
-  const closed = sortQueue(alerts.filter(a => a.status === "closed"));
+  const [closedHere, setClosedHere] = useState<ReadonlySet<string>>(() => new Set());
+  const { main, collapsed } = partitionQueue(alerts, closedHere);
   async function act(a: Alert, body: object): Promise<boolean> {
     setBusyId(a.id); setError(null);
     try { await patchAlert(a.id, body); await onChanged(); return true; }
@@ -27,7 +27,8 @@ export function AlertQueue({ alerts, today, onChanged }: { alerts: Alert[]; toda
   }
   async function confirmClose(v: CloseInput) {
     if (!closing) return;
-    if (await act(closing, { action: "close", by: identity, note: v.note, task: v.task })) { setClosing(null); setShowClosed(true); }
+    const id = closing.id;
+    if (await act(closing, { action: "close", by: identity, note: v.note, task: v.task })) { setClosedHere(prev => new Set(prev).add(id)); setClosing(null); }
   }
   const row = (a: Alert) => {
     const next = NEXT_ACTION[a.status];
@@ -59,11 +60,11 @@ export function AlertQueue({ alerts, today, onChanged }: { alerts: Alert[]; toda
   return (
     <div>
       {error && !closing && <p role="alert" className="mb-2 text-sm text-red-600">{error}</p>}
-      <table className="w-full table-fixed text-sm">{head}<tbody>{open.length ? open.map(row) : <tr><td colSpan={8} className="px-2 py-6 text-center text-gray-400">暂无待处理预警</td></tr>}</tbody></table>
-      {closed.length > 0 && (
-        <details open={showClosed} onToggle={e => setShowClosed((e.currentTarget as HTMLDetailsElement).open)} className="mt-4">
-          <summary className="cursor-pointer text-sm text-gray-600">已关闭（{closed.length}）</summary>
-          <table className="mt-2 w-full table-fixed text-sm text-gray-600">{head}<tbody>{closed.map(row)}</tbody></table>
+      <table className="w-full table-fixed text-sm">{head}<tbody>{main.length ? main.map(row) : <tr><td colSpan={8} className="px-2 py-6 text-center text-gray-400">暂无待处理预警</td></tr>}</tbody></table>
+      {collapsed.length > 0 && (
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-gray-600">已关闭（{collapsed.length}）</summary>
+          <table className="mt-2 w-full table-fixed text-sm text-gray-600">{head}<tbody>{collapsed.map(row)}</tbody></table>
         </details>
       )}
       {closing && <CloseAlertDialog today={today} defaultOwner={identity} busy={busyId !== null} error={error} onCancel={() => setClosing(null)} onConfirm={v => void confirmClose(v)} />}

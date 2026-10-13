@@ -25,3 +25,8 @@ export function sortQueue(alerts: Alert[]): Alert[] {
   return [...alerts].sort((a, b) => rank[a.level] - rank[b.level] || (a.timestamps.triggered ?? "").localeCompare(b.timestamps.triggered ?? ""));
 }
 export const fmtDateTime = (iso: string) => new Date(iso).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
+/** Main table = open alerts plus alerts closed during this page session (inline, sorted); collapsed = alerts already closed at load. */
+export function partitionQueue(alerts: Alert[], closedThisSession: ReadonlySet<string>): { main: Alert[]; collapsed: Alert[] } {
+  const inMain = (a: Alert) => a.status !== "closed" || closedThisSession.has(a.id);
+  return { main: sortQueue(alerts.filter(inMain)), collapsed: sortQueue(alerts.filter(a => !inMain(a))) };
+}
