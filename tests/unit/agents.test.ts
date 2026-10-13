@@ -270,6 +270,48 @@ describe("agents: research_snapshot_size (统计一致: assistant == snapshot n)
   });
 });
 
+describe("agents: F9 medication boundary and emergency escalation", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  afterEach(() => { vi.unstubAllGlobals(); clearEnv(); });
+  const pat = (content: string, patientId = "P-A") => chat({ agent: "patient", messages: [{ role: "user", content }], context: { patientId, page: "assistant" } });
+  it("new phrasings and medication-noun + verb questions route to the stop-med safety template", () => {
+    for (const q of ["最近恶心乏力明显，能不能少打一次？", "药能少吃几天吗", "这周能跳过一次吗", "化疗能推迟一周吗", "我想暂停一下", "下次不打了行吗", "漏服一次要紧吗", "我能自己停吗", "打针能停一次吗", "输液可以换个时间少一点吗", "化疗想减一减"])
+      expect(pickTemplate("patient", "assistant", q), q).toBe("patient_stop_med");
+    for (const q of ["下次要做什么检查？", "参加临床研究需要注意什么？", "这个药有什么副作用"]) expect(pickTemplate("patient", "assistant", q), q).not.toBe("patient_stop_med");
+  });
+  it("severe symptoms route to patient_emergency with the duty phone, even when they also mention medication", async () => {
+    for (const q of ["今天发热 38.5 度", "昨晚高烧", "牙龈出血不止", "有点呼吸困难", "胸痛", "家人说她意识不太清楚", "化疗后发热，能推迟下次吗"]) expect(pickTemplate("patient", "assistant", q), q).toBe("patient_emergency");
+    const r = await pat("今天发热，浑身没劲");
+    expect(r.text).toMatch(/急诊/); expect(r.text).toContain("值班电话 021-0000-0000（演示）"); expect(r.toolCalls).toEqual([]);
+    expect(validateResponse(r, guidelineIds(), collectToolNumbers(r.toolCalls))).toEqual({ ok: true });
+  });
+  it("with a key configured, stop-med and emergency questions never reach the model (every mode)", async () => {
+    for (const env of [() => { process.env.DEMO_CLAUDE_API_KEY = "ck"; }, () => { process.env.DEMO_OPENAI_API_KEY = "k"; process.env.DEMO_OPENAI_MODEL = "m"; }]) {
+      clearEnv(); env(); const f = vi.fn(); vi.stubGlobal("fetch", f);
+      for (const q of ["最近恶心乏力明显，能不能少打一次？", "化疗能推迟一周吗", "有点呼吸困难"]) {
+        const r = await pat(q, "P-B"); expect(r.guarded, q).toBe(true); expect(r.degraded).toBeUndefined();
+      }
+      expect(f).not.toHaveBeenCalled();
+    }
+  });
+  it("output guard: permits / suggests stopping degrade; 不可以停药 does not", async () => {
+    const { PERMITS_STOP_MED } = await import("@/lib/agents/adapter");
+    for (const t of ["可以先停药观察", "不妨少打一次", "建议暂停一周", "不如直接跳过", "可以推迟", "建议先减量"]) expect(PERMITS_STOP_MED.test(t), t).toBe(true);
+    for (const t of ["不可以停药", "请不要自行停药或减量", "是否暂停需由医生确认"]) expect(PERMITS_STOP_MED.test(t), t).toBe(false);
+    process.env.DEMO_OPENAI_API_KEY = "k"; process.env.DEMO_OPENAI_BASE_URL = "http://llm.test/v1"; process.env.DEMO_OPENAI_MODEL = "m";
+    vi.stubGlobal("fetch", vi.fn(async () => json({ choices: [{ message: { role: "assistant", content: "不可以停药，请按时复查，有问题联系医生。" } }] })));
+    const ok = await pat("下次要做什么检查？"); expect(ok.mode).toBe("openai"); expect(ok.degraded).toBeUndefined();
+    vi.stubGlobal("fetch", vi.fn(async () => json({ choices: [{ message: { role: "assistant", content: "建议暂停一次，下周再说。" } }] })));
+    const bad = await pat("下次要做什么检查？"); expect(bad.mode).toBe("deterministic"); expect(bad.degraded).toBe("已切换至本地演示模式（输出未通过校验）");
+  });
+  it("OUTCOME matches OS / PFS as words only (POSITIVE, DOSE are not outcome questions)", () => {
+    expect(pickTemplate("research", "feasibility", "OS 超过 2 年的有多少例？")).toBe("research_boundary");
+    expect(pickTemplate("research", "feasibility", "中位PFS是多少")).toBe("research_boundary");
+    expect(pickTemplate("research", "feasibility", "HER2 POSITIVE 符合的有多少例？")).toBe("research_count");
+    expect(pickTemplate("research", "feasibility", "dose 调整后符合多少例")).toBe("research_count");
+  });
+});
+
 describe("POST /api/agent", () => {
   beforeEach(() => { resetStore(); clearEnv(); });
   it("returns ChatResponse and writes agentMode to the store; 400 on bad body", async () => {

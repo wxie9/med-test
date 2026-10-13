@@ -1,7 +1,7 @@
 import { pct1, type ToolName, type ToolResult } from "./tools";
 import type { AgentKind, ToolCallRecord } from "./types";
 export type TemplateId =
-  | "patient_stop_med" | "patient_next_visit" | "patient_research"
+  | "patient_emergency" | "patient_stop_med" | "patient_next_visit" | "patient_research"
   | "doctor_summary" | "doctor_ctcae" | "doctor_draft" | "doctor_guideline"
   | "research_count" | "research_snapshot_size" | "research_gap" | "research_line_transition" | "research_boundary"
   | "generic_boundary";
@@ -10,13 +10,24 @@ export const RESEARCH_BOUNDARY = "当前快照数据不支持回答该问题：�
 const any = (...words: string[]) => (t: string) => words.some(w => t.includes(w.toUpperCase()));
 const all = (...preds: ((t: string) => boolean)[]) => (t: string) => preds.every(p => p(t));
 const not = (pred: (t: string) => boolean) => (t: string) => !pred(t);
-/** Outcome / comparison questions the snapshot cannot answer (no efficacy or survival conclusions). */
-const OUTCOME = any("OS", "PFS", "生存", "疗效", "有效率", "缓解");
+/** Outcome / comparison questions the snapshot cannot answer (no efficacy or survival conclusions). Latin tokens need word boundaries (POSITIVE / DOSE are not OS). */
+const OUTCOME = (t: string) => /\b(OS|PFS)\b/.test(t) || any("生存", "疗效", "有效率", "缓解")(t);
+/** Severe symptoms: always the emergency template, in every mode. */
+export const EMERGENCY_TEXT = "您描述的情况可能需要紧急处理：请立即前往最近医院急诊就诊，或拨打值班电话 021-0000-0000（演示），不要等待线上回复。就诊时请告诉医生您正在接受的乳腺癌治疗。";
+const EMERGENCY = any("发热", "高烧", "出血", "呼吸困难", "胸痛", "意识");
+/** Self-adjusting medication: explicit phrasings, or a medication noun together with a stop / skip / delay verb. */
+const STOP_MED_PHRASES = ["停药", "停掉", "不吃", "减量", "减药", "剂量", "换药", "自己调", "关节痛", "少打", "少吃", "跳过", "推迟", "暂停", "不打", "漏服一次", "自己停"];
+const MED_NOUN = any("药", "打针", "化疗", "输液");
+const STOP_VERB = any("停", "减", "换", "少打", "少吃", "跳过", "推迟", "暂停", "不打", "不吃", "漏服一次", "自己停");
+const STOP_MED = (t: string) => any(...STOP_MED_PHRASES)(t) || (MED_NOUN(t) && STOP_VERB(t));
+/** Templates answered without ever calling a model (short-circuit in every mode). */
+export const SAFETY_TEMPLATES: ReadonlySet<TemplateId> = new Set(["patient_emergency", "patient_stop_med"]);
 type Rule = { id: TemplateId; match: (upperText: string) => boolean; pages?: string[] };
 /** First matching rule wins; order matters within an agent. research_gap is the only route that writes data, so it is the narrowest. */
 const RULES: Record<AgentKind, Rule[]> = {
   patient: [
-    { id: "patient_stop_med", match: any("停药", "停掉", "不吃", "减量", "减药", "剂量", "换药", "自己调", "关节痛") },
+    { id: "patient_emergency", match: EMERGENCY },
+    { id: "patient_stop_med", match: STOP_MED },
     { id: "patient_research", match: any("临床研究", "研究", "试验") },
     { id: "patient_next_visit", match: any("检查", "复查", "随访", "复诊") },
   ],
@@ -44,12 +55,20 @@ const AE_FOCUS: [string, string[]][] = [["adc", ["间质性肺病", "恶心"]], 
 type Call = (name: ToolName, args?: Record<string, unknown>) => unknown;
 /** Top 2 symptoms (grade ≥ 1) of the latest PRO. */
 export const topSymptoms = (pro: ToolResult<"get_latest_pro">) => (pro?.symptoms ?? []).filter(x => x.grade >= 1).slice(0, 2);
+/** The ongoing aromatase inhibitor, if any (letrozole / anastrozole / exemestane). */
+const onAi = (s: ToolResult<"get_patient_summary">) => s.current.find(t => t.typeCode === "endocrine" && /唑|依西美坦/.test(t.drug ?? ""));
+/** On ADC / chemo / CDK4/6 / anti-HER2 (nausea / fatigue rather than AI arthralgia). */
+const activeSystemic = (s: ToolResult<"get_patient_summary">) => s.current.some(t => ["adc", "chemo", "cdk46", "anti_her2"].includes(t.typeCode));
 /** Search terms for the patient's current therapy class(es): aromatase inhibitors → "AI", otherwise the class label (e.g. "ADC", "内分泌"). */
 export const therapyTerms = (s: ToolResult<"get_patient_summary">) => [...new Set(s.current.map(t => (t.typeCode === "endocrine" && /唑|依西美坦/.test(t.drug ?? "") ? "AI" : t.type)))];
 /** Runs the tools a template needs (patientId/snapshotId are bound from the request context by the tool session). */
 export function runTemplateTools(id: TemplateId, call: Call, userText: string): void {
   switch (id) {
-    case "patient_stop_med": call("get_patient_summary"); call("search_guidelines", { query: "关节痛 停药" }); return;
+    case "patient_emergency": return;
+    case "patient_stop_med": {
+      const s = call("get_patient_summary") as ToolResult<"get_patient_summary">;
+      call("search_guidelines", { query: onAi(s) ? "关节痛 停药" : activeSystemic(s) ? "不良反应 停药 恶心 乏力" : "不良反应 停药" }); return;
+    }
     case "patient_next_visit": call("get_followup_plan"); call("search_guidelines", { query: "随访频率" }); return;
     case "patient_research": call("get_patient_summary"); call("search_guidelines", { query: "临床研究" }); return;
     case "doctor_summary": call("get_patient_summary"); return;
@@ -84,13 +103,18 @@ export function runTemplateTools(id: TemplateId, call: Call, userText: string): 
 export function renderTemplate(id: TemplateId, toolResults: ToolCallRecord[]): string {
   const res = <N extends ToolName>(name: N) => toolResults.find(c => c.name === name)?.result as ToolResult<N>;
   switch (id) {
+    case "patient_emergency": return EMERGENCY_TEXT;
     case "patient_stop_med": {
       const s = res("get_patient_summary");
-      const ai = s.current.find(t => t.typeCode === "endocrine" && /唑|依西美坦/.test(t.drug ?? ""));
+      const ai = onAi(s);
+      const active = activeSystemic(s);
+      const first = ai ? `关节痛是${ai.drug}这类芳香化酶抑制剂较常见的不适，多数通过规律运动、热敷或对症止痛能够缓解。`
+        : active ? "治疗期间出现恶心、乏力等不适较常见，多数可以通过止吐、休息、营养支持等对症处理缓解。"
+        : "用药期间出现不适较常见，多数可以通过对症处理缓解。";
       return [
-        `关节痛${ai ? `是${ai.drug}这类芳香化酶抑制剂较常见的不适` : "在内分泌治疗期间较常见"}，多数通过规律运动、热敷或对症止痛能够缓解。`,
-        "请不要自行停药或减量——是否需要调整用药，必须由医生确认。",
-        "建议您：① 在“问卷”里如实记录关节痛的程度；② 下次门诊时告诉医生，医生会评估对症处理或换药等办法；③ 如果疼痛明显影响睡眠或日常活动，请通过“消息”联系个案管理师，提前安排门诊。",
+        first,
+        "请不要自行停药、减量、少打或推迟治疗——是否需要调整用药，必须由医生确认。",
+        "建议您：① 在“问卷”里如实记录不适的程度；② 下次门诊时告诉医生，医生会评估对症处理或调整方案；③ 如果症状明显影响进食、睡眠或日常活动，请通过“消息”联系个案管理师，提前安排门诊；出现发热、出血、呼吸困难等情况请立即到急诊就诊。",
       ].join("\n");
     }
     case "patient_next_visit": {

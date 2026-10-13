@@ -3,11 +3,11 @@ import * as openai from "./providers/openai";
 import * as deterministic from "./providers/deterministic";
 import { validateResponse } from "./validate";
 import { guidelineIds, collectToolNumbers } from "./tools";
-import { pickTemplate } from "./templates";
+import { pickTemplate, SAFETY_TEMPLATES } from "./templates";
 import type { ChatRequest, ChatResponse, SharedToolState } from "./types";
 export type { ChatRequest, ChatResponse } from "./types";
-/** A patient-facing model reply must never permit stopping / reducing / switching medication. */
-const PERMITS_STOP_MED = /可以(先|直接)?(停药|减量|换药|停掉)/;
+/** A patient-facing model reply must never permit or suggest stopping / reducing / skipping / delaying medication ("不可以停药" is fine). */
+export const PERMITS_STOP_MED = /(?<!不)(可以|不妨|建议|不如)(先|直接)?(停药|减量|换药|停掉|少打|少吃|跳过|推迟|暂停)/;
 const rawReason = (e: unknown) => (e instanceof Error || e instanceof DOMException) ? `${e.name === "Error" ? "" : `${e.name}: `}${e.message}` : String(e);
 /** User-facing degrade category; the raw reason goes to `detail`. */
 function category(e: unknown): string {
@@ -21,14 +21,14 @@ function category(e: unknown): string {
   return "网络错误";
 }
 /**
- * Mode by env. Patient stop-medication questions are always answered by the safety template (never the model).
+ * Mode by env. Patient emergency and stop-medication questions are always answered by the safety templates (never the model).
  * Otherwise a model reply must pass validation; any failure (network / HTTP / timeout / invalid output / config) falls back to templates.
  */
 export async function chat(req: ChatRequest): Promise<ChatResponse> {
   const mode = process.env.DEMO_CLAUDE_API_KEY ? "claude" : process.env.DEMO_OPENAI_API_KEY ? "openai" : "deterministic";
   const shared: SharedToolState = {};
   if (mode === "deterministic") return { ...(await deterministic.run(req, shared)), mode };
-  if (req.agent === "patient" && pickTemplate(req.agent, req.context.page, deterministic.lastUserText(req)) === "patient_stop_med")
+  if (req.agent === "patient" && SAFETY_TEMPLATES.has(pickTemplate(req.agent, req.context.page, deterministic.lastUserText(req))))
     return { ...(await deterministic.run(req, shared)), mode, guarded: true };
   try {
     const out = await (mode === "claude" ? claude.run(req, shared) : openai.run(req, shared));
