@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
-import { getStore, serialize } from "@/lib/state/store";
+import { NextResponse, type NextRequest } from "next/server";
+import { getStore, serialize, serializeLite } from "@/lib/state/store";
 export const dynamic = "force-dynamic";
-export async function GET() { return NextResponse.json(serialize(getStore())); }
+export async function GET(request: NextRequest) {
+  const s = getStore();
+  return NextResponse.json(request.nextUrl.searchParams.get("include") === "patients" ? serialize(s) : serializeLite(s));
+}

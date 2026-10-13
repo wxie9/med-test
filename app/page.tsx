@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDemoState } from "@/lib/client/useDemoState";
 import type { Manifest } from "@/lib/seed/load";
 
-type StateSummary = { manifest: Manifest; seedVersion: number; patients: unknown[] };
+type StateSummary = { manifest: Manifest; seedVersion: number; patientCount: number };
 
 const CARDS = [
   { href: "/patient", title: "患者端", desc: "随访提醒、PRO 填报与消息" },
@@ -54,7 +54,7 @@ export default function Home() {
         >
           {resetting ? "重置中…" : "一键重置"}
         </button>
-        <a href="docs/demo-script.md" className="text-sm text-pink-700 underline">演示脚本（docs/demo-script.md）</a>
+        <Link href="/demo-script" className="text-sm text-pink-700 underline">演示脚本（docs/demo-script.md）</Link>
       </section>
 
       <section className="rounded-lg border border-gray-200 p-4 text-sm">
@@ -67,7 +67,7 @@ export default function Home() {
             <dt className="text-gray-500">checksum</dt><dd className="font-mono break-all">{m.checksum}</dd>
             <dt className="text-gray-500">数据截止日</dt><dd>{m.cutoff}</dd>
             <dt className="text-gray-500">数量</dt>
-            <dd>{Object.entries(m.counts).map(([k, v]) => `${k}: ${v}`).join("，")}（已加载患者 {data.patients.length}）</dd>
+            <dd>{Object.entries(m.counts).map(([k, v]) => `${k}: ${v}`).join("，")}（已加载患者 {data.patientCount}）</dd>
           </dl>
         ) : (
           <p className="text-gray-500">加载中…</p>
