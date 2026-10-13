@@ -1,5 +1,5 @@
 import type { Biomarker } from "./types";
-export type Her2Class = "low" | "ultra-low" | "zero" | "positive" | "indeterminate";
+export type Her2Class = "low" | "zero" | "positive" | "indeterminate";
 export function deriveHer2Low(b: Biomarker): Her2Class {
   if (b.her2Ihc === "3+") return "positive";
   if (b.her2Ihc === "2+") return b.ish === "positive" ? "positive" : b.ish === "negative" ? "low" : "indeterminate";

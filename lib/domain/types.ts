@@ -48,7 +48,7 @@ export const Alert = z.object({
 });
 export const FollowUpTask = z.object({ id: z.string(), patientId: z.string(), type: z.string(), due: z.string(), owner: z.string(), status: z.enum(["open", "done"]), createdAt: z.string() });
 export const CohortFilter = z.object({
-  hrPositive: z.boolean().optional(), her2: z.array(z.enum(["low", "ultra-low", "zero", "positive"])).optional(),
+  hrPositive: z.boolean().optional(), her2: z.array(z.enum(["low", "zero", "positive"])).optional(),
   stage: z.array(Stage).optional(), priorCdk46: z.boolean().optional(), intent: z.array(Intent).optional(), currentTreatmentType: z.array(TreatmentType).optional(),
 });
 export const Cohort = z.object({ id: z.string(), name: z.string(), filter: CohortFilter, createdBy: z.string(), createdAt: z.string(), patientIds: z.array(z.string()), status: z.enum(["draft", "submitted"]) });
