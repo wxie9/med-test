@@ -53,6 +53,8 @@ export function pickTemplate(agent: AgentKind, page: string, userText: string): 
 /** Side-effect-free AE focus per current treatment class (first class present wins). */
 const AE_FOCUS: [string, string[]][] = [["adc", ["间质性肺病", "恶心"]], ["cdk46", ["中性粒细胞减少", "腹泻"]], ["chemo", ["中性粒细胞减少", "周围神经病变"]], ["anti_her2", ["腹泻", "乏力"]], ["endocrine", ["关节痛", "潮热"]]];
 type Call = (name: ToolName, args?: Record<string, unknown>) => unknown;
+/** Guideline vocabulary picked out of a free-text question (Chinese has no word breaks); no hit → the raw question is the query. */
+const GUIDELINE_TERMS = ["依从性", "内分泌", "关节痛", "骨密度", "骨健康", "CDK4/6", "HER2 低表达", "ADC", "ESR1", "PIK3CA", "BRCA", "PARP", "随访", "再活检", "临床研究", "间质性肺病", "恶心", "骨髓抑制", "CTCAE"];
 /** Top 2 symptoms (grade ≥ 1) of the latest PRO. */
 export const topSymptoms = (pro: ToolResult<"get_latest_pro">) => (pro?.symptoms ?? []).filter(x => x.grade >= 1).slice(0, 2);
 /** The ongoing aromatase inhibitor, if any (letrozole / anastrozole / exemestane). */
@@ -73,10 +75,12 @@ export function runTemplateTools(id: TemplateId, call: Call, userText: string): 
     case "patient_research": call("get_patient_summary"); call("search_guidelines", { query: "临床研究" }); return;
     case "doctor_summary": call("get_patient_summary"); return;
     case "doctor_ctcae": {
+      // the patient's actual top PRO symptoms first, then the class-typical AEs; guideline search by those symptoms + current drug class
       const s = call("get_patient_summary") as ToolResult<"get_patient_summary">;
-      const focus = AE_FOCUS.find(([type]) => s.current.some(t => t.typeCode === type));
-      for (const symptom of focus?.[1] ?? []) for (const grade of [1, 2, 3]) call("ctcae_grade", { symptom, grade });
-      call("search_guidelines", { query: "CTCAE 不良事件" }); return;
+      const top = topSymptoms(call("get_latest_pro") as ToolResult<"get_latest_pro">).map(t => t.symptom);
+      const focus = AE_FOCUS.find(([type]) => s.current.some(t => t.typeCode === type))?.[1] ?? [];
+      for (const symptom of [...new Set([...top, ...focus])]) for (const grade of [1, 2, 3]) call("ctcae_grade", { symptom, grade });
+      call("search_guidelines", { query: [...top, ...therapyTerms(s), "不良事件", "CTCAE"].join(" ") }); return;
     }
     case "doctor_draft": {
       const s = call("get_patient_summary") as ToolResult<"get_patient_summary">;
@@ -86,7 +90,10 @@ export function runTemplateTools(id: TemplateId, call: Call, userText: string): 
       if (top.length) call("search_guidelines", { query: [...top.map(t => t.symptom), ...therapyTerms(s)].join(" ") });
       return;
     }
-    case "doctor_guideline": call("search_guidelines", { query: userText }); return;
+    case "doctor_guideline": {
+      const hits = GUIDELINE_TERMS.filter(t => userText.toUpperCase().includes(t.toUpperCase()));
+      call("search_guidelines", { query: hits.length ? hits.join(" ") : userText }); return;
+    }
     case "research_count": call("funnel"); return;
     case "research_snapshot_size": call("count_cohort", { filter: {} }); return;
     case "research_gap": {
@@ -141,15 +148,18 @@ export function renderTemplate(id: TemplateId, toolResults: ToolCallRecord[]): s
       return [`${s.age} 岁，${s.stage}；最新标本 HR ${s.hr}、${s.her2}；BRCA ${s.brca}。`, "治疗经过：", ...tx, lines, cur, "（摘要由结构化数据生成，治疗线为规则推断，请以病历为准。）"].join("\n");
     }
     case "doctor_ctcae": {
-      const s = res("get_patient_summary");
+      const s = res("get_patient_summary"); const pro = res("get_latest_pro"); const top = topSymptoms(pro);
+      const hits = res("search_guidelines") ?? [];
       const grades = toolResults.filter(c => c.name === "ctcae_grade").map(c => c.result as ToolResult<"ctcae_grade">).filter(g => g.found);
       const symptoms = [...new Set(grades.map(g => g.symptom))];
       const cur = s.current.length ? s.current.map(t => `${t.type}${t.drug ? `（${t.drug}）` : ""}`).join("、") : null;
       const body = symptoms.map(sym => `· ${sym}：${grades.filter(g => g.symptom === sym).map(g => `${g.grade} 级 ${g.definition}（处理：${g.action}）`).join("；")}`);
       return [
         cur ? `当前线治疗：${cur}。建议按 CTCAE v5.0 重点记录：` : "当前无进行中的系统治疗，按 CTCAE v5.0 记录的通用要求如下：",
+        ...(pro && top.length ? [`最近一次问卷（${pro.date}）报告：${top.map(t => `${t.symptom} ${t.grade} 级`).join("、")}。`] : []),
         ...body,
         "记录要求：注明发生日期、最高级别、与药物的相关性、采取的措施（继续/暂停/减量/停药）及转归。",
+        ...(hits.length ? [`相关指南要点：${hits.map(h => `[${h.id}] ${h.topic}`).join("；")}。`] : []),
       ].join("\n");
     }
     case "doctor_draft": {

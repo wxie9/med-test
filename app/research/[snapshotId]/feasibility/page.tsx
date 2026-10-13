@@ -7,7 +7,7 @@ import { CandidateRequestPanel } from "@/components/research/CandidateRequestPan
 import { FunnelChart } from "@/components/FunnelChart";
 import { StatFooter } from "@/components/StatFooter";
 import { AgentPanel } from "@/components/AgentPanel";
-import { QUICK_QUESTIONS } from "@/lib/agents/quickQuestions";
+import { quickQuestions } from "@/lib/agents/quickQuestions";
 export default function FeasibilityPage() {
   const { snapshotId } = useParams<{ snapshotId: string }>();
   const id = decodeURIComponent(snapshotId);
@@ -34,7 +34,7 @@ export default function FeasibilityPage() {
             )}
             <p className="mt-2 text-xs text-gray-400">按步骤累计人次；同一患者可在多个步骤计入。</p>
           </ResearchCard>
-          <AgentPanel key={id} agent="research" context={{ snapshotId: id, page: "feasibility" }} quickQuestions={QUICK_QUESTIONS.research} />
+          <AgentPanel key={id} agent="research" context={{ snapshotId: id, page: "feasibility" }} quickQuestions={quickQuestions("research")} />
         </div>
       </div>
       <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">

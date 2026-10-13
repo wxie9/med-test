@@ -9,7 +9,7 @@ import { AlertQueue } from "@/components/AlertQueue";
 import { AdherenceCalendar } from "@/components/patient/AdherenceCalendar";
 import { TASK_STATUS } from "@/lib/clinic/labels";
 import { AgentPanel } from "@/components/AgentPanel";
-import { QUICK_QUESTIONS } from "@/lib/agents/quickQuestions";
+import { quickQuestions } from "@/lib/agents/quickQuestions";
 export default function ClinicPatientPage() {
   const { id } = useParams<{ id: string }>();
   const { data, error, refresh } = usePatient(id);
@@ -40,7 +40,7 @@ export default function ClinicPatientPage() {
       </div>
       <aside>
         <div className="sticky top-4">
-          <AgentPanel key={id} agent="doctor" context={{ patientId: id, page: "patient" }} quickQuestions={QUICK_QUESTIONS.doctor} />
+          <AgentPanel key={id} agent="doctor" context={{ patientId: id, page: "patient" }} quickQuestions={quickQuestions("doctor", p.stage)} />
         </div>
       </aside>
     </div>

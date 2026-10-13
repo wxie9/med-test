@@ -3,7 +3,7 @@ import { chat } from "@/lib/agents/adapter";
 import { validateResponse } from "@/lib/agents/validate";
 import { collectToolNumbers, guidelineIds, runTool } from "@/lib/agents/tools";
 import { pickTemplate } from "@/lib/agents/templates";
-import { QUICK_QUESTIONS } from "@/lib/agents/quickQuestions";
+import { quickQuestions } from "@/lib/agents/quickQuestions";
 import { resetStore, getStore } from "@/lib/state/store";
 import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
 import type { ChatRequest, ToolCallRecord } from "@/lib/agents/types";
@@ -81,12 +81,18 @@ describe("agents: guideline knowledge base and tools", () => {
 
 describe("agents: every quick question works deterministically and passes validation", () => {
   beforeEach(() => { resetStore(); clearEnv(); });
-  it("all nine quick questions reply, cite only known guidelines, use only tool numbers, and leak no patient ids", async () => {
+  it("every context's quick questions reply, cite only known guidelines, use only tool numbers, and leak no patient ids", async () => {
     const snap = metSnapshot();
-    const ctx: Record<ChatRequest["agent"], ChatRequest["context"]> = { patient: { patientId: "P-A", page: "assistant" }, doctor: { patientId: "P-B", page: "patient" }, research: { snapshotId: snap.id, page: "feasibility" } };
-    for (const agent of ["patient", "doctor", "research"] as const) {
-      for (const q of QUICK_QUESTIONS[agent]) {
-        const r = await chat({ agent, messages: [{ role: "user", content: q }], context: ctx[agent] });
+    const cases: [ChatRequest["agent"], ChatRequest["context"], string[]][] = [
+      ["patient", { patientId: "P-A", page: "assistant" }, quickQuestions("patient", "early_adjuvant")],
+      ["patient", { patientId: "P-B", page: "assistant" }, quickQuestions("patient", "metastatic")],
+      ["doctor", { patientId: "P-A", page: "patient" }, quickQuestions("doctor", "early_adjuvant")],
+      ["doctor", { patientId: "P-B", page: "patient" }, quickQuestions("doctor", "metastatic")],
+      ["research", { snapshotId: snap.id, page: "feasibility" }, quickQuestions("research")],
+    ];
+    for (const [agent, ctx, qs] of cases) {
+      for (const q of qs) {
+        const r = await chat({ agent, messages: [{ role: "user", content: q }], context: ctx });
         expect(r.mode).toBe("deterministic");
         expect(r.text.length).toBeGreaterThan(10);
         expect(r.text).not.toBe("这个问题超出了演示助手的范围。您可以尝试下方的快捷问题，或联系您的医生/个案管理师。");
@@ -267,6 +273,36 @@ describe("agents: research_snapshot_size (统计一致: assistant == snapshot n)
     expect(r.toolCalls).toEqual([{ name: "count_cohort", args: { snapshotId: snap.id, filter: {} }, result: { n: snap.patients.length, matched: snap.patients.length, cutoff: "2026-10-13" } }]);
     const { researchUseCase } = await import("@/lib/research/usecases");
     expect(researchUseCase("overview", snap.id).n).toBe(snap.patients.length);
+  });
+});
+
+describe("agents: F8 quick questions bound to context", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  it("patient / doctor lists follow the stage; research has four; 参加临床研究需要注意什么？ is offered at every stage", () => {
+    expect(quickQuestions("patient", "early_adjuvant")).toEqual(["我最近关节痛，能不能先停药？", "下次要做什么检查？", "参加临床研究需要注意什么？"]);
+    expect(quickQuestions("patient", "survivorship")).toEqual(quickQuestions("patient", "early_adjuvant"));
+    expect(quickQuestions("patient", "metastatic")).toEqual(["最近恶心乏力明显，能不能少打一次？", "下次要做什么检查？", "参加临床研究需要注意什么？"]);
+    expect(quickQuestions("doctor", "early_adjuvant")).toEqual(["总结这位患者的治疗经过", "根据最近一次问卷起草症状处理建议", "辅助内分泌治疗依从性差时指南建议是什么？"]);
+    expect(quickQuestions("doctor", "metastatic")).toEqual(["总结这位患者的治疗经过", "当前线不良事件按 CTCAE 如何分级记录？", "指南对 CDK4/6 后 HER2 低表达的推荐是什么？"]);
+    expect(quickQuestions("research")).toEqual(["信息不足中最主要的原因是什么，补齐需要什么数据？", "符合已知条件的有多少例？", "一线后进入二线的比例？", "当前快照共有多少例？"]);
+    for (const st of ["early_adjuvant", "metastatic", "survivorship", "lost", "deceased"] as const) expect(quickQuestions("patient", st)).toContain("参加临床研究需要注意什么？");
+  });
+  it("the metastatic patient question is answered by the safety template; the early doctor guideline question cites the adherence entry", async () => {
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "最近恶心乏力明显，能不能少打一次？" }], context: { patientId: "P-B", page: "assistant" } });
+    expect(r.text).toMatch(/医生确认/); expect(r.text).toMatch(/恶心、乏力/);
+    const g = await chat({ agent: "doctor", messages: [{ role: "user", content: "辅助内分泌治疗依从性差时指南建议是什么？" }], context: { patientId: "P-A", page: "patient" } });
+    expect(g.citations[0].id).toBe("G-002"); expect(g.text).toContain("[G-002] 辅助内分泌依从性");
+  });
+  it("CTCAE searches by the patient's actual top symptoms and current drug class", async () => {
+    const r = await chat({ agent: "doctor", messages: [{ role: "user", content: "当前线不良事件按 CTCAE 如何分级记录？" }], context: { patientId: "P-B", page: "patient" } });
+    const q = (r.toolCalls.find(c => c.name === "search_guidelines")!.args as { query: string }).query;
+    expect(q).toBe("恶心 乏力 ADC 不良事件 CTCAE");
+    expect(r.text).toContain("最近一次问卷（2026-10-06）报告：恶心 2 级、乏力 2 级。");
+    expect(r.text).toContain("· 乏力："); expect(r.text).toContain("· 间质性肺病：");
+    const { submitPro } = await import("@/lib/pro/submit");
+    submitPro({ patientId: "P-B", scaleId: "treatment_weekly_v1", items: { 恶心: 0, 乏力: 0, 口腔炎: 0, 腹泻: 3, 手足综合征: 0, 发热: 0 }, flags: {} });
+    const r2 = await chat({ agent: "doctor", messages: [{ role: "user", content: "当前线不良事件按 CTCAE 如何分级记录？" }], context: { patientId: "P-B", page: "patient" } });
+    expect((r2.toolCalls.find(c => c.name === "search_guidelines")!.args as { query: string }).query).toBe("腹泻 ADC 不良事件 CTCAE");
   });
 });
 
