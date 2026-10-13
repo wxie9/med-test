@@ -30,6 +30,9 @@ export function CohortFilterForm({ value, onChange }: { value: CohortFormState; 
       <Group title="阶段" hint="不勾选 = 不限">
         {STAGE_OPTIONS.map(s => <Box key={s} testId={`f-stage-${s}`} label={stageLabel(s)} checked={value.stage.includes(s)} onChange={() => set({ stage: toggle(value.stage, s) })} />)}
       </Group>
+      <Group title="转移史" hint="不受当前阶段限制；不勾选 = 不限">
+        <Box testId="f-evermet" label="曾发生远处转移（含已故/失访）" checked={value.everMetastatic} onChange={() => set({ everMetastatic: !value.everMetastatic })} />
+      </Group>
       <Group title="既往治疗" hint="不勾选 = 不限">
         <Box testId="f-cdk46" label="CDK4/6 经治" checked={value.priorCdk46} onChange={() => set({ priorCdk46: !value.priorCdk46 })} />
       </Group>

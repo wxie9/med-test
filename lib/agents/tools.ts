@@ -118,7 +118,7 @@ export const TOOLS = {
   count_cohort: defineTool({
     description: "在当前研究快照内按筛选条件计数（仅返回计数）。",
     agents: ["research"], schema: z.object({ snapshotId: z.string(), filter: CohortFilter }), bound: ["snapshotId"],
-    parameters: { type: "object", properties: { filter: { type: "object", description: "可选键：hrPositive(boolean)、her2(low|zero|positive 数组)、stage(early_adjuvant|metastatic|survivorship|lost|deceased 数组)、priorCdk46(boolean)、intent、currentTreatmentType" } }, required: [] },
+    parameters: { type: "object", properties: { filter: { type: "object", description: "可选键：hrPositive(boolean)、her2(low|zero|positive 数组)、stage(early_adjuvant|metastatic|survivorship|lost|deceased 数组)、everMetastatic(boolean，曾远处转移)、priorCdk46(boolean)、intent、currentTreatmentType" } }, required: [] },
     run: ({ snapshotId, filter }) => { const s = snapshotOf(snapshotId); return { n: s.patients.length, matched: applyFilter(s.patients, filter).length }; },
   }),
   funnel: defineTool({

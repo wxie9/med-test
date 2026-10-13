@@ -5,12 +5,12 @@ import { getStore, resetStore } from "@/lib/state/store";
 import type { Cohort } from "@/lib/domain/types";
 import expected from "@/data/seed/expected.json";
 const post = (body: object) => POST(new Request("http://x/api/cohorts", { method: "POST", body: JSON.stringify(body) }));
-const filter = { hrPositive: true, her2: ["low"], stage: ["metastatic"], priorCdk46: true };
+const filter = { hrPositive: true, everMetastatic: true, priorCdk46: true };
 describe("POST /api/cohorts", () => {
   beforeEach(() => resetStore());
   it("creates and submits in one request when submit: true", async () => {
     const r = await post({ name: "q", filter, by: "张医生", submit: true }); const c = (await r.json()) as Cohort;
-    expect(r.status).toBe(201); expect(c.status).toBe("submitted"); expect(c.patientIds).toHaveLength(expected.find(e => e.key === "hrpos_her2low_metastatic_cdk46")!.expectedCount!);
+    expect(r.status).toBe(201); expect(c.status).toBe("submitted"); expect(c.patientIds).toHaveLength(expected.find(e => e.key === "hrpos_evermet_cdk46")!.expectedCount!);
     expect(getStore().cohorts).toHaveLength(1); expect(getStore().cohorts[0].status).toBe("submitted");
   });
   it("creates a draft without submit; PATCH submit still works", async () => {

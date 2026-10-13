@@ -36,6 +36,16 @@ describe("compute", () => {
     p.treatments.push({ ...adc, id: "undated-adc", start: null, end: null, source: "external" });
     const r = runFunnel([p], PROTOCOL_ADC_301); expect(r.steps.find(s => s.id === "no_prior_adc")!.notMet).toBe(1);
   });
+  it("everMetastatic matches any patient with a distant metastasis, including deceased and lost, regardless of stage", () => {
+    const ever = applyFilter(all(), { everMetastatic: true });
+    expect(ever.every(p => p.outcomes.some(o => o.type === "distant_metastasis"))).toBe(true);
+    expect(ever.some(p => p.stage === "deceased")).toBe(true);
+    expect(ever.map(p => p.id)).toEqual(expect.arrayContaining(["P-B", "P-J", "P-K"]));
+    expect(ever.length).toBeGreaterThan(applyFilter(all(), { stage: ["metastatic"] }).length);
+    expect(applyFilter(all(), { everMetastatic: false }).length + ever.length).toBe(all().length);
+    // stage semantics unchanged: "metastatic" stage excludes the deceased
+    expect(applyFilter(all(), { stage: ["metastatic"] }).some(p => p.stage === "deceased")).toBe(false);
+  });
   it("line gap statuses are exhaustive", () => { const s = lineGapStatus(all(), 1, "2026-10-13"); const n = all().filter(p => p.lines.length >= 1).length; expect(Object.values(s).reduce((a, b) => a + b, 0)).toBe(n); });
   it("quality returns rates in [0,1]", () => { const q = qualityMetrics(all()); for (const v of Object.values(q.completeness)) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); } });
   it("alertMetrics: first-response p50 of accepted alerts by level", () => {

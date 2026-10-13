@@ -16,7 +16,7 @@ async function submitPro(request: APIRequestContext, patientId: string) {
   }));
 }
 async function createSubmittedCohort(request: APIRequestContext) {
-  const filter = { hrPositive: true, her2: ["low"], stage: ["metastatic"], priorCdk46: true };
+  const filter = { hrPositive: true, everMetastatic: true, priorCdk46: true };
   return json<{ id: string; status: string }>(await request.post("/api/cohorts", { data: { name: "重置测试队列", filter, by: "张医生", submit: true } }));
 }
 async function createSnapshot(request: APIRequestContext, cohortId: string) {

@@ -29,10 +29,10 @@ test("full chain story: patient → clinic → governance → research → back 
   await page.getByTestId("close-confirm").click();
   await expect(row.getByText("已关闭", { exact: true })).toBeVisible();
 
-  // 主线 B · 队列圈选：HR+ / HER2 低表达 / 转移性 / CDK4/6 经治，提交数据治理
+  // 主线 B · 队列圈选：HR 阳性 + 曾发生远处转移（含已故/失访）+ CDK4/6 经治（不预设 HER2），提交数据治理
   await page.goto("/clinic/cohorts");
   await waitCountSettled(page); // hydrated and first preview resolved
-  for (const id of ["f-hrpos", "f-her2-low", "f-stage-metastatic", "f-cdk46"]) await page.getByTestId(id).check();
+  for (const id of ["f-hrpos", "f-evermet", "f-cdk46"]) await page.getByTestId(id).check();
   await waitCountSettled(page);
   expect(Number(await page.getByTestId("cohort-count").textContent())).toBeGreaterThan(0);
   await page.getByTestId("cohort-submit").click();
