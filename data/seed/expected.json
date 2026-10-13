@@ -1,0 +1,7 @@
+[
+  { "key": "hrpos_her2low_metastatic_cdk46", "filter": { "hrPositive": true, "her2": ["low"], "stage": ["metastatic"], "priorCdk46": true }, "expectedCount": null },
+  { "key": "early_endocrine_ongoing", "filter": { "hrPositive": true, "stage": ["early_adjuvant"], "currentTreatmentType": ["endocrine"] }, "expectedCount": null },
+  { "key": "her2_positive_all", "filter": { "her2": ["positive"] }, "expectedCount": null },
+  { "key": "metastatic_on_adc", "filter": { "stage": ["metastatic"], "currentTreatmentType": ["adc"] }, "expectedCount": null },
+  { "key": "survivorship", "filter": { "stage": ["survivorship"] }, "expectedCount": null }
+]

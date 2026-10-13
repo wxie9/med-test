@@ -1,0 +1,1758 @@
+[
+  {
+    "id": "P-A",
+    "anchorKey": "A",
+    "age": 52,
+    "enrolledAt": "2025-07-01",
+    "stage": "early_adjuvant",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2025-07-01"
+    },
+    "biomarkers": [
+      {
+        "id": "P-A-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2025-07-12",
+        "erPct": 90,
+        "prPct": 60,
+        "her2Ihc": "0",
+        "ish": "not_done",
+        "ki67": 18,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT2N1M0",
+        "date": "2025-07-12",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-A-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2025-07-10",
+        "end": "2025-07-10",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-A-t2",
+        "type": "chemo",
+        "intent": "adjuvant",
+        "drug": "AC-T",
+        "start": "2025-08-01",
+        "end": "2025-11-15",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-A-t3",
+        "type": "radiation",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2025-12-01",
+        "end": "2026-01-10",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-A-t4",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "来曲唑",
+        "start": "2025-08-20",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [],
+    "pro": [
+      {
+        "id": "P-A-pro01",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2025-10-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 0,
+          "潮热": 1
+        },
+        "flags": {
+          "missedDoses14d": 0
+        }
+      },
+      {
+        "id": "P-A-pro02",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2025-11-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 0,
+          "潮热": 1
+        },
+        "flags": {
+          "missedDoses14d": 0
+        }
+      },
+      {
+        "id": "P-A-pro03",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2025-12-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 0,
+          "潮热": 2
+        },
+        "flags": {
+          "missedDoses14d": 0
+        }
+      },
+      {
+        "id": "P-A-pro04",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-01-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 1,
+          "潮热": 1
+        },
+        "flags": {
+          "missedDoses14d": 1
+        }
+      },
+      {
+        "id": "P-A-pro05",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-02-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 1,
+          "潮热": 2
+        },
+        "flags": {
+          "missedDoses14d": 0
+        }
+      },
+      {
+        "id": "P-A-pro06",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-03-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 1,
+          "潮热": 2
+        },
+        "flags": {
+          "missedDoses14d": 1
+        }
+      },
+      {
+        "id": "P-A-pro07",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-04-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 1,
+          "潮热": 1
+        },
+        "flags": {
+          "missedDoses14d": 1
+        }
+      },
+      {
+        "id": "P-A-pro08",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-05-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 1,
+          "潮热": 2
+        },
+        "flags": {
+          "missedDoses14d": 2
+        }
+      },
+      {
+        "id": "P-A-pro09",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-06-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 2,
+          "潮热": 1
+        },
+        "flags": {
+          "missedDoses14d": 1
+        }
+      },
+      {
+        "id": "P-A-pro10",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-07-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 2,
+          "潮热": 2
+        },
+        "flags": {
+          "missedDoses14d": 2
+        }
+      },
+      {
+        "id": "P-A-pro11",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-08-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 2,
+          "潮热": 2
+        },
+        "flags": {
+          "missedDoses14d": 2
+        }
+      },
+      {
+        "id": "P-A-pro12",
+        "scaleId": "endocrine_monthly_v1",
+        "submittedAt": "2026-09-12T09:00:00+08:00",
+        "items": {
+          "关节痛": 2,
+          "潮热": 2
+        },
+        "flags": {
+          "missedDoses14d": 0
+        }
+      }
+    ],
+    "adherence": [
+      {
+        "date": "2026-08-15",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-16",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-17",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-18",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-19",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-20",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-21",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-22",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-23",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-24",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-25",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-26",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-27",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-28",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-29",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-30",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-08-31",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-01",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-02",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-03",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-04",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-05",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-06",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-07",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-08",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-09",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-10",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-11",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-12",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-13",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-14",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-15",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-16",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-17",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-18",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-19",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-20",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-21",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-22",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-23",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-24",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-25",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-26",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-27",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-28",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-29",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-09-30",
+        "due": 1,
+        "taken": 0,
+        "missedReason": "关节痛"
+      },
+      {
+        "date": "2026-10-01",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-02",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-03",
+        "due": 1,
+        "taken": 0,
+        "missedReason": "关节痛"
+      },
+      {
+        "date": "2026-10-04",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-05",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-06",
+        "due": 1,
+        "taken": 0,
+        "missedReason": "关节痛"
+      },
+      {
+        "date": "2026-10-07",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-08",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-09",
+        "due": 1,
+        "taken": 0,
+        "missedReason": "关节痛"
+      },
+      {
+        "date": "2026-10-10",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-11",
+        "due": 1,
+        "taken": 0,
+        "missedReason": "关节痛"
+      },
+      {
+        "date": "2026-10-12",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      },
+      {
+        "date": "2026-10-13",
+        "due": 1,
+        "taken": 1,
+        "missedReason": null
+      }
+    ],
+    "lastContact": "2026-10-12",
+    "surgeryDate": "2025-07-10",
+    "genomics": {
+      "brca": "negative",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "辅助内分泌第 14 个月，关节痛与漏服并存，典型依从性风险病例"
+  },
+  {
+    "id": "P-B",
+    "anchorKey": "B",
+    "age": 61,
+    "enrolledAt": "2022-03-10",
+    "stage": "metastatic",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2022-03-10"
+    },
+    "biomarkers": [
+      {
+        "id": "P-B-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2022-03-17",
+        "erPct": 70,
+        "prPct": 20,
+        "her2Ihc": "0",
+        "ish": "not_done",
+        "ki67": 25,
+        "readVersion": "ASCO/CAP2023"
+      },
+      {
+        "id": "P-B-b2",
+        "specimenSite": "metastatic",
+        "specimenDate": "2025-04-02",
+        "erPct": 60,
+        "prPct": 10,
+        "her2Ihc": "1+",
+        "ish": "not_done",
+        "ki67": 30,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT3N2M0",
+        "date": "2022-03-17",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-B-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2022-03-15",
+        "end": "2022-03-15",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-B-t2",
+        "type": "chemo",
+        "intent": "adjuvant",
+        "drug": "AC-T",
+        "start": "2022-04-06",
+        "end": "2022-08-24",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-B-t3",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "阿那曲唑",
+        "start": "2022-09-01",
+        "end": "2025-03-28",
+        "stopReason": "progression",
+        "source": "in_house"
+      },
+      {
+        "id": "P-B-t4",
+        "type": "endocrine",
+        "intent": "metastatic",
+        "drug": "氟维司群",
+        "start": "2025-04-15",
+        "end": "2026-06-30",
+        "stopReason": "progression",
+        "source": "in_house"
+      },
+      {
+        "id": "P-B-t5",
+        "type": "cdk46",
+        "intent": "metastatic",
+        "drug": "哌柏西利",
+        "start": "2025-04-15",
+        "end": "2026-06-30",
+        "stopReason": "progression",
+        "source": "in_house"
+      },
+      {
+        "id": "P-B-t6",
+        "type": "adc",
+        "intent": "metastatic",
+        "drug": "德曲妥珠单抗",
+        "start": "2026-07-20",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [
+      {
+        "id": "P-B-o1",
+        "type": "distant_metastasis",
+        "date": "2025-03-28",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      }
+    ],
+    "pro": [
+      {
+        "id": "P-B-prow1",
+        "scaleId": "treatment_weekly_v1",
+        "submittedAt": "2026-09-15T09:00:00+08:00",
+        "items": {
+          "恶心": 1,
+          "乏力": 2,
+          "口腔炎": 0
+        },
+        "flags": {}
+      },
+      {
+        "id": "P-B-prow2",
+        "scaleId": "treatment_weekly_v1",
+        "submittedAt": "2026-09-22T09:00:00+08:00",
+        "items": {
+          "恶心": 2,
+          "乏力": 2,
+          "口腔炎": 1
+        },
+        "flags": {}
+      },
+      {
+        "id": "P-B-prow3",
+        "scaleId": "treatment_weekly_v1",
+        "submittedAt": "2026-09-29T09:00:00+08:00",
+        "items": {
+          "恶心": 1,
+          "乏力": 2,
+          "口腔炎": 0
+        },
+        "flags": {}
+      },
+      {
+        "id": "P-B-prow4",
+        "scaleId": "treatment_weekly_v1",
+        "submittedAt": "2026-10-06T09:00:00+08:00",
+        "items": {
+          "恶心": 2,
+          "乏力": 2,
+          "口腔炎": 1
+        },
+        "flags": {}
+      }
+    ],
+    "adherence": [],
+    "lastContact": "2026-10-06",
+    "surgeryDate": "2022-03-15",
+    "genomics": {
+      "brca": "negative",
+      "pik3ca": "mutated",
+      "esr1": "not_tested"
+    },
+    "expertNote": "原发 HER2 0 转移灶 1+，CDK4/6 后 ADC 二线，病理结果变化的典型病例"
+  },
+  {
+    "id": "P-C",
+    "anchorKey": "C",
+    "age": 45,
+    "enrolledAt": "2025-01-08",
+    "stage": "early_adjuvant",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2025-01-08"
+    },
+    "biomarkers": [
+      {
+        "id": "P-C-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2025-01-12",
+        "erPct": 0,
+        "prPct": 0,
+        "her2Ihc": "3+",
+        "ish": "not_done",
+        "ki67": 40,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": "cT2N1M0",
+        "pTnm": null,
+        "date": "2025-01-12",
+        "system": "AJCC8"
+      },
+      {
+        "cTnm": null,
+        "pTnm": "ypT0N0M0",
+        "date": "2025-06-20",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-C-t1",
+        "type": "chemo",
+        "intent": "neoadjuvant",
+        "drug": "TCb（多西他赛+卡铂）",
+        "start": "2025-01-25",
+        "end": "2025-05-20",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-C-t2",
+        "type": "anti_her2",
+        "intent": "neoadjuvant",
+        "drug": "曲妥珠单抗+帕妥珠单抗",
+        "start": "2025-01-25",
+        "end": "2025-05-20",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-C-t3",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2025-06-15",
+        "end": "2025-06-15",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-C-t4",
+        "type": "anti_her2",
+        "intent": "adjuvant",
+        "drug": "曲妥珠单抗+帕妥珠单抗",
+        "start": "2025-07-06",
+        "end": "2026-01-25",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-C-t5",
+        "type": "radiation",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2025-07-20",
+        "end": "2025-08-25",
+        "stopReason": "completed",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-09-18",
+    "surgeryDate": "2025-06-15",
+    "genomics": {
+      "brca": "not_tested",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "HER2 阳性新辅助 TCbHP 后达 pCR（ypT0N0），术后补足一年双靶，属复发风险较低的降阶梯随访参考病例"
+  },
+  {
+    "id": "P-D",
+    "anchorKey": "D",
+    "age": 38,
+    "enrolledAt": "2025-10-28",
+    "stage": "early_adjuvant",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": false,
+      "signedAt": "2025-10-28"
+    },
+    "biomarkers": [
+      {
+        "id": "P-D-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2025-11-07",
+        "erPct": 0,
+        "prPct": 0,
+        "her2Ihc": "0",
+        "ish": "not_done",
+        "ki67": 65,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT1N0M0",
+        "date": "2025-11-07",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-D-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2025-11-05",
+        "end": "2025-11-05",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-D-t2",
+        "type": "chemo",
+        "intent": "adjuvant",
+        "drug": "TC（多西他赛+环磷酰胺）",
+        "start": "2025-11-26",
+        "end": "2026-02-25",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-D-t3",
+        "type": "radiation",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2026-03-16",
+        "end": "2026-04-20",
+        "stopReason": "completed",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-09-25",
+    "surgeryDate": "2025-11-05",
+    "genomics": {
+      "brca": "positive",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "年轻三阴性早期、BRCA 胚系突变阳性，辅助化疗放疗后进入密切随访，需安排遗传咨询与家系筛查"
+  },
+  {
+    "id": "P-E",
+    "anchorKey": "E",
+    "age": 57,
+    "enrolledAt": "2026-03-12",
+    "stage": "metastatic",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2026-03-12"
+    },
+    "biomarkers": [
+      {
+        "id": "P-E-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2026-03-18",
+        "erPct": 30,
+        "prPct": 5,
+        "her2Ihc": "3+",
+        "ish": "not_done",
+        "ki67": 35,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": "cT3N1M1",
+        "pTnm": null,
+        "date": "2026-03-18",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-E-t1",
+        "type": "anti_her2",
+        "intent": "metastatic",
+        "drug": "曲妥珠单抗+帕妥珠单抗",
+        "start": "2026-04-02",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      },
+      {
+        "id": "P-E-t2",
+        "type": "chemo",
+        "intent": "metastatic",
+        "drug": "多西他赛",
+        "start": "2026-04-02",
+        "end": "2026-07-20",
+        "stopReason": "completed",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [
+      {
+        "id": "P-E-o1",
+        "type": "distant_metastasis",
+        "date": "2026-03-16",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      }
+    ],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-10-08",
+    "surgeryDate": null,
+    "genomics": {
+      "brca": "negative",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "初诊 IV 期 HER2 阳性肝转移，一线 THP 化疗 6 周期后双靶维持，化疗按计划停止不应被视为换线"
+  },
+  {
+    "id": "P-F",
+    "anchorKey": "F",
+    "age": 66,
+    "enrolledAt": "2020-05-05",
+    "stage": "metastatic",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2020-05-05"
+    },
+    "biomarkers": [
+      {
+        "id": "P-F-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2020-05-14",
+        "erPct": 85,
+        "prPct": 50,
+        "her2Ihc": "1+",
+        "ish": "not_done",
+        "ki67": 20,
+        "readVersion": "ASCO/CAP2023"
+      },
+      {
+        "id": "P-F-b2",
+        "specimenSite": "metastatic",
+        "specimenDate": "2025-09-18",
+        "erPct": 80,
+        "prPct": 0,
+        "her2Ihc": "0",
+        "ish": "not_done",
+        "ki67": 30,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT2N1M0",
+        "date": "2020-05-14",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-F-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2020-05-12",
+        "end": "2020-05-12",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-F-t2",
+        "type": "chemo",
+        "intent": "adjuvant",
+        "drug": "AC-T",
+        "start": "2020-06-02",
+        "end": "2020-10-10",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-F-t3",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "他莫昔芬",
+        "start": "2020-10-20",
+        "end": "2025-09-10",
+        "stopReason": "progression",
+        "source": "in_house"
+      },
+      {
+        "id": "P-F-t4",
+        "type": "endocrine",
+        "intent": "metastatic",
+        "drug": "来曲唑",
+        "start": "2025-10-08",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      },
+      {
+        "id": "P-F-t5",
+        "type": "cdk46",
+        "intent": "metastatic",
+        "drug": "阿贝西利",
+        "start": "2025-10-08",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [
+      {
+        "id": "P-F-o1",
+        "type": "distant_metastasis",
+        "date": "2025-09-10",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      }
+    ],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-09-30",
+    "surgeryDate": "2020-05-12",
+    "genomics": {
+      "brca": "negative",
+      "pik3ca": "wild",
+      "esr1": "not_tested"
+    },
+    "expertNote": "原发 HER2 1+（低表达）而肝转移灶 HER2 0，当前分类以最新标本为准，纳入 HER2 低表达研究前需复核"
+  },
+  {
+    "id": "P-G",
+    "anchorKey": "G",
+    "age": 48,
+    "enrolledAt": "2025-05-20",
+    "stage": "early_adjuvant",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2025-05-20"
+    },
+    "biomarkers": [
+      {
+        "id": "P-G-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2024-03-22",
+        "erPct": 95,
+        "prPct": 80,
+        "her2Ihc": "2+",
+        "ish": "unknown",
+        "ki67": null,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT2N1M0",
+        "date": "2024-03-22",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-G-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2024-03-20",
+        "end": "2024-03-20",
+        "stopReason": "completed",
+        "source": "external"
+      },
+      {
+        "id": "P-G-t2",
+        "type": "chemo",
+        "intent": "adjuvant",
+        "drug": "EC-T",
+        "start": null,
+        "end": null,
+        "stopReason": "unknown",
+        "source": "external"
+      },
+      {
+        "id": "P-G-t3",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "他莫昔芬",
+        "start": null,
+        "end": null,
+        "stopReason": "unknown",
+        "source": "external"
+      },
+      {
+        "id": "P-G-t4",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "依西美坦",
+        "start": "2025-06-01",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-09-10",
+    "surgeryDate": "2024-03-20",
+    "genomics": {
+      "brca": "not_tested",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "外院辅助化疗与他莫昔芬仅有药名无日期、HER2 2+ 未见 ISH 结果，属需补数的信息不全病例"
+  },
+  {
+    "id": "P-H",
+    "anchorKey": "H",
+    "age": 63,
+    "enrolledAt": "2020-04-01",
+    "stage": "survivorship",
+    "consent": {
+      "followUp": true,
+      "research": false,
+      "pharmaDeidentified": true,
+      "signedAt": "2020-04-01"
+    },
+    "biomarkers": [
+      {
+        "id": "P-H-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2020-04-10",
+        "erPct": 85,
+        "prPct": 40,
+        "her2Ihc": "1+",
+        "ish": "not_done",
+        "ki67": 10,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT1N0M0",
+        "date": "2020-04-10",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-H-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2020-04-08",
+        "end": "2020-04-08",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-H-t2",
+        "type": "radiation",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2020-05-10",
+        "end": "2020-06-15",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-H-t3",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "阿那曲唑",
+        "start": "2020-05-20",
+        "end": "2025-05-20",
+        "stopReason": "completed",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-09-02",
+    "surgeryDate": "2020-04-08",
+    "genomics": {
+      "brca": "negative",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "低危 HR+ 早期，阿那曲唑足疗程 5 年后停药转入生存期随访，重点关注骨健康与晚期复发监测"
+  },
+  {
+    "id": "P-I",
+    "anchorKey": "I",
+    "age": 55,
+    "enrolledAt": "2023-02-06",
+    "stage": "lost",
+    "consent": {
+      "followUp": true,
+      "research": false,
+      "pharmaDeidentified": false,
+      "signedAt": "2023-02-06"
+    },
+    "biomarkers": [
+      {
+        "id": "P-I-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2023-02-16",
+        "erPct": 75,
+        "prPct": 30,
+        "her2Ihc": "2+",
+        "ish": "negative",
+        "ki67": 15,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT2N0M0",
+        "date": "2023-02-16",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-I-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2023-02-14",
+        "end": "2023-02-14",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-I-t2",
+        "type": "radiation",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2023-03-10",
+        "end": "2023-04-15",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-I-t3",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "来曲唑",
+        "start": "2023-03-20",
+        "end": "2025-01-08",
+        "stopReason": "lost",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2025-01-08",
+    "surgeryDate": "2023-02-14",
+    "genomics": {
+      "brca": "not_tested",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "辅助内分泌第 2 年起未再复诊与填报问卷，末次联系 2025-01，需启动失访召回流程"
+  },
+  {
+    "id": "P-J",
+    "anchorKey": "J",
+    "age": 49,
+    "enrolledAt": "2021-08-02",
+    "stage": "deceased",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2021-08-02"
+    },
+    "biomarkers": [
+      {
+        "id": "P-J-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2021-08-12",
+        "erPct": 0,
+        "prPct": 0,
+        "her2Ihc": "0",
+        "ish": "not_done",
+        "ki67": 70,
+        "readVersion": "ASCO/CAP2023"
+      },
+      {
+        "id": "P-J-b2",
+        "specimenSite": "metastatic",
+        "specimenDate": "2023-06-20",
+        "erPct": 0,
+        "prPct": 0,
+        "her2Ihc": "1+",
+        "ish": "not_done",
+        "ki67": 60,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT2N1M0",
+        "date": "2021-08-12",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-J-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2021-08-10",
+        "end": "2021-08-10",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-J-t2",
+        "type": "chemo",
+        "intent": "adjuvant",
+        "drug": "AC-T",
+        "start": "2021-09-01",
+        "end": "2022-01-20",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-J-t3",
+        "type": "radiation",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2022-02-10",
+        "end": "2022-03-20",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-J-t4",
+        "type": "chemo",
+        "intent": "metastatic",
+        "drug": "白蛋白紫杉醇",
+        "start": "2023-07-01",
+        "end": "2024-04-15",
+        "stopReason": "progression",
+        "source": "in_house"
+      },
+      {
+        "id": "P-J-t5",
+        "type": "adc",
+        "intent": "metastatic",
+        "drug": "戈沙妥珠单抗",
+        "start": "2024-05-06",
+        "end": "2025-02-10",
+        "stopReason": "progression",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [
+      {
+        "id": "P-J-o1",
+        "type": "distant_metastasis",
+        "date": "2023-06-12",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      },
+      {
+        "id": "P-J-o2",
+        "type": "progression",
+        "date": "2024-04-15",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      },
+      {
+        "id": "P-J-o3",
+        "type": "progression",
+        "date": "2025-02-10",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      },
+      {
+        "id": "P-J-o4",
+        "type": "death",
+        "date": "2025-05-22",
+        "evidence": "clinical_note",
+        "assessor": "Dr. Mock"
+      }
+    ],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2025-05-22",
+    "surgeryDate": "2021-08-10",
+    "genomics": {
+      "brca": "negative",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "三阴性术后近 2 年肺转移，一线化疗、二线戈沙妥珠单抗均进展，2025-05 死亡，用于生存终点与线间转归演示"
+  },
+  {
+    "id": "P-K",
+    "anchorKey": "K",
+    "age": 58,
+    "enrolledAt": "2019-10-15",
+    "stage": "metastatic",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2019-10-15"
+    },
+    "biomarkers": [
+      {
+        "id": "P-K-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2019-10-24",
+        "erPct": 90,
+        "prPct": 70,
+        "her2Ihc": "2+",
+        "ish": "negative",
+        "ki67": 20,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT2N1M0",
+        "date": "2019-10-24",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-K-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2019-10-22",
+        "end": "2019-10-22",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-K-t2",
+        "type": "chemo",
+        "intent": "adjuvant",
+        "drug": "AC-T",
+        "start": "2019-11-12",
+        "end": "2020-03-30",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-K-t3",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "来曲唑",
+        "start": "2020-04-10",
+        "end": "2024-01-15",
+        "stopReason": "progression",
+        "source": "in_house"
+      },
+      {
+        "id": "P-K-t4",
+        "type": "endocrine",
+        "intent": "metastatic",
+        "drug": "氟维司群",
+        "start": "2024-02-05",
+        "end": "2025-03-02",
+        "stopReason": "unknown",
+        "source": "in_house"
+      },
+      {
+        "id": "P-K-t5",
+        "type": "cdk46",
+        "intent": "metastatic",
+        "drug": "达尔西利",
+        "start": "2024-02-05",
+        "end": "2025-03-02",
+        "stopReason": "unknown",
+        "source": "in_house"
+      },
+      {
+        "id": "P-K-t6",
+        "type": "chemo",
+        "intent": "metastatic",
+        "drug": "卡培他滨",
+        "start": "2025-03-25",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [
+      {
+        "id": "P-K-o1",
+        "type": "distant_metastasis",
+        "date": "2024-01-15",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      }
+    ],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-10-02",
+    "surgeryDate": "2019-10-22",
+    "genomics": {
+      "brca": "not_tested",
+      "pik3ca": "wild",
+      "esr1": "not_tested"
+    },
+    "expertNote": "一线氟维司群联合达尔西利停药原因未记录且无进展评估，无法判定换线原因，线间转归应归为信息不足"
+  },
+  {
+    "id": "P-L",
+    "anchorKey": "L",
+    "age": 70,
+    "enrolledAt": "2018-05-28",
+    "stage": "metastatic",
+    "consent": {
+      "followUp": true,
+      "research": true,
+      "pharmaDeidentified": true,
+      "signedAt": "2018-05-28"
+    },
+    "biomarkers": [
+      {
+        "id": "P-L-b1",
+        "specimenSite": "primary",
+        "specimenDate": "2018-06-07",
+        "erPct": 60,
+        "prPct": 30,
+        "her2Ihc": "0",
+        "ish": "not_done",
+        "ki67": 15,
+        "readVersion": "ASCO/CAP2023"
+      },
+      {
+        "id": "P-L-b2",
+        "specimenSite": "metastatic",
+        "specimenDate": "2025-11-28",
+        "erPct": 50,
+        "prPct": 5,
+        "her2Ihc": "2+",
+        "ish": "negative",
+        "ki67": 25,
+        "readVersion": "ASCO/CAP2023"
+      }
+    ],
+    "staging": [
+      {
+        "cTnm": null,
+        "pTnm": "pT2N0M0",
+        "date": "2018-06-07",
+        "system": "AJCC8"
+      }
+    ],
+    "treatments": [
+      {
+        "id": "P-L-t1",
+        "type": "surgery",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2018-06-05",
+        "end": "2018-06-05",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-L-t2",
+        "type": "radiation",
+        "intent": "adjuvant",
+        "drug": null,
+        "start": "2018-07-01",
+        "end": "2018-08-05",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-L-t3",
+        "type": "endocrine",
+        "intent": "adjuvant",
+        "drug": "他莫昔芬",
+        "start": "2018-07-10",
+        "end": "2023-07-10",
+        "stopReason": "completed",
+        "source": "in_house"
+      },
+      {
+        "id": "P-L-t4",
+        "type": "endocrine",
+        "intent": "metastatic",
+        "drug": "来曲唑",
+        "start": "2025-12-10",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      },
+      {
+        "id": "P-L-t5",
+        "type": "cdk46",
+        "intent": "metastatic",
+        "drug": "哌柏西利",
+        "start": "2025-12-10",
+        "end": null,
+        "stopReason": "ongoing",
+        "source": "in_house"
+      }
+    ],
+    "lines": [],
+    "outcomes": [
+      {
+        "id": "P-L-o1",
+        "type": "distant_metastasis",
+        "date": "2025-11-20",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      }
+    ],
+    "pro": [],
+    "adherence": [],
+    "lastContact": "2026-10-08",
+    "surgeryDate": "2018-06-05",
+    "genomics": {
+      "brca": "negative",
+      "pik3ca": "not_tested",
+      "esr1": "not_tested"
+    },
+    "expertNote": "肝转移灶活检（2025-11）HER2 2+/ISH 阴性结果迟至 2026-10 才补录，HER2 分类由 0 变为低表达，用于说明快照冻结与补录影响"
+  }
+]
