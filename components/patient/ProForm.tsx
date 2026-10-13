@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { SCALE_SYMPTOMS, hasAdherenceFlags, type ScaleId } from "@/lib/pro/scales";
 const LEVELS = ["无", "轻度", "中度", "重度"];
-type Result = { feedback: string; alerts: unknown[]; offHours: boolean };
+type Result = { feedback: string; emergency: boolean };
 /** Symptom questionnaire (0–3 sliders) plus adherence flags for the monthly endocrine scale. */
 export function ProForm({ patientId, scaleId, onSubmitted }: { patientId: string; scaleId: ScaleId; onSubmitted: () => void }) {
   const symptoms = SCALE_SYMPTOMS[scaleId];
@@ -51,7 +51,7 @@ export function ProForm({ patientId, scaleId, onSubmitted }: { patientId: string
       </button>
       {err && <p role="alert" className="text-sm text-red-600">{err}</p>}
       {result && (
-        <div role="status" className={`rounded-lg p-3 text-sm ${result.offHours && result.alerts.length ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"}`}>
+        <div role="status" className={`rounded-lg p-3 text-sm ${result.emergency ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800"}`}>
           <p data-testid="pro-feedback">{result.feedback}</p>
           <Link href="/patient/messages" className="mt-1 inline-block underline">查看消息</Link>
         </div>

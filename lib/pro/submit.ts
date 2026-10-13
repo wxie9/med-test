@@ -16,5 +16,5 @@ export function submitPro(input: { patientId: string; scaleId: ProResponse["scal
     feedback = emergency ? "当前为非服务时段。若症状加重请前往急诊，值班电话 021-0000-0000（演示）。个案管理师将在下一个工作日联系您。" : "已收到您的报告，个案管理师将在 1 个工作日内联系您。";
     s.messages.push({ id: newId("msg"), patientId: p.id, kind: emergency ? "emergency" : "alert_feedback", at, text: feedback });
   }
-  return { proId: pro.id, alerts, offHours, feedback };
+  return { proId: pro.id, alerts, offHours, emergency, feedback };
 }

@@ -11,4 +11,10 @@ describe("buildFollowUpPlan", () => {
     expect(b).toContainEqual({ title: "每周症状问卷", due: "2026-10-21", kind: "pro" });
     expect(b.some(i => i.title.includes("骨密度"))).toBe(false);
   });
+  it("never schedules an item before today (rolls yearly imaging to the next anniversary)", () => {
+    const s = getStore();
+    for (const id of ["P-A", "P-B"]) for (const i of buildFollowUpPlan(s.patients.get(id)!, "2026-10-14")) expect(i.due >= "2026-10-14", `${id} ${i.title} ${i.due}`).toBe(true);
+    const img = buildFollowUpPlan(s.patients.get("P-A")!, "2026-10-14").find(i => i.kind === "imaging")!;
+    expect(img.due).toBe("2027-07-10");
+  });
 });
