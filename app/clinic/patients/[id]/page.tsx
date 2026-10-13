@@ -37,6 +37,7 @@ export default function ClinicPatientPage() {
             </ul>
           )}
         </Card>
+        <Card title="MDT 资料包"><p data-testid="mdt-pack-later" className="text-sm text-gray-500">一键汇总病理、影像、治疗线与 PRO 供 MDT 讨论 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">[后续]</span>，本版不实现。</p></Card>
       </div>
       <aside>
         <div className="sticky top-4">

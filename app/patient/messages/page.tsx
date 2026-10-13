@@ -17,8 +17,8 @@ export default function MessagesPage() {
   const id = usePatientId();
   const { data, error } = usePatient(id);
   const sorted = data ? [...data.messages].sort((a, b) => b.at.localeCompare(a.at)) : [];
-  const newest = sorted[0]?.at;
-  useEffect(() => { if (newest) markSeen(id, newest); }, [id, newest]);
+  const idsKey = sorted.map(m => m.id).join(",");
+  useEffect(() => { if (idsKey) markSeen(id, idsKey.split(",")); }, [id, idsKey]);
   if (!data) return <PatientStatus error={error} />;
   return (
     <Section title="消息">

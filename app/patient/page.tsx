@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePatientId } from "@/lib/client/patientContext";
 import { usePatient } from "@/lib/client/usePatient";
-import { getLastSeen } from "@/lib/client/messageSeen";
+import { getSeen, unreadCount } from "@/lib/client/messageSeen";
 import { buildFollowUpPlan } from "@/lib/plan/followup";
 import { displayName, stageLabel, currentTreatments } from "@/lib/patient/display";
 import { PatientStatus } from "@/components/patient/PatientStatus";
@@ -11,12 +11,12 @@ import { Section } from "@/components/patient/Section";
 export default function PatientHome() {
   const id = usePatientId();
   const { data, error } = usePatient(id);
-  const [lastSeen, setLastSeen] = useState("");
-  useEffect(() => setLastSeen(getLastSeen(id)), [id]);
+  const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
+  useEffect(() => setSeen(getSeen(id)), [id]);
   if (!data) return <PatientStatus error={error} />;
   const { patient, messages, today } = data;
   const next = buildFollowUpPlan(patient, today, data.tasks)[0];
-  const unread = messages.filter(m => m.at > lastSeen).length;
+  const unread = unreadCount(messages, seen);
   const research = messages.filter(m => m.kind === "research_opportunity").length;
   const drugs = currentTreatments(patient);
   return (
@@ -49,6 +49,10 @@ export default function PatientHome() {
       <div className="mx-3 grid grid-cols-2 gap-3">
         <Link href="/patient/pro" className="rounded-xl bg-white p-4 text-center text-sm shadow-sm">填写症状问卷</Link>
         <Link href="/patient/adherence" className="rounded-xl bg-white p-4 text-center text-sm shadow-sm">今日服药打卡</Link>
+      </div>
+      <div data-testid="aid-program-later" className="mx-3 mt-3 rounded-xl border border-dashed border-gray-300 bg-white/60 p-3 text-sm text-gray-500">
+        援助项目 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">[后续]</span>
+        <p className="mt-1 text-xs text-gray-400">慈善赠药与患者援助项目的申请入口，本版不实现。</p>
       </div>
     </div>
   );

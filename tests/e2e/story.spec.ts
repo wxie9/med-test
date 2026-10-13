@@ -8,6 +8,9 @@ async function waitCountSettled(page: Page) {
   await expect(page.getByTestId("cohort-count")).toHaveAttribute("data-pending", "false");
 }
 
+// leave the shared dev server clean for whoever uses it next (deferred T12 minor)
+test.afterAll(async ({ request }) => { await request.post("/api/reset"); });
+
 test("full chain story: patient → clinic → governance → research → back to patient", async ({ page, request }) => {
   expect((await request.post("/api/reset")).ok()).toBe(true);
 

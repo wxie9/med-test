@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useDemoState } from "@/lib/client/useDemoState";
 import type { Manifest } from "@/lib/seed/load";
+import { clearDemoStorage } from "@/lib/client/messageSeen";
 
 type StateSummary = { manifest: Manifest; seedVersion: number; patientCount: number };
 
@@ -21,6 +22,7 @@ export default function Home() {
     setResetting(true);
     try {
       await fetch("/api/reset", { method: "POST" });
+      try { clearDemoStorage(localStorage); } catch { /* storage unavailable */ } // patient choice, clinic identity and seen messages
       await refresh();
     } finally {
       setResetting(false);

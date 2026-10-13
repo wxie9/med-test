@@ -26,4 +26,9 @@ describe("buildFollowUpPlan", () => {
     expect(plan.map(i => i.due)).toEqual([...plan.map(i => i.due)].sort());
     expect(buildFollowUpPlan(p, "2026-10-14")).toEqual(buildFollowUpPlan(p, "2026-10-14", []));
   });
+  it("bone density for any aromatase inhibitor: drug contains 唑 or is 依西美坦; not for tamoxifen", () => {
+    const base = structuredClone(getStore().patients.get("P-A")!);
+    const withDrug = (drug: string) => { const p = structuredClone(base); p.treatments.find(t => t.type === "endocrine")!.drug = drug; return buildFollowUpPlan(p, "2026-10-14").some(i => i.title.includes("骨密度")); };
+    expect(withDrug("依西美坦")).toBe(true); expect(withDrug("阿那曲唑")).toBe(true); expect(withDrug("他莫昔芬")).toBe(false);
+  });
 });

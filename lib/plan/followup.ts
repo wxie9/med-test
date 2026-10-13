@@ -11,7 +11,7 @@ export function buildFollowUpPlan(p: Patient, today: string, tasks: FollowUpTask
     const nextEvery = (days: number) => addDays(anchor, days * (Math.floor(diffDays(anchor, today) / days) + 1));
     items.push({ title: "乳腺外科随访门诊（每 6 个月）", due: nextEvery(180), kind: "visit" });
     items.push({ title: "乳腺超声/钼靶（每年）", due: nextEvery(365), kind: "imaging" });
-    if (p.treatments.some(t => t.type === "endocrine" && t.drug?.includes("唑"))) items.push({ title: "骨密度检查（每年）", due: addDays(today, 90), kind: "lab" });
+    if (p.treatments.some(t => t.type === "endocrine" && /唑|依西美坦/.test(t.drug ?? ""))) items.push({ title: "骨密度检查（每年）", due: addDays(today, 90), kind: "lab" });
   } else if (p.stage === "metastatic") {
     items.push({ title: "每周症状问卷", due: addDays(today, 7), kind: "pro" });
     items.push({ title: "下周期治疗前血常规、肝肾功能", due: addDays(today, 14), kind: "lab" });
