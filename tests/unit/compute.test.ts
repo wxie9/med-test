@@ -7,13 +7,34 @@ const all = () => [...getStore().patients.values()];
 const mkAlert = (id: string, level: "high" | "medium", status: Alert["status"], timestamps: Record<string, string>): Alert =>
   ({ id, patientId: "P-A", kind: "symptom", level, rule: "r", status, assignee: null, timestamps, notes: [], proId: "pro" });
 describe("compute", () => {
-  it("expected.json counts match", () => { for (const e of expected) if (e.expectedCount !== null) expect(applyFilter(all(), e.filter as CohortFilter).length, e.key).toBe(e.expectedCount); });
+  it("expected.json counts match", () => { for (const e of expected) { expect(e.expectedCount, `${e.key} expectedCount must be filled`).not.toBeNull(); expect(applyFilter(all(), e.filter as CohortFilter).length, e.key).toBe(e.expectedCount); } });
   it("funnel: IHC 2+ without ISH lands in unknown", () => {
     const p = structuredClone(getStore().patients.get("P-B")!); p.biomarkers[1].her2Ihc = "2+"; p.biomarkers[1].ish = "not_done";
     const r = runFunnel([p], PROTOCOL_ADC_301); const step = r.steps.find(s => s.id === "her2_low")!; expect(step.unknown).toBe(1); expect(step.met).toBe(0);
   });
   it("funnel: P-B meets HR+/HER2-low/metastatic/prior CDK4/6 but fails 'no prior ADC'", () => {
     const r = runFunnel([getStore().patients.get("P-B")!], PROTOCOL_ADC_301); expect(r.steps.find(s => s.id === "no_prior_adc")!.notMet).toBe(1);
+  });
+  it("funnel: verifyAtSite ECOG unknown keeps a met patient in finalMet and lists it as pending verification", () => {
+    const p = structuredClone(getStore().patients.get("P-B")!); p.treatments = p.treatments.filter(t => t.type !== "adc");
+    const r = runFunnel([p], PROTOCOL_ADC_301);
+    const ecog = r.steps.find(s => s.id === "ecog")!;
+    expect(ecog.unknown).toBe(1); expect(ecog.unknownReasons["数据源无 ECOG 字段"]).toBe(1);
+    expect(r.finalMet).toEqual(["P-B"]); expect(r.finalUnknown).toEqual([]);
+    expect(r.pendingVerification).toEqual([{ criterionId: "ecog", patientIds: ["P-B"] }]);
+  });
+  it("funnel: a patient unknown at her2_low stays unknown after the ECOG step", () => {
+    const p = structuredClone(getStore().patients.get("P-B")!); p.treatments = p.treatments.filter(t => t.type !== "adc");
+    p.biomarkers[1].her2Ihc = "2+"; p.biomarkers[1].ish = "not_done";
+    const r = runFunnel([p], PROTOCOL_ADC_301);
+    expect(r.finalUnknown).toEqual(["P-B"]); expect(r.finalMet).toEqual([]);
+    expect(r.pendingVerification.find(v => v.criterionId === "ecog")!.patientIds).toEqual([]);
+  });
+  it("funnel: whole cohort has candidates in finalMet", () => { expect(runFunnel(all(), PROTOCOL_ADC_301).finalMet.length).toBeGreaterThan(0); });
+  it("funnel: no_prior_adc is not_met when a dated ADC exists even if an undated one also exists", () => {
+    const p = structuredClone(getStore().patients.get("P-B")!); const adc = p.treatments.find(t => t.type === "adc")!;
+    p.treatments.push({ ...adc, id: "undated-adc", start: null, end: null, source: "external" });
+    const r = runFunnel([p], PROTOCOL_ADC_301); expect(r.steps.find(s => s.id === "no_prior_adc")!.notMet).toBe(1);
   });
   it("line gap statuses are exhaustive", () => { const s = lineGapStatus(all(), 1, "2026-10-13"); const n = all().filter(p => p.lines.length >= 1).length; expect(Object.values(s).reduce((a, b) => a + b, 0)).toBe(n); });
   it("quality returns rates in [0,1]", () => { const q = qualityMetrics(all()); for (const v of Object.values(q.completeness)) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); } });
