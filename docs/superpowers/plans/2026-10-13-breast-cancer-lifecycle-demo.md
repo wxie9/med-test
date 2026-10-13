@@ -124,7 +124,7 @@ med_Test/
 
 ```bash
 cd /Users/xue.w/Desktop/med_Test
-git init
+# git 已初始化（2026-10-13），跳过 git init
 npx create-next-app@15 . --ts --tailwind --eslint --app --src-dir=false --import-alias "@/*" --use-npm --yes
 ```
 若目录非空导致拒绝，先把 `docs/`、`tasks/`、`.claude/` 临时移到 `/tmp/med_keep`，脚手架完成后移回。
@@ -991,3 +991,615 @@ Run → Expected: 全部通过。
 ```bash
 git add lib/alerts tests/unit/alerts.test.ts && git commit -m "feat(alerts): PRO rules and alert state machine with escalation"
 ```
+
+---
+
+### Checkpoint A：基础层完成（Task 0–5）
+- [ ] `npm test` 全绿，`npm run build` 成功
+- [ ] `npm run seed` 两次 checksum 相同
+- [ ] `/api/state` 返回 2012 例患者（12 锚点 + 2000 队列）
+- [ ] 与项目方过一遍 `data/seed/anchors.json` 的 12 例临床合理性
+
+---
+
+### Task 6: 患者端主线 A（ePRO 提交 → 预警 → 反馈）
+
+**Files:**
+- Create: `app/patient/layout.tsx`, `app/patient/page.tsx`, `app/patient/pro/page.tsx`, `app/patient/plan/page.tsx`, `app/patient/adherence/page.tsx`, `app/patient/messages/page.tsx`, `app/api/pro/route.ts`, `components/PhoneFrame.tsx`, `lib/client/patientContext.tsx`, `lib/plan/followup.ts`
+- Test: `tests/unit/pro-route.test.ts`
+
+**Interfaces:**
+- Consumes: `evaluatePro`、`getStore`、`newId`、`now`、`isOffHours`。
+- Produces: `POST /api/pro` body `{ patientId, scaleId, items, flags }` → `{ proId, alerts: Alert[], offHours: boolean }`；`buildFollowUpPlan(p: Patient, today: string): { title: string; due: string; kind: "visit"|"lab"|"imaging"|"pro" }[]`；客户端 `PatientContext` 提供当前患者 ID（默认 `P-A`，可切 `P-B`）。
+
+- [ ] **Step 1: 失败测试（路由逻辑抽成纯函数以便测试）**
+
+把路由处理写在 `lib/pro/submit.ts` 的 `submitPro(input): Result`，`tests/unit/pro-route.test.ts`：
+```ts
+import { describe, it, expect, beforeEach } from "vitest";
+import { submitPro } from "@/lib/pro/submit";
+import { getStore, resetStore } from "@/lib/state/store";
+describe("submitPro", () => {
+  beforeEach(() => resetStore());
+  it("creates exactly two alerts for patient A story input", () => {
+    const r = submitPro({ patientId: "P-A", scaleId: "endocrine_monthly_v1", items: { 关节痛: 2, 潮热: 2, 情绪: 1, 睡眠: 1 }, flags: { missedDoses14d: 5, stopIntent: true } });
+    expect(r.alerts).toHaveLength(2); expect(getStore().alerts).toHaveLength(2); expect(getStore().alerts[0].status).toBe("unassigned");
+    expect(getStore().patients.get("P-A")!.pro.at(-1)!.id).toBe(r.proId);
+  });
+  it("off-hours high alert adds emergency message", () => {
+    process.env.DEMO_FIXED_NOW = "2026-10-13T21:00:00+08:00";
+    const r = submitPro({ patientId: "P-A", scaleId: "endocrine_monthly_v1", items: { 关节痛: 3 }, flags: {} });
+    expect(r.offHours).toBe(true); expect(getStore().messages.some(m => m.kind === "emergency")).toBe(true);
+    delete process.env.DEMO_FIXED_NOW;
+  });
+  it("rejects unknown patient", () => expect(() => submitPro({ patientId: "nope", scaleId: "endocrine_monthly_v1", items: {}, flags: {} })).toThrow());
+});
+```
+Run → FAIL。
+
+- [ ] **Step 2: 实现 submitPro 与路由**
+
+`lib/pro/submit.ts`：
+```ts
+import { getStore } from "@/lib/state/store";
+import { now, newId, isOffHours } from "@/lib/state/clock";
+import { evaluatePro } from "@/lib/alerts/rules";
+import { transition } from "@/lib/alerts/machine";
+import type { Alert, ProResponse } from "@/lib/domain/types";
+export function submitPro(input: { patientId: string; scaleId: ProResponse["scaleId"]; items: Record<string, number>; flags: ProResponse["flags"] }) {
+  const s = getStore(); const p = s.patients.get(input.patientId); if (!p) throw new Error("patient not found");
+  const at = now(); const pro: ProResponse = { id: newId("pro"), scaleId: input.scaleId, submittedAt: at, items: input.items, flags: input.flags };
+  p.pro.push(pro);
+  const alerts: Alert[] = evaluatePro(p, pro).map(a => transition({ ...a, id: newId("alert"), status: "triggered", assignee: null, timestamps: { triggered: at }, notes: [] }, "assign", "system", at));
+  s.alerts.push(...alerts);
+  const offHours = isOffHours(at);
+  if (alerts.length) s.messages.push({ id: newId("msg"), patientId: p.id, kind: offHours && alerts.some(a => a.level === "high") ? "emergency" : "alert_feedback", at,
+    text: offHours && alerts.some(a => a.level === "high") ? "当前为非服务时段。若症状加重请前往急诊，值班电话 021-0000-0000（演示）。个案管理师将在下一个工作日联系您。" : "已收到您的报告，个案管理师将在 1 个工作日内联系您。" });
+  return { proId: pro.id, alerts, offHours };
+}
+```
+`app/api/pro/route.ts`：解析 body 用 zod（`patientId: string, scaleId: enum, items: record(number), flags: object`），调用 `submitPro`，错误返回 400。
+Run → 3 passed。
+
+- [ ] **Step 3: 随访计划生成**
+
+`lib/plan/followup.ts`：
+```ts
+import type { Patient } from "@/lib/domain/types";
+import { addDays } from "@/lib/domain/dates";
+export function buildFollowUpPlan(p: Patient, today: string) {
+  const items: { title: string; due: string; kind: "visit" | "lab" | "imaging" | "pro" }[] = [];
+  if (p.stage === "early_adjuvant") {
+    items.push({ title: "每月症状与用药问卷", due: addDays(today, 30), kind: "pro" });
+    items.push({ title: "乳腺外科随访门诊（每 6 个月）", due: addDays(p.surgeryDate ?? today, 180 * (Math.floor(((Date.parse(today) - Date.parse(p.surgeryDate ?? today)) / 86_400_000) / 180) + 1)), kind: "visit" });
+    items.push({ title: "乳腺超声/钼靶（每年）", due: addDays(p.surgeryDate ?? today, 365), kind: "imaging" });
+    if (p.treatments.some(t => t.type === "endocrine" && t.drug?.includes("唑"))) items.push({ title: "骨密度检查（每年）", due: addDays(today, 90), kind: "lab" });
+  } else if (p.stage === "metastatic") {
+    items.push({ title: "每周症状问卷", due: addDays(today, 7), kind: "pro" });
+    items.push({ title: "下周期治疗前血常规、肝肾功能", due: addDays(today, 14), kind: "lab" });
+    items.push({ title: "疗效评估影像（每 2–3 周期）", due: addDays(today, 60), kind: "imaging" });
+  }
+  return items.sort((a, b) => a.due.localeCompare(b.due));
+}
+```
+
+- [ ] **Step 4: 患者端页面**
+
+- `components/PhoneFrame.tsx`：390×844 的圆角容器，内含状态栏与底部 Tab（首页/问卷/计划/打卡/消息/管家）。
+- `app/patient/layout.tsx`：`PatientContext`（当前患者 ID，顶部有"切换演示患者 A/B"），所有子页包在 `PhoneFrame` 内。
+- `app/patient/page.tsx`：姓名化名（患者 A 显示"王女士"，B 显示"李女士"）、阶段、当前治疗、下一个随访项、未读消息数。
+- `app/patient/pro/page.tsx`：按 `scaleId`（A→`endocrine_monthly_v1`，B→`treatment_weekly_v1`）渲染 0–3 分滑块问卷；标注"演示用自拟问卷，非标准量表"；A 额外有"过去两周漏服次数"数字框与"是否有停药念头"开关；提交 POST `/api/pro`，成功后显示返回的反馈文案并跳转消息页。
+- `app/patient/plan/page.tsx`：`buildFollowUpPlan` 列表。
+- `app/patient/adherence/page.tsx`：近 60 天打卡日历（取 `adherence`），"今日已服"按钮 POST 同一路由的简化版（可直接在 `/api/pro` 旁加 `/api/adherence` POST `{patientId, taken}`）。
+- `app/patient/messages/page.tsx`：`messages` 按患者过滤倒序。
+
+- [ ] **Step 5: 手动验证**
+
+Run `npm run demo`：以患者 A 提交故事线问卷（关节痛 2、潮热 2、漏服 5、停药念头 是）→ 消息页出现反馈；`/api/state` 中 `alerts` 长度 2。切换到患者 B，提交周度问卷 → 无高级预警时仅反馈文案。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add -A && git commit -m "feat(patient): phone-framed patient views, ePRO submit creating alerts"
+```
+
+---
+
+### Task 7: 医生工作台（预警队列 → 时间轴 → 处置闭环）
+
+**Files:**
+- Create: `app/clinic/layout.tsx`, `app/clinic/alerts/page.tsx`, `app/clinic/patients/page.tsx`, `app/clinic/patients/[id]/page.tsx`, `app/clinic/tasks/page.tsx`, `app/api/alerts/[id]/route.ts`, `app/api/tasks/route.ts`, `components/AlertQueue.tsx`, `components/Timeline.tsx`, `components/ProTrend.tsx`, `lib/clinic/actions.ts`
+- Test: `tests/unit/clinic-actions.test.ts`
+
+**Interfaces:**
+- Consumes: `transition`、`checkEscalations`、`buildFollowUpPlan`。
+- Produces: `PATCH /api/alerts/:id` body `{ action, by, note? }` → Alert；`POST /api/tasks` body `{ patientId, type, due, owner }`；`closeAlertWithTask(alertId, by, note, task): { alert, task, message }`（关闭预警时同时建任务并给患者发 `plan_update` 消息）；`GET /api/state` 已含 `tasks`。
+
+- [ ] **Step 1: 失败测试**
+
+`tests/unit/clinic-actions.test.ts`：
+```ts
+import { describe, it, expect, beforeEach } from "vitest";
+import { submitPro } from "@/lib/pro/submit";
+import { actOnAlert, closeAlertWithTask } from "@/lib/clinic/actions";
+import { getStore, resetStore } from "@/lib/state/store";
+describe("clinic actions", () => {
+  beforeEach(() => resetStore());
+  it("full loop writes feedback message to patient", () => {
+    const { alerts } = submitPro({ patientId: "P-A", scaleId: "endocrine_monthly_v1", items: { 关节痛: 2 }, flags: { missedDoses14d: 5 } });
+    const id = alerts[1].id;
+    actOnAlert(id, "accept", "个案管理师小陈"); actOnAlert(id, "start", "个案管理师小陈", "电话沟通：关节痛导致漏服"); actOnAlert(id, "submit_review", "个案管理师小陈");
+    const r = closeAlertWithTask(id, "张医生", "建议加用对症处理，2 周后复评", { type: "复评", due: "2026-10-27", owner: "个案管理师小陈" });
+    expect(r.alert.status).toBe("closed"); expect(getStore().tasks).toHaveLength(1); expect(getStore().messages.at(-1)!.kind).toBe("plan_update");
+  });
+  it("invalid action returns error, state unchanged", () => {
+    const { alerts } = submitPro({ patientId: "P-A", scaleId: "endocrine_monthly_v1", items: { 关节痛: 3 }, flags: {} });
+    expect(() => actOnAlert(alerts[0].id, "close", "x")).toThrow(); expect(getStore().alerts[0].status).toBe("unassigned");
+  });
+});
+```
+Run → FAIL。
+
+- [ ] **Step 2: 实现 actions 与路由**
+
+`lib/clinic/actions.ts`：
+```ts
+import { getStore } from "@/lib/state/store";
+import { now, newId } from "@/lib/state/clock";
+import { transition } from "@/lib/alerts/machine";
+export function actOnAlert(id: string, action: Parameters<typeof transition>[1], by: string, note?: string) {
+  const s = getStore(); const i = s.alerts.findIndex(a => a.id === id); if (i < 0) throw new Error("alert not found");
+  s.alerts[i] = transition(s.alerts[i], action, by, now(), note); return s.alerts[i];
+}
+export function closeAlertWithTask(id: string, by: string, note: string, task: { type: string; due: string; owner: string }) {
+  const s = getStore(); const alert = actOnAlert(id, "close", by, note);
+  const t = { id: newId("task"), patientId: alert.patientId, type: task.type, due: task.due, owner: task.owner, status: "open" as const, createdAt: now() };
+  s.tasks.push(t);
+  const message = { id: newId("msg"), patientId: alert.patientId, kind: "plan_update" as const, at: now(), text: `医生已处理您的报告：${note}。新增随访：${task.type}（${task.due}）。` };
+  s.messages.push(message); return { alert, task: t, message };
+}
+```
+`app/api/alerts/[id]/route.ts` PATCH：body `{ action, by, note?, task? }`，`action === "close"` 且带 `task` 时走 `closeAlertWithTask`，否则 `actOnAlert`；错误 400。`GET /api/alerts` 可选：先对 `s.alerts` 跑 `checkEscalations(s.alerts, now())` 写回再返回（也可在 `/api/state` 中统一做）。
+Run → 2 passed。
+
+- [ ] **Step 3: 页面与组件**
+
+- `app/clinic/layout.tsx`：左侧导航（预警队列 / 患者列表 / 随访任务 / 队列圈选 / 候选核查），顶部身份切换"个案管理师小陈 / 张医生"（存 localStorage，仅影响 `by` 字段）。
+- `components/AlertQueue.tsx`：按 level 降序、时间升序；列：患者、类型、等级、规则、状态、责任人、首响应时长；行内按钮按当前状态只显示合法动作（接单 / 开始处置 / 提交复核 / 关闭）。关闭弹出表单：处置说明 + 随访任务类型 + 到期日。
+- `app/clinic/alerts/page.tsx`：队列 + 顶部指标卡（高/中级首响应 P50/P90、逾期未处理数、本周关闭数，用 `alerts` 的 timestamps 计算，放 `lib/compute/alertMetrics.ts`）。
+- `components/Timeline.tsx`：横向时间轴，分层泳道：标本/分型（显示每次 IHC/ISH 原始结果与派生分类）、分期、治疗事件（按意图着色，系统治疗线编号标在转移性事件上方）、结局事件、PRO 提交点。
+- `components/ProTrend.tsx`：Recharts 折线，按条目分色。
+- `app/clinic/patients/[id]/page.tsx`：基本信息、同意状态、Timeline、ProTrend、依从日历、该患者的预警与任务、医生助手面板占位（Task 11 填充）。
+- `app/clinic/patients/page.tsx`：可按阶段过滤的患者表，锚点患者置顶并带"锚点"标签。
+- `app/clinic/tasks/page.tsx`：任务表，可标记完成（PATCH `/api/tasks/:id`）。
+
+- [ ] **Step 4: 手动验证**
+
+患者 A 提交问卷后，在预警队列以个案管理师接单、处置、提交复核；切换张医生关闭并建任务；患者端消息页出现"医生已处理…"，预警状态"已关闭"。患者 B 页面时间轴显示原发 IHC 0 与转移灶 1+ 两条标本记录，且二线 ADC 标为 L2。
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add -A && git commit -m "feat(clinic): alert queue with state machine actions, patient timeline, tasks"
+```
+
+---
+
+### Task 8: 队列圈选 → 数据治理 → 研究快照
+
+**Files:**
+- Create: `app/clinic/cohorts/page.tsx`, `app/governance/page.tsx`, `app/governance/snapshots/page.tsx`, `app/governance/his/page.tsx`, `app/api/cohorts/route.ts`, `app/api/snapshots/route.ts`, `lib/governance/snapshot.ts`
+- Test: `tests/unit/snapshot.test.ts`
+
+**Interfaces:**
+- Consumes: `applyFilter`、`qualityMetrics`。
+- Produces: `createCohort(name, filter, by): Cohort`；`submitCohort(id): Cohort`；`createSnapshot(cohortId, cutoff): ResearchSnapshot`（深拷贝患者，剔除 `consent.pharmaDeidentified === false` 者，去掉 `anchorKey`/`expertNote`，重算 `quality`）；`POST /api/cohorts` `{ name, filter, by }`；`PATCH /api/cohorts/:id` `{ action: "submit" }`；`POST /api/snapshots` `{ cohortId, cutoff }`。
+
+- [ ] **Step 1: 失败测试**
+
+`tests/unit/snapshot.test.ts`：
+```ts
+import { describe, it, expect, beforeEach } from "vitest";
+import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
+import { getStore, resetStore } from "@/lib/state/store";
+describe("snapshot", () => {
+  beforeEach(() => resetStore());
+  it("is immutable against later clinical edits", () => {
+    const c = createCohort("HER2低表达转移性", { hrPositive: true, her2: ["low"], stage: ["metastatic"], priorCdk46: true }, "张医生"); submitCohort(c.id);
+    const snap = createSnapshot(c.id, "2026-10-13"); const before = JSON.stringify(snap);
+    const live = getStore().patients.get(snap.patients[0].id)!; live.treatments.push({ id: "new", type: "chemo", intent: "metastatic", drug: "x", start: "2026-10-14", end: null, stopReason: "ongoing", source: "in_house" });
+    expect(JSON.stringify(getStore().snapshots[0])).toBe(before);
+  });
+  it("excludes patients without pharma consent and strips anchor fields", () => {
+    const c = createCohort("all", {}, "x"); submitCohort(c.id); const snap = createSnapshot(c.id, "2026-10-13");
+    expect(snap.patients.every(p => p.consent.pharmaDeidentified)).toBe(true); expect(snap.patients.every(p => p.anchorKey === null && !p.expertNote)).toBe(true);
+  });
+  it("snapshot requires submitted cohort", () => { const c = createCohort("d", {}, "x"); expect(() => createSnapshot(c.id, "2026-10-13")).toThrow(); });
+});
+```
+Run → FAIL。
+
+- [ ] **Step 2: 实现**
+
+`lib/governance/snapshot.ts`：
+```ts
+import { getStore } from "@/lib/state/store";
+import { now, newId } from "@/lib/state/clock";
+import { applyFilter, qualityMetrics } from "@/lib/compute";
+import type { CohortFilter } from "@/lib/domain/types";
+export function createCohort(name: string, filter: CohortFilter, createdBy: string) {
+  const s = getStore(); const patientIds = applyFilter([...s.patients.values()], filter).map(p => p.id);
+  const c = { id: newId("cohort"), name, filter, createdBy, createdAt: now(), patientIds, status: "draft" as const }; s.cohorts.push(c); return c;
+}
+export function submitCohort(id: string) { const s = getStore(); const c = s.cohorts.find(x => x.id === id); if (!c) throw new Error("cohort not found"); c.status = "submitted"; return c; }
+export function createSnapshot(cohortId: string, cutoff: string) {
+  const s = getStore(); const c = s.cohorts.find(x => x.id === cohortId); if (!c || c.status !== "submitted") throw new Error("cohort must be submitted");
+  const patients = c.patientIds.map(id => s.patients.get(id)!).filter(p => p.consent.pharmaDeidentified).map(p => { const q = structuredClone(p); q.anchorKey = null; delete q.expertNote; return q; });
+  const q = qualityMetrics(patients);
+  const snap = { id: `SNAP-${cutoff}-v${s.snapshots.length + 1}`, cohortId, cutoff, createdAt: now(), patients, quality: { subtype: q.completeness.subtype, stage: q.completeness.stage, lines: q.completeness.lines, lineReviewRate: q.lineReviewRate, n: q.n } };
+  s.snapshots.push(Object.freeze(snap)); return snap;
+}
+```
+Run → 3 passed。
+
+- [ ] **Step 3: 页面**
+
+- `app/clinic/cohorts/page.tsx`：筛选表单（HR 阳性、HER2 分类多选、阶段多选、CDK4/6 经治、当前治疗类型），实时显示人数（调用 `POST /api/cohorts/preview` 或在页面取 state 后用 `applyFilter` 的服务端路由），"保存并提交数据治理"。
+- `app/governance/page.tsx`：待处理候选队列列表；每个队列显示 `qualityMetrics`（字段完整率三项、治疗线复核率、同意三项各自比例）、"创建研究快照"（输入数据截止日，默认 manifest.cutoff）。还显示 `gapTasks`（Task 11 产生）。
+- `app/governance/snapshots/page.tsx`：快照列表，显示 n、创建时间、质量指标，标注"不可变"。
+- `app/governance/his/page.tsx`：[模拟] HIS/EMR 接口状态页：三条接口卡片（HIS 患者主索引、EMR 病理报告、LIS 检验）显示"演示环境：未连接（计划 Phase 2）"。
+
+- [ ] **Step 4: 手动验证与提交**
+
+在医生工作台圈选 HER2 低表达转移性队列并提交；在治理台看到质量指标并创建快照；在患者 B 时间轴上新增任何操作后快照页 n 不变。
+```bash
+git add -A && git commit -m "feat(governance): cohort selection, quality metrics, immutable research snapshots"
+```
+
+---
+
+### Checkpoint B：临床闭环与治理完成（Task 6–8）
+- [ ] 主线 A 与主线 C 可在浏览器完整走通
+- [ ] `npm test` 全绿
+- [ ] 与项目方确认预警等级规则与时间轴展示
+
+---
+
+### Task 9: 药企研究门户（三个用例）
+
+**Files:**
+- Create: `app/research/layout.tsx`, `app/research/page.tsx`, `app/research/[snapshotId]/overview/page.tsx`, `app/research/[snapshotId]/patterns/page.tsx`, `app/research/[snapshotId]/feasibility/page.tsx`, `app/research/[snapshotId]/adherence/page.tsx`, `app/research/sandbox/page.tsx`, `app/api/research/[useCase]/route.ts`, `components/Watermark.tsx`, `components/FunnelChart.tsx`, `components/PatternChart.tsx`, `components/StatFooter.tsx`
+- Test: `tests/unit/research-route.test.ts`
+
+**Interfaces:**
+- Consumes: `treatmentPatterns`、`lineGapStatus`、`runFunnel`、`PROTOCOL_ADC_301`、`adherenceStats`。
+- Produces: `GET /api/research/:useCase?snapshotId=…` 其中 `useCase ∈ overview | patterns | feasibility | adherence`；`researchUseCase(useCase, snapshotId)` 纯函数返回对应 JSON，`overview` 返回 `{ n, events: { metastasis, progression, death }, followUpMonths: { median, p25, p75 }, missing: { ish: number, stopReason: number, externalNoDate: number } }`。
+
+- [ ] **Step 1: 失败测试**
+
+`tests/unit/research-route.test.ts`：
+```ts
+import { describe, it, expect, beforeEach } from "vitest";
+import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
+import { researchUseCase } from "@/lib/research/usecases";
+import { resetStore } from "@/lib/state/store";
+describe("research use cases", () => {
+  let snapId: string;
+  beforeEach(() => { resetStore(); const c = createCohort("m", { stage: ["metastatic", "deceased"] }, "x"); submitCohort(c.id); snapId = createSnapshot(c.id, "2026-10-13").id; });
+  it("overview counts match snapshot", () => { const o = researchUseCase("overview", snapId); expect(o.n).toBeGreaterThan(0); expect(o.events.metastasis).toBe(o.n); });
+  it("feasibility funnel steps are exhaustive per step", () => { const f = researchUseCase("feasibility", snapId); for (const s of f.steps) expect(s.met + s.notMet + s.unknown).toBeGreaterThan(0); });
+  it("unknown snapshot throws", () => expect(() => researchUseCase("overview", "nope")).toThrow());
+  it("overview with <10 deaths marks survival as not estimable", () => { const o = researchUseCase("overview", snapId); expect(typeof o.survivalEstimable).toBe("boolean"); });
+});
+```
+Run → FAIL。
+
+- [ ] **Step 2: 实现 usecases**
+
+`lib/research/usecases.ts`：
+```ts
+import { getStore } from "@/lib/state/store";
+import { treatmentPatterns, lineGapStatus, runFunnel, PROTOCOL_ADC_301, adherenceStats } from "@/lib/compute";
+import { diffDays } from "@/lib/domain/dates";
+export type UseCase = "overview" | "patterns" | "feasibility" | "adherence";
+const q = (arr: number[], p: number) => { const s = [...arr].sort((a, b) => a - b); return s.length ? s[Math.floor((s.length - 1) * p)] : 0; };
+export function researchUseCase(useCase: UseCase, snapshotId: string): any {
+  const snap = getStore().snapshots.find(s => s.id === snapshotId); if (!snap) throw new Error("snapshot not found");
+  const ps = snap.patients;
+  if (useCase === "overview") {
+    const fu = ps.map(p => diffDays(p.enrolledAt, p.lastContact) / 30.4);
+    const deaths = ps.filter(p => p.outcomes.some(o => o.type === "death")).length;
+    return { n: ps.length, events: { metastasis: ps.filter(p => p.outcomes.some(o => o.type === "distant_metastasis")).length, progression: ps.filter(p => p.outcomes.some(o => o.type === "progression")).length, death: deaths },
+      followUpMonths: { median: q(fu, 0.5), p25: q(fu, 0.25), p75: q(fu, 0.75) }, survivalEstimable: deaths >= 10,
+      missing: { ish: ps.filter(p => p.biomarkers.some(b => b.her2Ihc === "2+" && b.ish === "not_done")).length, stopReason: ps.filter(p => p.treatments.some(t => t.stopReason === "unknown")).length, externalNoDate: ps.filter(p => p.treatments.some(t => t.source === "external" && t.start === null)).length } };
+  }
+  if (useCase === "patterns") return { patterns: treatmentPatterns(ps), gapAfterLine1: lineGapStatus(ps, 1, snap.cutoff), gapAfterLine2: lineGapStatus(ps, 2, snap.cutoff), cutoff: snap.cutoff };
+  if (useCase === "feasibility") return { protocol: "XX-ADC-301（虚构）", ...runFunnel(ps, PROTOCOL_ADC_301) };
+  if (useCase === "adherence") return adherenceStats(ps);
+  throw new Error("unknown use case");
+}
+```
+`app/api/research/[useCase]/route.ts`：读 `snapshotId` 查询参数，调用 `researchUseCase`，错误 400/404。
+Run → 4 passed。
+
+- [ ] **Step 3: 页面与组件**
+
+- `components/Watermark.tsx`：固定定位、半透明重复文字"合成数据，仅用于演示"，在 `app/research/layout.tsx` 全局挂载。
+- `components/StatFooter.tsx`：每张图下方显示"n=…，事件数=…，随访中位…个月，数据截止…"。
+- `app/research/page.tsx`：快照选择列表（无快照时提示"请先在数据治理台创建快照"）。
+- `overview`：四个指标卡 + 随访时长分布条 + 缺失概况表；`survivalEstimable === false` 时显示灰色卡片"生存曲线：事件数 < 10，不可估计"。
+- `patterns`：`PatternChart`（横向条形图，序列路径为标签，count 为值，取前 10）+ 两张互斥五态堆叠条（一线后 / 二线后）。
+- `feasibility`：`FunnelChart`（每步三色堆叠：符合 / 不符合 / 信息不足）+ 右侧"信息不足原因"表 + 底部"符合已知条件 N 例，仍需医生核查"与按钮"申请候选患者核查"（Task 10 接通）。
+- `adherence`：漏服原因饼图、停药念头比例、平均服药率，标题带"合成数据，关联不构成发现"。
+- `app/research/sandbox/page.tsx`：[后续] 说明页。
+
+- [ ] **Step 4: 手动验证与提交**
+
+创建快照后三页均有数据且 StatFooter 的 n 与治理台快照 n 一致；`expected.json` 的 `hrpos_her2low_metastatic_cdk46` 人数与圈选页显示一致。
+```bash
+git add -A && git commit -m "feat(research): snapshot-based overview, patterns, three-state feasibility funnel, adherence"
+```
+
+---
+
+### Task 10: 候选核查闭环（药企 → 医生确认 → 患者收到研究机会）
+
+**Files:**
+- Create: `app/api/candidates/route.ts`, `app/api/candidates/[id]/route.ts`, `app/clinic/candidates/page.tsx`, `lib/research/candidates.ts`, `app/patient/research/page.tsx`
+- Modify: `app/research/[snapshotId]/feasibility/page.tsx`（按钮接通）
+- Test: `tests/unit/candidates.test.ts`
+
+**Interfaces:**
+- Produces: `requestCandidates(snapshotId, protocolId): CandidateRequest`（候选 = `runFunnel(...).finalMet`，药企端只看到数量与请求 ID）；`confirmCandidate(requestId, patientId, status: "confirmed"|"rejected", by): CandidateRequest`（确认时向患者发 `research_opportunity` 消息）；`POST /api/candidates` `{ snapshotId, protocolId }`；`PATCH /api/candidates/:id` `{ patientId, status, by }`。
+
+- [ ] **Step 1: 失败测试**
+
+`tests/unit/candidates.test.ts`：
+```ts
+import { describe, it, expect, beforeEach } from "vitest";
+import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
+import { requestCandidates, confirmCandidate } from "@/lib/research/candidates";
+import { getStore, resetStore } from "@/lib/state/store";
+describe("candidates", () => {
+  beforeEach(() => resetStore());
+  it("confirm sends research opportunity message to patient", () => {
+    const c = createCohort("m", { stage: ["metastatic"], priorCdk46: true }, "x"); submitCohort(c.id); const snap = createSnapshot(c.id, "2026-10-13");
+    const req = requestCandidates(snap.id, "XX-ADC-301"); expect(req.candidates.length).toBeGreaterThan(0);
+    const pid = req.candidates[0].patientId; confirmCandidate(req.id, pid, "confirmed", "张医生");
+    expect(getStore().messages.some(m => m.patientId === pid && m.kind === "research_opportunity")).toBe(true);
+  });
+  it("research API response never includes patient ids", () => {
+    const c = createCohort("m", { stage: ["metastatic"] }, "x"); submitCohort(c.id); const snap = createSnapshot(c.id, "2026-10-13");
+    const req = requestCandidates(snap.id, "XX-ADC-301"); const { candidates, ...pharmaView } = req; expect(JSON.stringify(pharmaView)).not.toMatch(/P-\d{4}/);
+  });
+});
+```
+Run → FAIL。
+
+- [ ] **Step 2: 实现**
+
+`lib/research/candidates.ts`：
+```ts
+import { getStore } from "@/lib/state/store";
+import { now, newId } from "@/lib/state/clock";
+import { runFunnel, PROTOCOL_ADC_301 } from "@/lib/compute";
+export function requestCandidates(snapshotId: string, protocolId: string) {
+  const s = getStore(); const snap = s.snapshots.find(x => x.id === snapshotId); if (!snap) throw new Error("snapshot not found");
+  const { finalMet } = runFunnel(snap.patients, PROTOCOL_ADC_301);
+  const req = { id: newId("cand"), snapshotId, protocolId, candidates: finalMet.map(patientId => ({ patientId, status: "pending" as const })), createdAt: now() };
+  s.candidateRequests.push(req); return req;
+}
+export function pharmaView(req: ReturnType<typeof requestCandidates>) { return { id: req.id, snapshotId: req.snapshotId, protocolId: req.protocolId, total: req.candidates.length, confirmed: req.candidates.filter(c => c.status === "confirmed").length, createdAt: req.createdAt }; }
+export function confirmCandidate(requestId: string, patientId: string, status: "confirmed" | "rejected", by: string) {
+  const s = getStore(); const req = s.candidateRequests.find(r => r.id === requestId); if (!req) throw new Error("request not found");
+  const c = req.candidates.find(x => x.patientId === patientId); if (!c) throw new Error("candidate not found"); c.status = status;
+  if (status === "confirmed") s.messages.push({ id: newId("msg"), patientId, kind: "research_opportunity", at: now(), text: `${by}认为有一项临床研究（${req.protocolId}）可能适合您，请在下次门诊时咨询或点击预约。` });
+  return req;
+}
+```
+路由：`POST /api/candidates` 返回 `pharmaView(req)`；`PATCH /api/candidates/:id` 返回完整 req（医生端）。
+Run → 2 passed。
+
+- [ ] **Step 3: 页面**
+
+- 研究门户 feasibility 页按钮 → POST，显示"已向科室发出候选核查请求（N 例）"，并在页面轮询显示"已确认 M 例"。
+- `app/clinic/candidates/page.tsx`：请求列表，展开后逐例显示患者 ID、关键字段摘要（分型、当前线、最近 PRO），按钮"确认 / 不适合"。
+- `app/patient/research/page.tsx`：显示 `research_opportunity` 消息与"预约门诊"按钮（[模拟] 点击后显示"已提交预约申请（演示）"）。
+
+- [ ] **Step 4: 手动验证与提交**
+
+从研究门户发请求 → 医生确认患者 B（若 B 不在 finalMet 因"无 ADC 既往"不符合，则演示脚本改为确认任一候选患者并把患者端切换到该患者；在演示脚本中注明）。注意：规格第 2 节闭环以患者 B 收到机会为例，但 B 已在 ADC 治疗，不符合虚构方案；**演示脚本改为确认一例符合的合成患者，并在患者端切换至该患者**。
+```bash
+git add -A && git commit -m "feat(candidates): pharma request → clinician confirm → patient research opportunity"
+```
+
+---
+
+### Task 11: 智能体层（适配、工具、降级、三端面板）
+
+**Files:**
+- Create: `lib/agents/adapter.ts`, `lib/agents/providers/claude.ts`, `lib/agents/providers/openai.ts`, `lib/agents/providers/deterministic.ts`, `lib/agents/tools.ts`, `lib/agents/templates.ts`, `lib/agents/validate.ts`, `data/seed/guidelines.json`, `app/api/agent/route.ts`, `components/AgentPanel.tsx`, `app/patient/assistant/page.tsx`
+- Modify: `app/clinic/patients/[id]/page.tsx`、`app/research/[snapshotId]/feasibility/page.tsx`（嵌入 AgentPanel）
+- Test: `tests/unit/agents.test.ts`
+
+**Interfaces:**
+- Produces: `chat(req: ChatRequest): Promise<ChatResponse>`，`ChatRequest = { agent: "patient"|"doctor"|"research"; messages: {role:"user"|"assistant"; content:string}[]; context: { patientId?: string; snapshotId?: string; filter?: CohortFilter; page: string } }`，`ChatResponse = { text: string; mode: "deterministic"|"claude"|"openai"; degraded?: string; citations: { id: string; title: string; version: string }[]; toolCalls: { name: string; args: any; result: any }[] }`；工具：`get_patient_summary(patientId)`、`get_followup_plan(patientId)`、`search_guidelines(query)`、`ctcae_grade(symptom, grade)`、`count_cohort(snapshotId, filter)`、`funnel(snapshotId)`、`gap_reasons(snapshotId)`、`create_gap_task(snapshotId, field)`；`validateResponse(resp, knownCitationIds, toolNumbers): { ok: boolean; reason?: string }`。
+- 快捷问题（每个助手按页面给 3 条，自由输入保留）：患者（"我最近关节痛，能不能先停药？" / "下次要做什么检查？" / "参加临床研究需要注意什么？"）；医生（"总结这位患者的治疗经过" / "当前线不良事件按 CTCAE 如何分级记录？" / "指南对 CDK4/6 后 HER2 低表达的推荐是什么？"）；研究（"信息不足中最主要的原因是什么，补齐需要什么数据？" / "符合已知条件的有多少例？" / "一线后进入二线的比例？"）。
+
+- [ ] **Step 1: 指南要点库**
+
+`data/seed/guidelines.json`：30 条 `{ id: "G-001", topic: "HER2低表达", text: "…要点转述…", source: "CSCO 乳腺癌诊疗指南", version: "2026", population: "HR+/HER2 低表达晚期", reviewed: false }`，覆盖：辅助内分泌疗程与依从、AI 类关节痛处理、骨健康、CDK4/6 后治疗选择、HER2 低表达 ADC 推荐级别、ADC 常见不良事件分级与处理、随访频率、转移灶再活检、BRCA 检测时机、临床研究知情要点。页面标注"待专家审阅"。
+
+- [ ] **Step 2: 失败测试**
+
+`tests/unit/agents.test.ts`：
+```ts
+import { describe, it, expect, beforeEach } from "vitest";
+import { chat } from "@/lib/agents/adapter";
+import { validateResponse } from "@/lib/agents/validate";
+import { resetStore, getStore } from "@/lib/state/store";
+import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
+describe("agents", () => {
+  beforeEach(() => { resetStore(); delete process.env.DEMO_CLAUDE_API_KEY; delete process.env.DEMO_OPENAI_API_KEY; });
+  it("deterministic patient assistant refuses stop-medication and routes to doctor", async () => {
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "我最近关节痛，能不能先停药？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(r.mode).toBe("deterministic"); expect(r.text).toMatch(/医生确认|门诊/); expect(r.text).not.toMatch(/可以停药/);
+  });
+  it("research assistant numbers come from tools and differ by snapshot", async () => {
+    const c1 = createCohort("a", { stage: ["metastatic"] }, "x"); submitCohort(c1.id); const s1 = createSnapshot(c1.id, "2026-10-13");
+    const c2 = createCohort("b", { stage: ["early_adjuvant"] }, "x"); submitCohort(c2.id); const s2 = createSnapshot(c2.id, "2026-10-13");
+    const r1 = await chat({ agent: "research", messages: [{ role: "user", content: "符合已知条件的有多少例？" }], context: { snapshotId: s1.id, page: "feasibility" } });
+    const r2 = await chat({ agent: "research", messages: [{ role: "user", content: "符合已知条件的有多少例？" }], context: { snapshotId: s2.id, page: "feasibility" } });
+    expect(r1.toolCalls[0].name).toBe("funnel"); expect(r1.text).not.toBe(r2.text);
+  });
+  it("gap question creates a DataGapTask", async () => {
+    const c = createCohort("a", { stage: ["metastatic"] }, "x"); submitCohort(c.id); const s = createSnapshot(c.id, "2026-10-13");
+    await chat({ agent: "research", messages: [{ role: "user", content: "信息不足中最主要的原因是什么，补齐需要什么数据？" }], context: { snapshotId: s.id, page: "feasibility" } });
+    expect(getStore().gapTasks.length).toBe(1);
+  });
+  it("doctor assistant says 未找到依据 when guideline search is empty", async () => {
+    const r = await chat({ agent: "doctor", messages: [{ role: "user", content: "指南对火星人乳腺癌的推荐？" }], context: { patientId: "P-B", page: "patient" } });
+    expect(r.text).toMatch(/未找到依据/);
+  });
+  it("validateResponse rejects unknown citation and fabricated number", () => {
+    expect(validateResponse({ text: "共 999 例", citations: [{ id: "G-404", title: "", version: "" }], toolCalls: [] } as any, new Set(["G-001"]), new Set([12])).ok).toBe(false);
+  });
+  it("provider failure degrades within 8s and keeps conversation", async () => {
+    process.env.DEMO_OPENAI_API_KEY = "bad"; process.env.DEMO_OPENAI_BASE_URL = "http://127.0.0.1:9"; process.env.DEMO_OPENAI_MODEL = "x";
+    const t = Date.now(); const r = await chat({ agent: "patient", messages: [{ role: "user", content: "下次要做什么检查？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(Date.now() - t).toBeLessThan(8000); expect(r.mode).toBe("deterministic"); expect(r.degraded).toBeTruthy();
+  });
+});
+```
+Run → FAIL。
+
+- [ ] **Step 3: 工具与模板**
+
+`lib/agents/tools.ts`：每个工具 `{ name, description, schema: zod, run(args): any }`，`run` 只调用 `lib/compute`、`getStore`、`buildFollowUpPlan`、指南库检索（按 topic/text 的子串匹配，无命中返回 `[]`）。`create_gap_task` 把 `{ source: snapshotId, field, patientCount, status: "open" }` 推入 `gapTasks`。
+`lib/agents/templates.ts`：`pickTemplate(agent, page, userText): TemplateId`（按关键词匹配，如 "停药"→`patient_stop_med`、"检查"→`patient_next_visit`、"多少例"→`research_count`、"原因"→`research_gap`、"分级"→`doctor_ctcae`、"指南"→`doctor_guideline`、"总结"→`doctor_summary`；无匹配→`generic_boundary`），`renderTemplate(id, toolResults): string`，模板数字槽位全部来自 `toolResults`。`generic_boundary` 文案："这个问题超出了演示助手的范围。您可以尝试下方的快捷问题，或联系您的医生/个案管理师。"
+`lib/agents/providers/deterministic.ts`：`run(req)`：决定模板 → 执行该模板所需工具 → 渲染。
+`lib/agents/validate.ts`：
+```ts
+export function validateResponse(resp: { text: string; citations: { id: string }[]; toolCalls: { result: any }[] }, knownCitationIds: Set<string>, toolNumbers: Set<number>) {
+  for (const c of resp.citations) if (!knownCitationIds.has(c.id)) return { ok: false, reason: `unknown citation ${c.id}` };
+  const nums = [...resp.text.matchAll(/(\d+(?:\.\d+)?)\s*(例|人|%)/g)].map(m => Number(m[1]));
+  for (const n of nums) if (!toolNumbers.has(n)) return { ok: false, reason: `number ${n} not from tools` };
+  return { ok: true };
+}
+```
+`collectToolNumbers(toolCalls)`：递归收集 result 中所有数值（含百分比四舍五入到 1 位小数）。
+
+- [ ] **Step 4: 提供商与适配器**
+
+`providers/claude.ts`：`fetch("https://api.anthropic.com/v1/messages", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01" }, body: { model: "claude-sonnet-5-5", max_tokens: 800, system, tools, messages } })`，处理 `tool_use` 循环最多 3 轮；`providers/openai.ts`：`${base}/chat/completions` 带 `tools` 的 function calling，同样最多 3 轮。两者都用 `AbortSignal.timeout(8000)`。
+`adapter.ts`：
+```ts
+export async function chat(req: ChatRequest): Promise<ChatResponse> {
+  const mode = process.env.DEMO_CLAUDE_API_KEY ? "claude" : process.env.DEMO_OPENAI_API_KEY ? "openai" : "deterministic";
+  if (mode === "deterministic") return { ...(await deterministic.run(req)), mode };
+  try {
+    const out = await (mode === "claude" ? claude.run(req) : openai.run(req));
+    const v = validateResponse(out, guidelineIds(), collectToolNumbers(out.toolCalls));
+    if (!v.ok) throw new Error(`validation: ${v.reason}`);
+    return { ...out, mode };
+  } catch (e: any) {
+    const fallback = await deterministic.run(req);
+    return { ...fallback, mode: "deterministic", degraded: `已切换至本地演示模式（${e?.name === "TimeoutError" ? "超时" : e?.message ?? "错误"}）` };
+  }
+}
+```
+`app/api/agent/route.ts` POST → `chat`，并把 `mode` 写回 `store.agentMode` 供 ModeBadge 显示。
+Run → 6 passed（最后一个测试在无网络时也应通过，因为连接拒绝会立即抛错）。
+
+- [ ] **Step 5: 面板与嵌入**
+
+`components/AgentPanel.tsx`：props `{ agent, context, quickQuestions: string[] }`；消息列表、快捷问题按钮、输入框；每条助手消息下显示引用（标题+版本）与"工具：funnel(…)"折叠；顶部显示当前模式与降级提示。嵌入：患者端 `assistant` Tab；医生患者详情页右栏；研究门户 feasibility 页右栏。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add -A && git commit -m "feat(agents): provider adapter with deterministic fallback, tools bound to compute, three assistants"
+```
+
+---
+
+### Task 12: 演示脚本、文档、端到端测试与稳定性
+
+**Files:**
+- Create: `docs/demo-script.md`, `docs/data-generation.md`, `README.md`, `tests/e2e/story.spec.ts`, `tests/e2e/reset.spec.ts`
+- Modify: `app/page.tsx`（链接演示脚本）
+
+- [ ] **Step 1: 端到端故事线测试**
+
+`tests/e2e/story.spec.ts`（Playwright，按 `data-testid` 定位，实现页面时补齐 testid）：
+```ts
+import { test, expect } from "@playwright/test";
+test("full chain story", async ({ page, request }) => {
+  await request.post("/api/reset");
+  await page.goto("/patient/pro");
+  await page.getByTestId("slider-关节痛").fill("2"); await page.getByTestId("slider-潮热").fill("2");
+  await page.getByTestId("missed-doses").fill("5"); await page.getByTestId("stop-intent").check(); await page.getByTestId("submit-pro").click();
+  await expect(page.getByText("个案管理师将在 1 个工作日内联系您")).toBeVisible();
+  await page.goto("/clinic/alerts"); await expect(page.getByTestId("alert-row")).toHaveCount(2);
+  const row = page.getByTestId("alert-row").first(); await row.getByRole("button", { name: "接单" }).click(); await row.getByRole("button", { name: "开始处置" }).click(); await row.getByRole("button", { name: "提交复核" }).click();
+  await row.getByRole("button", { name: "关闭" }).click(); await page.getByTestId("close-note").fill("2 周后复评"); await page.getByTestId("close-task-due").fill("2026-10-27"); await page.getByTestId("close-confirm").click();
+  await expect(row.getByText("已关闭")).toBeVisible();
+  await page.goto("/clinic/cohorts"); await page.getByTestId("f-hrpos").check(); await page.getByTestId("f-her2-low").check(); await page.getByTestId("f-stage-metastatic").check(); await page.getByTestId("f-cdk46").check();
+  const n = Number(await page.getByTestId("cohort-count").textContent()); expect(n).toBeGreaterThan(0); await page.getByTestId("cohort-submit").click();
+  await page.goto("/governance"); await page.getByTestId("create-snapshot").first().click(); await expect(page.getByText(/SNAP-2026-10-13-v1/)).toBeVisible();
+  await page.goto("/research"); await page.getByText("SNAP-2026-10-13-v1").click(); await page.getByRole("link", { name: "入组可行性" }).click();
+  await expect(page.getByTestId("funnel-step")).toHaveCount(6); await page.getByTestId("request-candidates").click(); await expect(page.getByText(/已向科室发出候选核查请求/)).toBeVisible();
+  await page.goto("/clinic/candidates"); await page.getByRole("button", { name: "确认" }).first().click();
+  const pid = await page.getByTestId("candidate-pid").first().textContent();
+  await page.goto(`/patient/research?patient=${pid}`); await expect(page.getByText(/可能适合您/)).toBeVisible();
+  await page.goto("/patient/assistant"); await page.getByRole("button", { name: "参加临床研究需要注意什么？" }).click(); await expect(page.getByTestId("agent-reply")).toBeVisible();
+});
+```
+
+`tests/e2e/reset.spec.ts`：连续三轮：提交 ePRO → 创建队列 → 创建快照 → `/api/reset`，每轮后断言 `/api/state` 的 `alerts`、`cohorts`、`snapshots`、`candidateRequests` 为空且 `P-A` 的 pro 条数回到种子值；另一个测试在 1440×900 视口访问四个视角首页，断言 `document.documentElement.scrollWidth <= 1440`。
+Run: `npm run e2e` → Expected: 全部通过。
+
+- [ ] **Step 2: 演示脚本**
+
+`docs/demo-script.md`：按规格第 2 节五段编写，每步一行：页面 URL、操作、预期看到的文字或数字（数字引用 `expected.json` 的 key 而非硬编码）、备用话术。开头列"演示前检查"：`npm run demo`、`/api/state` 返回正常、重置一次、ModeBadge 显示模式、投屏分辨率。附"故障应对"：模型降级时如何解释、网络断开时的口径。
+
+- [ ] **Step 3: 数据生成说明与 README**
+
+`docs/data-generation.md`：种子、版本、checksum、三层结构、分布参数、不完美注入比例、硬约束清单、**不支持的推断清单**（疗效比较、依从与复发因果、生存估计、任何真实人群外推）。
+`README.md`：环境要求（Node 20+）、安装、`npm run demo`、可选模型配置（`.env.example`）、测试命令、目录结构、功能标记说明。
+
+- [ ] **Step 4: 全量验证与提交**
+
+```bash
+npm test && npm run build && npm run e2e
+git add -A && git commit -m "docs(demo): demo script, data generation notes, README; e2e story and reset tests"
+```
+
+---
+
+### Checkpoint C：验收（对照规格第 10 节）
+- [ ] 一条命令启动、离线可走完全程
+- [ ] 相同种子 checksum 相同；生成器自检违规 0
+- [ ] 闭环：一次 ePRO 两条预警；关闭需处置记录；患者端同步
+- [ ] `expected.json` 五组人数在圈选页、导出、研究助手三处一致
+- [ ] 入组三态互斥；快照冻结后数字不变
+- [ ] 降级注入四种故障 10 秒内切换
+- [ ] 三助手各 3 正常 / 1 超范围 / 1 无依据问题有预期答案
+- [ ] 三轮演示重置无残留；1920×1080 与 1440×900 无横向滚动
+- [ ] 项目方审阅锚点病例与指南要点库
+
+---
+
+## 风险与应对
+
+| 风险 | 影响 | 应对 |
+|---|---|---|
+| 生成器难以一次满足"0 违规" | 中 | Task 2 测试先行，按 validate 报错逐条修；转移性治疗开始日强制晚于转移日 |
+| 患者 B 不符合虚构方案导致闭环示例断裂 | 中 | Task 10 已改为确认任一符合的合成患者并切换患者端；演示脚本注明 |
+| Next.js dev 模式热重载清空 globalThis 状态 | 中 | 状态只在 `lib/state/store.ts` 创建；演示前不改代码；必要时 `DEMO_PERSIST=1` 落 SQLite（本计划未实现，列为后备） |
+| 模型提供商工具调用格式差异 | 低 | 两种提供商各自适配器，统一 `ChatResponse`；任何异常都降级 |
+| 投屏字号与图表密度 | 低 | Task 12 的 1440×900 断言 + 人工过一遍 |
+
+## 开放问题
+- 锚点病例与指南要点库需要项目方专家审阅，建议在 Checkpoint A 与 C 各安排一次。
+- 若演示现场必须联网展示真实模型，需提前准备 `DEMO_CLAUDE_API_KEY` 或国产模型的兼容端点并在现场前一天试跑。
