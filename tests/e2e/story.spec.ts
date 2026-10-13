@@ -48,6 +48,9 @@ test("full chain story: patient → clinic → governance → research → back 
   await page.getByText("SNAP-2026-10-13-v1").click();
   await page.getByRole("link", { name: "入组可行性", exact: true }).click();
   await expect(page.getByTestId("funnel-step")).toHaveCount(6);
+  // 无 HER2 预筛：HER2 低表达一步出现真实的“信息不足”（IHC 2+ 缺 ISH）
+  const her2Unknown = Number(await page.locator('[data-testid="funnel-step"][data-step="her2_low"]').getByTestId("funnel-unknown").textContent());
+  expect(her2Unknown).toBeGreaterThan(0);
   await page.getByTestId("request-candidates").click();
   await expect(page.getByTestId("candidates-requested")).toBeVisible();
   await expect(page.getByTestId("candidates-requested")).toContainText("已向科室发出候选核查请求");

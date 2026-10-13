@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { createCohort, submitCohort, createSnapshot } from "@/lib/governance/snapshot";
 import { researchUseCase } from "@/lib/research/usecases";
 import { getStore, resetStore } from "@/lib/state/store";
+import expected from "@/data/seed/expected.json";
+import type { CohortFilter } from "@/lib/domain/types";
 describe("research use cases", () => {
   let snapId: string;
   beforeEach(() => { resetStore(); const c = createCohort("m", { stage: ["metastatic", "deceased"] }, "x"); submitCohort(c.id); snapId = createSnapshot(c.id, "2026-10-13").id; });
@@ -54,5 +56,15 @@ describe("research summaries, de-identification and survival threshold", () => {
     const dead = snap.patients.filter(p => p.outcomes.some(o => o.type === "death"));
     getStore().snapshots.push({ ...snap, id: "SNAP-FEW", patients: dead.slice(0, 9) });
     const few = researchUseCase("overview", "SNAP-FEW"); expect(few.events.death).toBe(9); expect(few.survivalEstimable).toBe(false);
+  });
+});
+describe("scripted demo cohort (hrpos_evermet_cdk46)", () => {
+  it("keeps deceased patients (survival estimable) and shows real 信息不足 at the HER2-low step", () => {
+    resetStore(); const e = expected.find(x => x.key === "hrpos_evermet_cdk46")!;
+    const c = createCohort("demo", e.filter as CohortFilter, "x"); submitCohort(c.id); expect(c.patientIds).toHaveLength(e.expectedCount!);
+    const snap = createSnapshot(c.id, "2026-10-13");
+    const o = researchUseCase("overview", snap.id); expect(o.events.death).toBeGreaterThanOrEqual(10); expect(o.survivalEstimable).toBe(true);
+    const f = researchUseCase("feasibility", snap.id); const her2 = f.steps.find(s => s.id === "her2_low")!;
+    expect(her2.unknown).toBeGreaterThan(0); expect(her2.notMet).toBeGreaterThan(0); expect(her2.unknownReasons["IHC 2+ 缺 ISH 或结果未知"]).toBe(her2.unknown);
   });
 });
