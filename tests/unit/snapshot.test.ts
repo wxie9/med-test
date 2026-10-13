@@ -37,4 +37,30 @@ describe("snapshot", () => {
     expect(a.id).toBe("SNAP-2026-10-13-v1"); expect(b.id).toBe("SNAP-2026-09-01-v2");
     expect(Object.isFrozen(a)).toBe(true); expect(Object.isFrozen(a.patients[0])).toBe(true); expect(Object.isFrozen(a.patients[0].treatments)).toBe(true);
   });
+  it("clips everything at an early cutoff (P-B at 2026-07-01: the T-DXd line vanishes)", () => {
+    const c = createCohort("pb", { stage: ["metastatic"] }, "x"); submitCohort(c.id);
+    const pb = (cutoff: string) => createSnapshot(c.id, cutoff).patients.find(p => p.treatments.some(t => t.id === "P-B-t1"))!;
+    const live = getStore().patients.get("P-B")!;
+    const early = pb("2026-07-01");
+    expect(early.treatments.map(t => t.id)).not.toContain("P-B-t6");
+    expect(early.treatments.some(t => t.type === "adc")).toBe(false);
+    expect(early.lines).toHaveLength(1); expect(early.lines[0].eventIds).toEqual(["P-B-t4", "P-B-t5"]);
+    expect(early.lines[0].reviewStatus).toBe("confirmed"); // unchanged line keeps its review
+    expect(early.pro).toEqual([]); expect(early.lastContact).toBe("2026-07-01");
+    expect(early.outcomes.map(o => o.type)).toEqual(["distant_metastasis", "progression"]);
+    // ending after the cutoff ⇒ ongoing at the cutoff; the progression after it is not yet known
+    const mid = pb("2026-06-01");
+    expect(mid.treatments.filter(t => t.intent === "metastatic").every(t => t.end === null && t.stopReason === "ongoing")).toBe(true);
+    expect(mid.outcomes.map(o => o.type)).toEqual(["distant_metastasis"]); expect(mid.lines[0].end).toBeNull();
+    // full cutoff keeps the live record; the live patient is untouched
+    const full = pb("2026-10-13"); expect(full.treatments).toEqual(live.treatments); expect(full.lines).toEqual(live.lines);
+    expect(live.treatments.some(t => t.id === "P-B-t6")).toBe(true); expect(live.pro.length).toBeGreaterThan(0);
+  });
+  it("a death after the cutoff is not yet known (stage falls back to metastatic)", () => {
+    const c = createCohort("pj", { stage: ["deceased"] }, "x"); submitCohort(c.id);
+    const death = getStore().patients.get("P-J")!.outcomes.find(o => o.type === "death")!.date;
+    const before = createSnapshot(c.id, "2025-01-01").patients.find(p => p.treatments.some(t => t.id === "P-J-t1"));
+    expect(before).toBeDefined(); expect(death > "2025-01-01").toBe(true);
+    expect(before!.stage).toBe("metastatic"); expect(before!.outcomes.some(o => o.type === "death")).toBe(false);
+  });
 });
