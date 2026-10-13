@@ -24,6 +24,13 @@ describe("snapshot", () => {
     expect(late.patients[idx].biomarkers.map(b => b.id)).toEqual(["P-L-b1", "P-L-b2"]);
     expect(getStore().patients.get("P-L")!.biomarkers).toHaveLength(2);
   });
+  it("includes a result entered on the cutoff day, even with a time component", () => {
+    const b = getStore().patients.get("P-L")!.biomarkers.find(x => x.id === "P-L-b2")!; b.enteredAt = "2026-09-20T15:30:00Z";
+    const c = createCohort("pl", { stage: ["metastatic"] }, "x"); submitCohort(c.id);
+    const pl = (cutoff: string) => createSnapshot(c.id, cutoff).patients.find(p => p.biomarkers.some(x => x.id === "P-L-b1"))!;
+    expect(pl("2026-09-20").biomarkers.map(x => x.id)).toEqual(["P-L-b1", "P-L-b2"]);
+    expect(pl("2026-09-19").biomarkers.map(x => x.id)).toEqual(["P-L-b1"]);
+  });
   it("numbers snapshot ids per cutoff with a global version and deep-freezes the snapshot", () => {
     const c = createCohort("d", { stage: ["metastatic"] }, "x"); submitCohort(c.id);
     const a = createSnapshot(c.id, "2026-10-13"); const b = createSnapshot(c.id, "2026-09-01");

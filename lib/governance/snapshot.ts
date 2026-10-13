@@ -14,7 +14,7 @@ function deepFreeze<T>(o: T): T {
 /** De-identified, cutoff-bounded copy of a live patient (results entered after the cutoff are not yet "known"). */
 function snapshotPatient(p: Patient, cutoff: string): Patient {
   const q = structuredClone(p); q.anchorKey = null; delete q.expertNote;
-  q.biomarkers = q.biomarkers.filter(b => !(b.enteredAt && b.enteredAt > cutoff));
+  q.biomarkers = q.biomarkers.filter(b => !(b.enteredAt && b.enteredAt.slice(0, 10) > cutoff));
   return q;
 }
 /** Immutable research snapshot of a submitted cohort; only patients with pharma de-identified consent are included. */

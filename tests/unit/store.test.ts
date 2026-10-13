@@ -34,4 +34,11 @@ describe("store", () => {
     expect(serialize(getStore()).snapshots[0].patients).toHaveLength(3);
     resetStore();
   });
+  it("serializeLite emits cohorts without patientIds plus patientCount; serialize keeps patientIds", () => {
+    getStore().cohorts.push({ id: "c1", name: "n", filter: {}, createdBy: "x", createdAt: "t", patientIds: ["P-A", "P-B"], status: "submitted" });
+    const c = (serializeLite(getStore()).cohorts as Record<string, unknown>[])[0];
+    expect("patientIds" in c).toBe(false); expect(c.patientCount).toBe(2); expect(c.name).toBe("n");
+    expect(serialize(getStore()).cohorts[0].patientIds).toEqual(["P-A", "P-B"]);
+    resetStore();
+  });
 });

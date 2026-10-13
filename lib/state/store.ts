@@ -17,4 +17,7 @@ export function serialize(s: DemoStore) { return { ...s, patients: [...s.patient
 /** Snapshot without its patient payload (API responses and the lite state stay small). */
 export function snapshotSummary(snap: ResearchSnapshot) { const { patients, ...rest } = snap; return { ...rest, patientCount: patients.length }; }
 export type SnapshotSummary = ReturnType<typeof snapshotSummary>;
-export function serializeLite(s: DemoStore) { const { patients, snapshots, ...rest } = s; return { ...rest, snapshots: snapshots.map(snapshotSummary), patientCount: patients.size }; }
+/** Cohort without its patient id list (an "all patients" cohort would otherwise add ~2000 ids to every poll). */
+export function cohortSummary(c: Cohort) { const { patientIds, ...rest } = c; return { ...rest, patientCount: patientIds.length }; }
+export type CohortSummary = ReturnType<typeof cohortSummary>;
+export function serializeLite(s: DemoStore) { const { patients, snapshots, cohorts, ...rest } = s; return { ...rest, cohorts: cohorts.map(cohortSummary), snapshots: snapshots.map(snapshotSummary), patientCount: patients.size }; }

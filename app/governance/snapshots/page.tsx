@@ -2,9 +2,8 @@
 import { useDemoState } from "@/lib/client/useDemoState";
 import { fmtDateTime } from "@/lib/clinic/labels";
 import { pct } from "@/lib/governance/labels";
-import type { Cohort } from "@/lib/domain/types";
-import type { SnapshotSummary } from "@/lib/state/store";
-type LiteState = { cohorts: Cohort[]; snapshots: SnapshotSummary[] };
+import type { CohortSummary, SnapshotSummary } from "@/lib/state/store";
+type LiteState = { cohorts: CohortSummary[]; snapshots: SnapshotSummary[] };
 export default function SnapshotsPage() {
   const { data, error } = useDemoState<LiteState>(3000);
   if (!data) return <p className="text-sm text-gray-500">{error ? `加载失败：${error.message}` : "加载中…"}</p>;
