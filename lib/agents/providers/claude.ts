@@ -1,6 +1,6 @@
 import { createToolSession, toolsFor } from "../tools";
 import type { ChatRequest, ProviderOutput, SharedToolState } from "../types";
-import { systemPrompt, execForModel, finish, TIMEOUT_MS, MAX_TOOL_ROUNDS, MAX_TOKENS } from "./shared";
+import { systemPrompt, execForModel, finish, TIMEOUT_MS, MAX_TOOL_ROUNDS, MAX_TOKENS, OutputRejected } from "./shared";
 const URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-5-5";
 type Block = { type: "text"; text: string } | { type: "tool_use"; id: string; name: string; input: unknown } | { type: string };
@@ -21,6 +21,8 @@ export async function run(req: ChatRequest, shared: SharedToolState = {}): Promi
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { stop_reason?: string; content?: Block[] };
+    // a truncated or refused turn is never shown (the text may be cut mid-sentence or carry no answer)
+    if (data.stop_reason === "max_tokens" || data.stop_reason === "refusal") throw new OutputRejected(data.stop_reason);
     const content = Array.isArray(data.content) ? data.content : [];
     const uses = content.filter(isToolUse);
     if (data.stop_reason === "tool_use" && uses.length) {

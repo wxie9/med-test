@@ -3,7 +3,9 @@ import type { ChatRequest, ProviderOutput } from "../types";
 /** Provider budget for the whole turn; leaves room for the deterministic fallback inside 8 s. */
 export const TIMEOUT_MS = 7500;
 export const MAX_TOOL_ROUNDS = 3;
-export const MAX_TOKENS = 800;
+export const MAX_TOKENS = 1500;
+/** A provider reply that cannot be used as-is (truncated at max_tokens, refused); the adapter degrades with 输出未通过校验 and detail = message. */
+export class OutputRejected extends Error { constructor(message: string) { super(message); this.name = "OutputRejected"; } }
 const ROLE: Record<ChatRequest["agent"], string> = {
   patient: "你是乳腺癌患者的随访管家，面向患者本人，语气温和易懂。不做诊断；绝不建议停药、减量或换药，涉及用药调整一律请患者由医生确认或到门诊就诊。",
   doctor: "你是乳腺专科医生的临床助手。回答基于当前患者的结构化数据与指南要点库；指南要点尚待专家审阅，仅供参考。",

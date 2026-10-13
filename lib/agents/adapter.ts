@@ -4,13 +4,15 @@ import * as deterministic from "./providers/deterministic";
 import { validateResponse } from "./validate";
 import { guidelineIds, collectToolNumbers } from "./tools";
 import { pickTemplate, SAFETY_TEMPLATES } from "./templates";
+import { OutputRejected } from "./providers/shared";
 import type { ChatRequest, ChatResponse, SharedToolState } from "./types";
 export type { ChatRequest, ChatResponse } from "./types";
 /** A patient-facing model reply must never permit or suggest stopping / reducing / skipping / delaying medication ("不可以停药" is fine). */
 export const PERMITS_STOP_MED = /(?<!不)(可以|不妨|建议|不如)(先|直接)?(停药|减量|换药|停掉|少打|少吃|跳过|推迟|暂停)/;
-const rawReason = (e: unknown) => (e instanceof Error || e instanceof DOMException) ? `${e.name === "Error" ? "" : `${e.name}: `}${e.message}` : String(e);
+const rawReason = (e: unknown) => e instanceof OutputRejected ? e.message : (e instanceof Error || e instanceof DOMException) ? `${e.name === "Error" ? "" : `${e.name}: `}${e.message}` : String(e);
 /** User-facing degrade category; the raw reason goes to `detail`. */
 function category(e: unknown): string {
+  if (e instanceof OutputRejected) return "输出未通过校验";
   const name = e instanceof Error || e instanceof DOMException ? e.name : "";
   const msg = e instanceof Error || e instanceof DOMException ? e.message : String(e);
   if (name === "TimeoutError" || name === "AbortError") return "超时";

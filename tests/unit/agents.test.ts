@@ -178,13 +178,32 @@ describe("agents: provider adapters with mocked fetch", () => {
       expect(args[0]).toBe("https://api.anthropic.com/v1/messages");
       expect(args[1].headers["x-api-key"]).toBe("ck"); expect(args[1].headers["anthropic-version"]).toBe("2023-06-01");
       const body = JSON.parse(args[1].body) as { model: string; max_tokens: number; messages: { role: string; content: unknown }[] };
-      expect(body.model).toBe("claude-sonnet-5-5"); expect(body.max_tokens).toBe(800);
+      expect(body.model).toBe("claude-sonnet-5-5"); expect(body.max_tokens).toBe(1500);
+      expect(Object.keys(body).sort()).toEqual(["max_tokens", "messages", "model", "system", "tools"]); // no unverified request fields
       if (body.messages.length === 1) return json({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "search_guidelines", input: { query: "骨健康" } }] });
       return json({ stop_reason: "end_turn", content: [{ type: "text", text: "请补充钙剂与维生素 D，并按时复查骨密度（G-009）。" }] });
     });
     vi.stubGlobal("fetch", fetchMock);
     const r = await chat({ agent: "patient", messages: [{ role: "user", content: "骨健康要注意什么" }], context: { patientId: "P-A", page: "assistant" } });
     expect(r.mode).toBe("claude"); expect(r.citations.map(c => c.id)).toEqual(["G-009"]); expect(r.toolCalls[0].name).toBe("search_guidelines");
+  });
+});
+
+describe("agents: F12 Claude stop_reason handling", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  afterEach(() => { vi.unstubAllGlobals(); clearEnv(); });
+  it.each(["max_tokens", "refusal"])("stop_reason %s degrades with 输出未通过校验 and detail = the stop reason", async stop => {
+    process.env.DEMO_CLAUDE_API_KEY = "ck";
+    vi.stubGlobal("fetch", vi.fn(async () => json({ stop_reason: stop, content: [{ type: "text", text: "下次请按计划完成每月问卷，并按" }] })));
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "下次要做什么检查？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(r.mode).toBe("deterministic"); expect(r.degraded).toBe("已切换至本地演示模式（输出未通过校验）"); expect(r.detail).toBe(stop);
+    expect(r.text).toMatch(/随访计划/);
+  });
+  it("a max_tokens stop during a tool round is not executed as a tool call", async () => {
+    process.env.DEMO_CLAUDE_API_KEY = "ck"; const f = vi.fn(async () => json({ stop_reason: "max_tokens", content: [{ type: "tool_use", id: "t1", name: "get_followup_plan", input: {} }] }));
+    vi.stubGlobal("fetch", f);
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "下次要做什么检查？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(f).toHaveBeenCalledTimes(1); expect(r.detail).toBe("max_tokens");
   });
 });
 
