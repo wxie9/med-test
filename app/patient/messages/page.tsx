@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect } from "react";
 import { usePatientId } from "@/lib/client/patientContext";
 import { usePatient } from "@/lib/client/usePatient";
@@ -30,6 +31,7 @@ export default function MessagesPage() {
                 <span className="text-gray-400">{new Date(m.at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })}</span>
               </div>
               <p className="text-gray-800">{m.text}</p>
+              {m.kind === "research_opportunity" && <Link href="/patient/research" className="mt-1 inline-block text-xs text-purple-700 hover:underline">查看</Link>}
             </li>
           ))}
         </ul>

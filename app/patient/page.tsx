@@ -17,6 +17,7 @@ export default function PatientHome() {
   const { patient, messages, today } = data;
   const next = buildFollowUpPlan(patient, today)[0];
   const unread = messages.filter(m => m.at > lastSeen).length;
+  const research = messages.filter(m => m.kind === "research_opportunity").length;
   const drugs = currentTreatments(patient);
   return (
     <div>
@@ -39,6 +40,11 @@ export default function PatientHome() {
         <Link href="/patient/messages" className="text-sm text-gray-700">
           未读消息 <span className={`ml-1 rounded-full px-2 py-0.5 text-xs ${unread ? "bg-red-500 text-white" : "bg-gray-200"}`}>{unread}</span>
         </Link>
+        {research > 0 && (
+          <Link href="/patient/research" className="mt-2 block rounded-lg bg-purple-50 px-3 py-2 text-sm text-purple-700">
+            您有 {research} 条研究机会，点击查看
+          </Link>
+        )}
       </Section>
       <div className="mx-3 grid grid-cols-2 gap-3">
         <Link href="/patient/pro" className="rounded-xl bg-white p-4 text-center text-sm shadow-sm">填写症状问卷</Link>

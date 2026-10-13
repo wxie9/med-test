@@ -1,32 +1,33 @@
 "use client";
 import { useState } from "react";
 import { useDemoState } from "@/lib/client/useDemoState";
-import type { CandidateRequest } from "@/lib/domain/types";
+import type { PharmaCandidateView } from "@/lib/research/pharmaView";
 const PROTOCOL_ID = "XX-ADC-301";
-type Requested = { id?: string; count: number };
+type Requested = { id?: string; count: number; confirmed?: number };
 /**
- * Sends the candidate-verification request to the clinic and follows confirmations through the polled lite state.
- * One request per snapshot: the button is disabled once a request exists. expectedCount (funnel finalMetCount) is
- * shown only until the response/state reports the actual candidate list.
+ * Sends the candidate-verification request to the clinic and follows confirmations through the polled lite state,
+ * which carries count-only summaries (total/confirmed, never patient ids). One request per snapshot: the button is
+ * disabled once a request exists (a 409 returns the existing summary). expectedCount (funnel finalMetCount) is
+ * only a fallback until the response/state reports the actual total.
  */
 export function CandidateRequestPanel({ snapshotId, expectedCount }: { snapshotId: string; expectedCount: number }) {
-  const { data } = useDemoState<{ candidateRequests: CandidateRequest[] }>(3000);
+  const { data } = useDemoState<{ candidateRequests: PharmaCandidateView[] }>(3000);
   const [posted, setPosted] = useState<Requested | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const reqs = (data?.candidateRequests ?? []).filter(r => r.snapshotId === snapshotId && r.protocolId === PROTOCOL_ID);
   const live = reqs.at(-1); // latest request for this snapshot
-  const count = live ? live.candidates.length : posted?.count;
-  const confirmed = live?.candidates.filter(c => c.status === "confirmed").length;
+  const count = live ? live.total : posted?.count;
+  const confirmed = live ? live.confirmed : posted?.confirmed;
   const exists = !!live || !!posted;
   async function request() {
     setBusy(true); setErr(null);
     try {
       const r = await fetch("/api/candidates", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ snapshotId, protocolId: PROTOCOL_ID }) });
-      if (r.status === 404) { setErr("候选核查接口尚未接入"); return; }
-      if (!r.ok) { setErr(`请求失败（${r.status}）`); return; }
-      const body = (await r.json().catch(() => ({}))) as Partial<CandidateRequest>;
-      setPosted({ id: body.id, count: body.candidates?.length ?? expectedCount });
+      if (r.status === 404) { setErr("研究快照不存在"); return; }
+      if (!r.ok && r.status !== 409) { setErr(`请求失败（${r.status}）`); return; }
+      const body = (await r.json().catch(() => ({}))) as Partial<PharmaCandidateView>;
+      setPosted({ id: body.id, count: body.total ?? expectedCount, confirmed: body.confirmed });
     } catch (e) { setErr(`请求失败（${e instanceof Error ? e.message : String(e)}）`); } finally { setBusy(false); }
   }
   return (

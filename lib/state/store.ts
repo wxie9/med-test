@@ -1,4 +1,5 @@
 import { loadSeed, type Manifest } from "@/lib/seed/load";
+import { pharmaView } from "@/lib/research/pharmaView";
 import type { Patient, Alert, FollowUpTask, Cohort, ResearchSnapshot, CandidateRequest, DataGapTask, PatientMessage } from "@/lib/domain/types";
 export type AgentMode = "deterministic" | "claude" | "openai";
 export type DemoStore = { patients: Map<string, Patient>; alerts: Alert[]; tasks: FollowUpTask[]; cohorts: Cohort[]; snapshots: ResearchSnapshot[]; candidateRequests: CandidateRequest[]; gapTasks: DataGapTask[]; messages: PatientMessage[]; manifest: Manifest; agentMode: AgentMode; seedVersion: number };
@@ -20,4 +21,5 @@ export type SnapshotSummary = ReturnType<typeof snapshotSummary>;
 /** Cohort without its patient id list (an "all patients" cohort would otherwise add ~2000 ids to every poll). */
 export function cohortSummary(c: Cohort) { const { patientIds, ...rest } = c; return { ...rest, patientCount: patientIds.length }; }
 export type CohortSummary = ReturnType<typeof cohortSummary>;
-export function serializeLite(s: DemoStore) { const { patients, snapshots, cohorts, ...rest } = s; return { ...rest, cohorts: cohorts.map(cohortSummary), snapshots: snapshots.map(snapshotSummary), patientCount: patients.size }; }
+/** Lite state is also what the research (pharma) portal polls, so candidate requests go out as count-only summaries. */
+export function serializeLite(s: DemoStore) { const { patients, snapshots, cohorts, candidateRequests, ...rest } = s; return { ...rest, cohorts: cohorts.map(cohortSummary), snapshots: snapshots.map(snapshotSummary), candidateRequests: candidateRequests.map(pharmaView), patientCount: patients.size }; }

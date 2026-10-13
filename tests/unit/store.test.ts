@@ -41,4 +41,15 @@ describe("store", () => {
     expect(serialize(getStore()).cohorts[0].patientIds).toEqual(["P-A", "P-B"]);
     resetStore();
   });
+  it("serializeLite emits candidateRequests as pharma summaries (no candidates, no patient ids); serialize keeps them", () => {
+    getStore().candidateRequests.push({ id: "cand-1", snapshotId: "SNAP-2026-10-13-v1", protocolId: "XX-ADC-301", createdAt: "t",
+      candidates: [{ patientId: "P-0001", status: "confirmed" }, { patientId: "P-0002", status: "pending" }, { patientId: "P-A", status: "rejected" }] });
+    const r = (serializeLite(getStore()).candidateRequests as Record<string, unknown>[])[0];
+    expect("candidates" in r).toBe(false);
+    expect(r).toEqual({ id: "cand-1", snapshotId: "SNAP-2026-10-13-v1", protocolId: "XX-ADC-301", total: 3, confirmed: 1, createdAt: "t" });
+    const json = JSON.stringify(serializeLite(getStore()).candidateRequests);
+    for (const pid of ["P-0001", "P-0002", "P-A"]) expect(json).not.toContain(pid);
+    expect(serialize(getStore()).candidateRequests[0].candidates).toHaveLength(3);
+    resetStore();
+  });
 });
