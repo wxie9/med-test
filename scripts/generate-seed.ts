@@ -2,7 +2,7 @@ import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { generateCohort, generateEdgeCases, checksumOf } from "../lib/seed/generator";
 import { validatePatients } from "../lib/seed/validate";
 import { Patient } from "../lib/domain/types";
-const SEED = 20261013, VERSION = "gen-v1", CUTOFF = "2026-10-13", N = 2000;
+const SEED = 20261013, VERSION = "gen-v2", CUTOFF = "2026-10-13", N = 2000;
 mkdirSync("data/seed", { recursive: true });
 const anchors = Patient.array().parse(JSON.parse(readFileSync("data/seed/anchors.json", "utf8")));
 const cohort = generateCohort({ seed: SEED, n: N, cutoff: CUTOFF });

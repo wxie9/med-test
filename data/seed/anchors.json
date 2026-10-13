@@ -68,7 +68,7 @@
         "type": "endocrine",
         "intent": "adjuvant",
         "drug": "来曲唑",
-        "start": "2025-08-20",
+        "start": "2025-11-25",
         "end": null,
         "stopReason": "ongoing",
         "source": "in_house"
@@ -80,30 +80,6 @@
       {
         "id": "P-A-pro01",
         "scaleId": "endocrine_monthly_v1",
-        "submittedAt": "2025-10-12T09:00:00+08:00",
-        "items": {
-          "关节痛": 0,
-          "潮热": 1
-        },
-        "flags": {
-          "missedDoses14d": 0
-        }
-      },
-      {
-        "id": "P-A-pro02",
-        "scaleId": "endocrine_monthly_v1",
-        "submittedAt": "2025-11-12T09:00:00+08:00",
-        "items": {
-          "关节痛": 0,
-          "潮热": 1
-        },
-        "flags": {
-          "missedDoses14d": 0
-        }
-      },
-      {
-        "id": "P-A-pro03",
-        "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2025-12-12T09:00:00+08:00",
         "items": {
           "关节痛": 0,
@@ -114,7 +90,7 @@
         }
       },
       {
-        "id": "P-A-pro04",
+        "id": "P-A-pro02",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-01-12T09:00:00+08:00",
         "items": {
@@ -126,7 +102,7 @@
         }
       },
       {
-        "id": "P-A-pro05",
+        "id": "P-A-pro03",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-02-12T09:00:00+08:00",
         "items": {
@@ -138,7 +114,7 @@
         }
       },
       {
-        "id": "P-A-pro06",
+        "id": "P-A-pro04",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-03-12T09:00:00+08:00",
         "items": {
@@ -150,7 +126,7 @@
         }
       },
       {
-        "id": "P-A-pro07",
+        "id": "P-A-pro05",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-04-12T09:00:00+08:00",
         "items": {
@@ -162,7 +138,7 @@
         }
       },
       {
-        "id": "P-A-pro08",
+        "id": "P-A-pro06",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-05-12T09:00:00+08:00",
         "items": {
@@ -174,7 +150,7 @@
         }
       },
       {
-        "id": "P-A-pro09",
+        "id": "P-A-pro07",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-06-12T09:00:00+08:00",
         "items": {
@@ -186,7 +162,7 @@
         }
       },
       {
-        "id": "P-A-pro10",
+        "id": "P-A-pro08",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-07-12T09:00:00+08:00",
         "items": {
@@ -198,7 +174,7 @@
         }
       },
       {
-        "id": "P-A-pro11",
+        "id": "P-A-pro09",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-08-12T09:00:00+08:00",
         "items": {
@@ -210,7 +186,7 @@
         }
       },
       {
-        "id": "P-A-pro12",
+        "id": "P-A-pro10",
         "scaleId": "endocrine_monthly_v1",
         "submittedAt": "2026-09-12T09:00:00+08:00",
         "items": {
@@ -584,14 +560,14 @@
         "missedReason": null
       }
     ],
-    "lastContact": "2026-10-12",
+    "lastContact": "2026-10-13",
     "surgeryDate": "2025-07-10",
     "genomics": {
       "brca": "negative",
       "pik3ca": "not_tested",
       "esr1": "not_tested"
     },
-    "expertNote": "辅助内分泌第 14 个月，关节痛与漏服并存，典型依从性风险病例"
+    "expertNote": "辅助内分泌第 11 个月，关节痛与漏服并存，典型依从性风险病例"
   },
   {
     "id": "P-B",
@@ -615,7 +591,7 @@
         "her2Ihc": "0",
         "ish": "not_done",
         "ki67": 25,
-        "readVersion": "ASCO/CAP2023"
+        "readVersion": "ASCO/CAP2018"
       },
       {
         "id": "P-B-b2",
@@ -705,6 +681,13 @@
         "id": "P-B-o1",
         "type": "distant_metastasis",
         "date": "2025-03-28",
+        "evidence": "imaging",
+        "assessor": "Dr. Mock"
+      },
+      {
+        "id": "P-B-o2",
+        "type": "progression",
+        "date": "2026-06-30",
         "evidence": "imaging",
         "assessor": "Dr. Mock"
       }
@@ -993,12 +976,12 @@
       },
       {
         "id": "P-E-t2",
-        "type": "chemo",
+        "type": "endocrine",
         "intent": "metastatic",
-        "drug": "多西他赛",
-        "start": "2026-04-02",
-        "end": "2026-07-20",
-        "stopReason": "completed",
+        "drug": "来曲唑",
+        "start": "2026-04-12",
+        "end": null,
+        "stopReason": "ongoing",
         "source": "in_house"
       }
     ],
@@ -1021,7 +1004,7 @@
       "pik3ca": "not_tested",
       "esr1": "not_tested"
     },
-    "expertNote": "初诊 IV 期 HER2 阳性肝转移，一线 THP 化疗 6 周期后双靶维持，化疗按计划停止不应被视为换线"
+    "expertNote": "初诊 IV 期 HR+/HER2 阳性肝转移，一线双靶联合来曲唑（免化疗方案），来曲唑晚 10 天加入仍按联合规则归为同一线"
   },
   {
     "id": "P-F",
@@ -1045,7 +1028,7 @@
         "her2Ihc": "1+",
         "ish": "not_done",
         "ki67": 20,
-        "readVersion": "ASCO/CAP2023"
+        "readVersion": "ASCO/CAP2018"
       },
       {
         "id": "P-F-b2",
@@ -1208,7 +1191,7 @@
         "id": "P-G-t4",
         "type": "endocrine",
         "intent": "adjuvant",
-        "drug": "依西美坦",
+        "drug": "他莫昔芬",
         "start": "2025-06-01",
         "end": null,
         "stopReason": "ongoing",
@@ -1250,7 +1233,7 @@
         "her2Ihc": "1+",
         "ish": "not_done",
         "ki67": 10,
-        "readVersion": "ASCO/CAP2023"
+        "readVersion": "ASCO/CAP2018"
       }
     ],
     "staging": [
@@ -1406,7 +1389,7 @@
         "her2Ihc": "0",
         "ish": "not_done",
         "ki67": 70,
-        "readVersion": "ASCO/CAP2023"
+        "readVersion": "ASCO/CAP2018"
       },
       {
         "id": "P-J-b2",
@@ -1544,7 +1527,7 @@
         "her2Ihc": "2+",
         "ish": "negative",
         "ki67": 20,
-        "readVersion": "ASCO/CAP2023"
+        "readVersion": "ASCO/CAP2018"
       }
     ],
     "staging": [
@@ -1660,7 +1643,7 @@
         "her2Ihc": "0",
         "ish": "not_done",
         "ki67": 15,
-        "readVersion": "ASCO/CAP2023"
+        "readVersion": "ASCO/CAP2018"
       },
       {
         "id": "P-L-b2",
@@ -1671,7 +1654,8 @@
         "her2Ihc": "2+",
         "ish": "negative",
         "ki67": 25,
-        "readVersion": "ASCO/CAP2023"
+        "readVersion": "ASCO/CAP2023",
+        "enteredAt": "2026-09-20"
       }
     ],
     "staging": [
@@ -1753,6 +1737,6 @@
       "pik3ca": "not_tested",
       "esr1": "not_tested"
     },
-    "expertNote": "肝转移灶活检（2025-11）HER2 2+/ISH 阴性结果迟至 2026-10 才补录，HER2 分类由 0 变为低表达，用于说明快照冻结与补录影响"
+    "expertNote": "肝转移灶活检（标本 2025-11-28）HER2 2+/ISH 阴性结果迟至 2026-09-20 才录入系统（enteredAt），HER2 分类由 0 变为低表达，用于说明快照冻结与补录影响"
   }
 ]

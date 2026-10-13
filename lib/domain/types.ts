@@ -13,6 +13,8 @@ export const Biomarker = z.object({
   id: z.string(), specimenSite: z.enum(["primary", "metastatic"]), specimenDate: z.string(),
   erPct: z.number().min(0).max(100).nullable(), prPct: z.number().min(0).max(100).nullable(),
   her2Ihc: Her2Ihc, ish: Ish, ki67: z.number().nullable(), readVersion: z.string(),
+  /** 结果录入系统的日期；缺省表示与 specimenDate 相同 */
+  enteredAt: z.string().optional(),
 });
 export const Staging = z.object({ cTnm: z.string().nullable(), pTnm: z.string().nullable(), date: z.string(), system: z.literal("AJCC8") });
 export const TreatmentEvent = z.object({

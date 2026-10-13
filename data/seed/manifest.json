@@ -1,8 +1,8 @@
 {
   "seed": 20261013,
-  "version": "gen-v1",
+  "version": "gen-v2",
   "cutoff": "2026-10-13",
-  "checksum": "24fa5d8d9ecca156",
+  "checksum": "c2b1c6d314bd4143",
   "counts": {
     "anchors": 12,
     "cohort": 2000,
