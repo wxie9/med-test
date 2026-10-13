@@ -1,0 +1,272 @@
+[
+  {
+    "id": "G-001",
+    "topic": "辅助内分泌疗程",
+    "text": "HR 阳性早期乳腺癌术后辅助内分泌治疗的标准疗程一般为 5 年；复发风险较高者可在评估获益与耐受性后延长至 10 年。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR 阳性早期乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-002",
+    "topic": "辅助内分泌依从性",
+    "text": "辅助内分泌治疗的依从性与远期获益相关，随访中应定期询问漏服情况与原因，并结合患者教育、提醒工具提高持续用药。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR 阳性早期乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-003",
+    "topic": "内分泌治疗不良反应与停药",
+    "text": "出现不良反应时不建议患者自行停药或减量，应由医生评估后决定对症处理、换药或暂停，并记录原因。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受内分泌治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-004",
+    "topic": "AI 类关节痛识别",
+    "text": "芳香化酶抑制剂（AI）相关关节痛、晨僵较常见，多在用药早期出现，需与骨转移等其他原因鉴别。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受芳香化酶抑制剂治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-005",
+    "topic": "AI 类关节痛处理",
+    "text": "AI 相关关节痛可先采用规律运动、减重、针灸及非甾体抗炎药等对症措施，多数患者症状可缓解并继续治疗。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受芳香化酶抑制剂治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-006",
+    "topic": "AI 类关节痛换药",
+    "text": "关节痛经对症处理仍难以耐受时，可由医生评估后更换为另一种 AI 或他莫昔芬，以维持完整内分泌疗程。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受芳香化酶抑制剂治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-007",
+    "topic": "骨健康基线评估",
+    "text": "开始 AI 治疗前建议评估骨密度及骨折风险，治疗期间每 1–2 年复查骨密度。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受芳香化酶抑制剂治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-008",
+    "topic": "骨健康药物干预",
+    "text": "骨质疏松或骨折风险较高者可考虑双膦酸盐或地舒单抗等骨改良药物，用药前注意口腔检查以降低颌骨坏死风险。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "骨量减少或骨质疏松患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-009",
+    "topic": "骨健康生活方式",
+    "text": "建议补充钙剂与维生素 D，保持负重运动，戒烟限酒，以减少骨量丢失。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受内分泌治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-010",
+    "topic": "CDK4/6 抑制剂进展后治疗选择",
+    "text": "CDK4/6 抑制剂联合内分泌治疗进展后，应结合既往疗效、进展速度、内脏危象及分子检测结果，选择内分泌联合靶向、ADC 或化疗等方案。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR+/HER2- 晚期乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-011",
+    "topic": "CDK4/6 后 ESR1 检测",
+    "text": "CDK4/6 抑制剂进展后建议检测 ESR1 突变（可用血液 ctDNA），突变者可考虑新型口服 SERD 等方案。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR+/HER2- 晚期乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-012",
+    "topic": "CDK4/6 后 PIK3CA 检测",
+    "text": "内分泌经治进展的患者建议检测 PIK3CA/AKT1/PTEN 通路变异，阳性者可考虑相应靶向药物联合内分泌治疗。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR+/HER2- 晚期乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-013",
+    "topic": "HER2 低表达定义",
+    "text": "HER2 低表达指 IHC 1+，或 IHC 2+ 且 ISH 阴性；IHC 2+ 未行 ISH 时状态不能确定，应补做 ISH。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "乳腺癌病理诊断",
+    "reviewed": false
+  },
+  {
+    "id": "G-014",
+    "topic": "HER2 低表达 ADC 推荐（CDK4/6 后）",
+    "text": "HR 阳性、HER2 低表达晚期乳腺癌在内分泌治疗（含 CDK4/6 抑制剂）进展后，可选择德曲妥珠单抗等抗 HER2 ADC，属较高级别推荐。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR+/HER2 低表达晚期",
+    "reviewed": false
+  },
+  {
+    "id": "G-015",
+    "topic": "HER2 低表达 ADC 推荐（化疗经治）",
+    "text": "既往接受过晚期化疗的 HER2 低表达患者，推荐抗 HER2 ADC 作为后续治疗选择，优先于继续传统化疗。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR+/HER2 低表达晚期",
+    "reviewed": false
+  },
+  {
+    "id": "G-016",
+    "topic": "TROP2 ADC 推荐",
+    "text": "内分泌及化疗经治的 HR 阳性 HER2 阴性晚期患者，可考虑 TROP2 靶向 ADC（如戈沙妥珠单抗）。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "HR+/HER2- 晚期",
+    "reviewed": false
+  },
+  {
+    "id": "G-017",
+    "topic": "ADC 常见不良事件：恶心呕吐",
+    "text": "ADC 治疗中恶心、呕吐、乏力较常见，建议预防性使用止吐方案，并按 CTCAE 分级记录与调整剂量。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受 ADC 治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-018",
+    "topic": "ADC 不良事件：间质性肺病",
+    "text": "间质性肺病/肺炎是抗 HER2 ADC 需重点监测的不良事件：1 级可暂停用药并密切观察，2 级及以上应永久停药并使用糖皮质激素。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受抗 HER2 ADC 治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-019",
+    "topic": "ADC 不良事件：骨髓抑制",
+    "text": "中性粒细胞减少、贫血、血小板减少需在每周期前复查血常规，3 级及以上应暂停用药直至恢复，必要时减量。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受 ADC 治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-020",
+    "topic": "不良事件 CTCAE 分级记录",
+    "text": "不良事件应按 CTCAE v5.0 分级记录：注明发生日期、最高级别、与药物的相关性、采取的措施及转归。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "接受系统治疗的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-021",
+    "topic": "随访频率：早期乳腺癌",
+    "text": "术后前 2 年每 3–6 个月随访一次，第 3–5 年每 6 个月一次，之后每年一次；每年行乳腺影像检查。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "早期乳腺癌术后",
+    "reviewed": false
+  },
+  {
+    "id": "G-022",
+    "topic": "随访频率：晚期乳腺癌",
+    "text": "晚期患者治疗期间每周期评估症状与血常规、肝肾功能，每 2–3 个周期进行一次影像学疗效评估。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "晚期乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-023",
+    "topic": "随访检查原则",
+    "text": "无症状的早期乳腺癌随访不推荐常规全身影像或肿瘤标志物筛查，应关注症状、体格检查及治疗相关远期毒性。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "早期乳腺癌术后",
+    "reviewed": false
+  },
+  {
+    "id": "G-024",
+    "topic": "转移灶再活检",
+    "text": "首次出现复发或转移时，在安全可行的前提下建议对转移灶再活检，以明确病理并复测 ER、PR、HER2。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "首次复发或转移",
+    "reviewed": false
+  },
+  {
+    "id": "G-025",
+    "topic": "再活检受体变化",
+    "text": "转移灶与原发灶受体状态可能不一致，治疗决策原则上以最新标本结果为准，HER2 由阴转低表达时可增加 ADC 治疗机会。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "复发或转移乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-026",
+    "topic": "BRCA 检测时机",
+    "text": "早期高危或晚期 HER2 阴性乳腺癌、具有家族史或年轻发病者，建议在确诊后尽早进行胚系 BRCA1/2 检测。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "乳腺癌患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-027",
+    "topic": "BRCA 检测与 PARP 抑制剂",
+    "text": "胚系 BRCA 突变的 HER2 阴性患者可考虑 PARP 抑制剂；检测前后应提供遗传咨询。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "胚系 BRCA 突变乳腺癌",
+    "reviewed": false
+  },
+  {
+    "id": "G-028",
+    "topic": "临床研究知情同意要点",
+    "text": "参加临床研究前应充分知情：了解研究目的、流程、可能获益与风险、替代治疗方案，在充分理解后自愿签署知情同意书。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "拟参加临床研究的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-029",
+    "topic": "临床研究自愿与退出",
+    "text": "参加临床研究完全自愿，患者可随时退出且不影响后续常规诊疗；研究期间新增用药需告知研究医生。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "拟参加临床研究的患者",
+    "reviewed": false
+  },
+  {
+    "id": "G-030",
+    "topic": "临床研究隐私保护",
+    "text": "研究数据应去标识化处理，仅在知情同意范围内使用；患者有权了解个人数据的使用方式。",
+    "source": "CSCO 乳腺癌诊疗指南",
+    "version": "2026",
+    "population": "参加临床研究的患者",
+    "reviewed": false
+  }
+]

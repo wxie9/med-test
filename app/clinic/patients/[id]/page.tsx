@@ -8,6 +8,8 @@ import { ProTrend } from "@/components/ProTrend";
 import { AlertQueue } from "@/components/AlertQueue";
 import { AdherenceCalendar } from "@/components/patient/AdherenceCalendar";
 import { TASK_STATUS } from "@/lib/clinic/labels";
+import { AgentPanel } from "@/components/AgentPanel";
+import { QUICK_QUESTIONS } from "@/lib/agents/quickQuestions";
 export default function ClinicPatientPage() {
   const { id } = useParams<{ id: string }>();
   const { data, error, refresh } = usePatient(id);
@@ -37,9 +39,8 @@ export default function ClinicPatientPage() {
         </Card>
       </div>
       <aside>
-        <div className="sticky top-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
-          <p className="mb-1 font-semibold text-gray-700">医生助手</p>
-          <p>医生助手（后续任务接入）</p>
+        <div className="sticky top-4">
+          <AgentPanel key={id} agent="doctor" context={{ patientId: id, page: "patient" }} quickQuestions={QUICK_QUESTIONS.doctor} />
         </div>
       </aside>
     </div>
