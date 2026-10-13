@@ -1,103 +1,78 @@
-import Image from "next/image";
+"use client";
+import Link from "next/link";
+import { useState } from "react";
+import { useDemoState } from "@/lib/client/useDemoState";
+import type { Manifest } from "@/lib/seed/load";
+
+type StateSummary = { manifest: Manifest; seedVersion: number; patients: unknown[] };
+
+const CARDS = [
+  { href: "/patient", title: "患者端", desc: "随访提醒、PRO 填报与消息" },
+  { href: "/clinic/alerts", title: "医生工作台", desc: "预警处理与随访任务" },
+  { href: "/governance", title: "数据治理", desc: "数据缺口与质控任务" },
+  { href: "/research", title: "药企研究", desc: "队列筛选与研究快照" },
+];
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const { data, refresh } = useDemoState<StateSummary>();
+  const [resetting, setResetting] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  async function onReset() {
+    setResetting(true);
+    try {
+      await fetch("/api/reset", { method: "POST" });
+      await refresh();
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  const m = data?.manifest;
+  return (
+    <main className="mx-auto max-w-5xl px-6 py-10 space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold">乳腺癌全生命周期平台 · 演示版</h1>
+        <p className="text-sm text-gray-600">全部为合成数据，仅用于演示。选择一个视角开始。</p>
+      </div>
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {CARDS.map(c => (
+          <Link key={c.href} href={c.href} className="rounded-lg border border-gray-200 p-4 hover:border-pink-500 hover:shadow-sm">
+            <h2 className="font-semibold">{c.title}</h2>
+            <p className="mt-1 text-sm text-gray-600">{c.desc}</p>
+          </Link>
+        ))}
+      </section>
+
+      <section className="flex flex-wrap items-center gap-4">
+        <button
+          type="button"
+          data-testid="reset-button"
+          onClick={onReset}
+          disabled={resetting}
+          className="rounded bg-pink-600 px-4 py-2 text-white hover:bg-pink-700 disabled:opacity-50"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          {resetting ? "重置中…" : "一键重置"}
+        </button>
+        <a href="docs/demo-script.md" className="text-sm text-pink-700 underline">演示脚本（docs/demo-script.md）</a>
+      </section>
+
+      <section className="rounded-lg border border-gray-200 p-4 text-sm">
+        <h2 className="mb-2 font-semibold">数据清单（manifest）</h2>
+        {m ? (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            <dt className="text-gray-500">状态版本</dt><dd data-testid="seed-version">{data.seedVersion}</dd>
+            <dt className="text-gray-500">种子</dt><dd>{m.seed}</dd>
+            <dt className="text-gray-500">版本</dt><dd>{m.version}</dd>
+            <dt className="text-gray-500">checksum</dt><dd className="font-mono break-all">{m.checksum}</dd>
+            <dt className="text-gray-500">数据截止日</dt><dd>{m.cutoff}</dd>
+            <dt className="text-gray-500">数量</dt>
+            <dd>{Object.entries(m.counts).map(([k, v]) => `${k}: ${v}`).join("，")}（已加载患者 {data.patients.length}）</dd>
+          </dl>
+        ) : (
+          <p className="text-gray-500">加载中…</p>
+        )}
+      </section>
+    </main>
   );
 }
