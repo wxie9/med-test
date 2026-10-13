@@ -3,31 +3,38 @@ import type { AgentKind, ToolCallRecord } from "./types";
 export type TemplateId =
   | "patient_stop_med" | "patient_next_visit" | "patient_research"
   | "doctor_summary" | "doctor_ctcae" | "doctor_guideline"
-  | "research_count" | "research_gap" | "research_line_transition"
+  | "research_count" | "research_gap" | "research_line_transition" | "research_boundary"
   | "generic_boundary";
 export const GENERIC_BOUNDARY = "这个问题超出了演示助手的范围。您可以尝试下方的快捷问题，或联系您的医生/个案管理师。";
-type Rule = { id: TemplateId; keywords: string[]; pages?: string[] };
-/** First matching rule wins; order matters within an agent. */
+export const RESEARCH_BOUNDARY = "当前快照数据不支持回答该问题：本演示只提供描述性统计与入组可行性评估，不提供疗效或生存结论。";
+const any = (...words: string[]) => (t: string) => words.some(w => t.includes(w.toUpperCase()));
+const all = (...preds: ((t: string) => boolean)[]) => (t: string) => preds.every(p => p(t));
+const not = (pred: (t: string) => boolean) => (t: string) => !pred(t);
+/** Outcome / comparison questions the snapshot cannot answer (no efficacy or survival conclusions). */
+const OUTCOME = any("OS", "PFS", "生存", "疗效", "有效率", "缓解");
+type Rule = { id: TemplateId; match: (upperText: string) => boolean; pages?: string[] };
+/** First matching rule wins; order matters within an agent. research_gap is the only route that writes data, so it is the narrowest. */
 const RULES: Record<AgentKind, Rule[]> = {
   patient: [
-    { id: "patient_stop_med", keywords: ["停药", "减药", "关节痛"] },
-    { id: "patient_research", keywords: ["临床研究", "研究", "试验"] },
-    { id: "patient_next_visit", keywords: ["检查", "复查", "随访", "复诊"] },
+    { id: "patient_stop_med", match: any("停药", "停掉", "不吃", "减量", "减药", "剂量", "换药", "自己调", "关节痛") },
+    { id: "patient_research", match: any("临床研究", "研究", "试验") },
+    { id: "patient_next_visit", match: any("检查", "复查", "随访", "复诊") },
   ],
   doctor: [
-    { id: "doctor_ctcae", keywords: ["分级", "CTCAE", "不良事件"], pages: ["patient"] },
-    { id: "doctor_summary", keywords: ["总结", "治疗经过"], pages: ["patient"] },
-    { id: "doctor_guideline", keywords: ["指南"] },
+    { id: "doctor_ctcae", match: any("分级", "CTCAE", "不良事件"), pages: ["patient"] },
+    { id: "doctor_summary", match: any("总结", "治疗经过"), pages: ["patient"] },
+    { id: "doctor_guideline", match: any("指南") },
   ],
   research: [
-    { id: "research_gap", keywords: ["原因", "补齐", "缺失"] },
-    { id: "research_line_transition", keywords: ["二线", "比例"] },
-    { id: "research_count", keywords: ["多少例", "符合"] },
+    { id: "research_boundary", match: (t: string) => OUTCOME(t) || any("对比", "比较")(t) },
+    { id: "research_gap", match: all(any("信息不足"), any("原因", "补齐", "补录")) },
+    { id: "research_line_transition", match: any("一线", "二线", "下一线", "进入") },
+    { id: "research_count", match: all(any("符合", "多少例"), not(OUTCOME)) },
   ],
 };
 export function pickTemplate(agent: AgentKind, page: string, userText: string): TemplateId {
   const text = userText.toUpperCase();
-  return RULES[agent].find(r => (!r.pages || r.pages.includes(page)) && r.keywords.some(k => text.includes(k.toUpperCase())))?.id ?? "generic_boundary";
+  return RULES[agent].find(r => (!r.pages || r.pages.includes(page)) && r.match(text))?.id ?? "generic_boundary";
 }
 
 /** Side-effect-free AE focus per current treatment class (first class present wins). */
@@ -54,7 +61,7 @@ export function runTemplateTools(id: TemplateId, call: Call, userText: string): 
       return;
     }
     case "research_line_transition": call("line_transition", { lineNo: 1 }); return;
-    case "generic_boundary": return;
+    case "research_boundary": case "generic_boundary": return;
   }
 }
 
@@ -138,6 +145,7 @@ export function renderTemplate(id: TemplateId, toolResults: ToolCallRecord[]): s
         "（治疗线为规则推断；“去向不明”指一线已结束但无后续治疗或结局记录。）",
       ].join("\n");
     }
+    case "research_boundary": return RESEARCH_BOUNDARY;
     case "generic_boundary": return GENERIC_BOUNDARY;
   }
 }

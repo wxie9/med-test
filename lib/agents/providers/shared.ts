@@ -1,6 +1,7 @@
 import { citationsFromText, clientSafe, clientToolCalls, type ToolSession } from "../tools";
 import type { ChatRequest, ProviderOutput } from "../types";
-export const TIMEOUT_MS = 8000;
+/** Provider budget for the whole turn; leaves room for the deterministic fallback inside 8 s. */
+export const TIMEOUT_MS = 7500;
 export const MAX_TOOL_ROUNDS = 3;
 export const MAX_TOKENS = 800;
 const ROLE: Record<ChatRequest["agent"], string> = {

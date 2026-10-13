@@ -6,8 +6,9 @@ export type ChatContext = { patientId?: string; snapshotId?: string; filter?: Co
 export type ChatRequest = { agent: AgentKind; messages: ChatMessage[]; context: ChatContext };
 export type Citation = { id: string; title: string; version: string };
 export type ToolCallRecord = { name: string; args: unknown; result: unknown };
-export type ChatResponse = { text: string; mode: AgentMode; degraded?: string; citations: Citation[]; toolCalls: ToolCallRecord[] };
+/** degraded: user-facing category; detail: raw failure reason; guarded: answered by the safety template without calling the model. */
+export type ChatResponse = { text: string; mode: AgentMode; degraded?: string; detail?: string; guarded?: boolean; citations: Citation[]; toolCalls: ToolCallRecord[] };
 /** What a provider produces before the adapter stamps the mode. */
-export type ProviderOutput = Omit<ChatResponse, "mode" | "degraded">;
+export type ProviderOutput = Omit<ChatResponse, "mode" | "degraded" | "detail" | "guarded">;
 /** Per-request state shared by a failed provider attempt and its deterministic fallback (one gap task per ask). */
 export type SharedToolState = { gapTask?: unknown };

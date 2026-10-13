@@ -4,6 +4,9 @@ import { MODE_LABELS } from "@/components/ModeBadge";
 import type { AgentKind, ChatContext, ChatMessage, ChatResponse, ToolCallRecord } from "@/lib/agents/types";
 type Entry = { role: "user"; content: string } | { role: "assistant"; content: string; reply: ChatResponse } | { role: "error"; content: string };
 const TITLES: Record<AgentKind, string> = { patient: "患者管家", doctor: "医生助手", research: "研究助手" };
+const MAX_SENT = 20;
+/** At most the last MAX_SENT messages, starting with a user turn. */
+const recent = (ms: ChatMessage[]) => { const r = ms.slice(-MAX_SENT); return r[0]?.role === "assistant" ? r.slice(1) : r; };
 const fmtArgs = (args: unknown) => args && typeof args === "object" ? Object.entries(args).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(", ") : "";
 function Reply({ reply }: { reply: ChatResponse }) {
   return (
@@ -36,7 +39,7 @@ export function AgentPanel({ agent, context, quickQuestions }: { agent: AgentKin
     const history: ChatMessage[] = entries.filter((e): e is Exclude<Entry, { role: "error" }> => e.role !== "error").map(e => ({ role: e.role, content: e.content }));
     setEntries(es => [...es, { role: "user", content }]); setInput(""); setLoading(true);
     try {
-      const r = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ agent, context, messages: [...history, { role: "user", content }] }) });
+      const r = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ agent, context, messages: recent([...history, { role: "user", content }]) }) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const reply = (await r.json()) as ChatResponse;
       setEntries(es => [...es, { role: "assistant", content: reply.text, reply }]);

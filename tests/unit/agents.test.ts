@@ -124,7 +124,8 @@ describe("agents: provider adapters with mocked fetch", () => {
   it.each([401, 429, 500])("HTTP %i degrades to deterministic", async status => {
     openaiEnv(); vi.stubGlobal("fetch", vi.fn(async () => json({ error: "x" }, status)));
     const r = await chat(patientReq);
-    expect(r.mode).toBe("deterministic"); expect(r.degraded).toContain(String(status)); expect(r.text.length).toBeGreaterThan(10);
+    expect(r.mode).toBe("deterministic"); expect(r.detail).toContain(String(status)); expect(r.text.length).toBeGreaterThan(10);
+    expect(r.degraded).toBe(`已切换至本地演示模式（${status === 401 ? "鉴权失败（401/403）" : status === 429 ? "请求过于频繁（429）" : "网络错误"}）`);
   });
   it("timeout degrades with 超时", async () => {
     openaiEnv();
@@ -155,7 +156,7 @@ describe("agents: provider adapters with mocked fetch", () => {
       return json({ choices: [{ message: { role: "assistant", content: "共 99999 例缺少 ECOG。" } }] });
     }));
     const r = await chat({ agent: "research", messages: [{ role: "user", content: "信息不足中最主要的原因是什么，补齐需要什么数据？" }], context: { snapshotId: snap.id, page: "feasibility" } });
-    expect(r.mode).toBe("deterministic"); expect(r.degraded).toMatch(/99999/);
+    expect(r.mode).toBe("deterministic"); expect(r.degraded).toBe("已切换至本地演示模式（输出未通过校验）"); expect(r.detail).toMatch(/99999/);
     expect(getStore().gapTasks).toHaveLength(1);
   });
   it("unknown citation and patient id in model output degrade", async () => {
@@ -172,12 +173,62 @@ describe("agents: provider adapters with mocked fetch", () => {
       expect(args[1].headers["x-api-key"]).toBe("ck"); expect(args[1].headers["anthropic-version"]).toBe("2023-06-01");
       const body = JSON.parse(args[1].body) as { model: string; max_tokens: number; messages: { role: string; content: unknown }[] };
       expect(body.model).toBe("claude-sonnet-5-5"); expect(body.max_tokens).toBe(800);
-      if (body.messages.length === 1) return json({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "search_guidelines", input: { query: "关节痛" } }] });
-      return json({ stop_reason: "end_turn", content: [{ type: "text", text: "关节痛请勿自行停药，请门诊由医生确认（G-004）。" }] });
+      if (body.messages.length === 1) return json({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t1", name: "search_guidelines", input: { query: "骨健康" } }] });
+      return json({ stop_reason: "end_turn", content: [{ type: "text", text: "请补充钙剂与维生素 D，并按时复查骨密度（G-009）。" }] });
     });
     vi.stubGlobal("fetch", fetchMock);
-    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "关节痛怎么办" }], context: { patientId: "P-A", page: "assistant" } });
-    expect(r.mode).toBe("claude"); expect(r.citations.map(c => c.id)).toEqual(["G-004"]); expect(r.toolCalls[0].name).toBe("search_guidelines");
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "骨健康要注意什么" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(r.mode).toBe("claude"); expect(r.citations.map(c => c.id)).toEqual(["G-009"]); expect(r.toolCalls[0].name).toBe("search_guidelines");
+  });
+});
+
+describe("agents: fix round 1 — research routing boundaries", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  const ask = (snapshotId: string, content: string) => chat({ agent: "research", messages: [{ role: "user", content }], context: { snapshotId, page: "feasibility" } });
+  it("不符合的主要原因 creates no gap task and is not the gap answer", async () => {
+    const s = metSnapshot(); const r = await ask(s.id, "不符合的主要原因是什么？");
+    expect(getStore().gapTasks).toHaveLength(0); expect(r.text).not.toMatch(/补录任务|信息不足最主要/);
+    expect(r.toolCalls.map(c => c.name)).not.toContain("create_gap_task");
+    expect(pickTemplate("research", "feasibility", "数据缺失的原因？")).not.toBe("research_gap");
+    expect(pickTemplate("research", "feasibility", "信息不足需要补录哪些数据？")).toBe("research_gap");
+  });
+  it("符合已知条件的比例 is not the line-transition answer", async () => {
+    const s = metSnapshot(); const r = await ask(s.id, "符合已知条件的比例？");
+    expect(r.toolCalls.map(c => c.name)).not.toContain("line_transition"); expect(r.text).not.toMatch(/进入二线/);
+    expect(pickTemplate("research", "feasibility", "进入下一线的有多少？")).toBe("research_line_transition");
+  });
+  it("outcome / comparison questions get research_boundary with zero tool calls", async () => {
+    const s = metSnapshot(); const r = await ask(s.id, "有多少例患者 OS 超过 2 年？");
+    expect(r.text).toBe("当前快照数据不支持回答该问题：本演示只提供描述性统计与入组可行性评估，不提供疗效或生存结论。");
+    expect(r.toolCalls).toHaveLength(0);
+    for (const q of ["符合条件的患者 PFS 多少？", "两组有效率对比", "符合的有多少例缓解？"]) expect(pickTemplate("research", "feasibility", q)).toBe("research_boundary");
+  });
+});
+
+describe("agents: fix round 1 — stop-medication guard", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  afterEach(() => { vi.unstubAllGlobals(); clearEnv(); });
+  it("widened keywords: 减量 question returns the boundary routing to the doctor", async () => {
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "药能不能减量，要复查吗？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(r.text).toMatch(/医生确认|门诊/); expect(r.text).not.toMatch(/可以(先|直接)?(停药|减量|换药|停掉)/);
+    for (const q of ["这个药可以停掉吗", "我想不吃了", "剂量能不能小一点", "能换药吗", "我自己调一下用量"]) expect(pickTemplate("patient", "assistant", q)).toBe("patient_stop_med");
+  });
+  it("with a key configured, the stop-med question never calls the provider (guarded, mode stays configured)", async () => {
+    process.env.DEMO_CLAUDE_API_KEY = "ck"; const f = vi.fn(); vi.stubGlobal("fetch", f);
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "我最近关节痛，能不能先停药？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(f).not.toHaveBeenCalled(); expect(r.guarded).toBe(true); expect(r.mode).toBe("claude"); expect(r.degraded).toBeUndefined();
+    expect(r.text).toMatch(/医生确认/);
+  });
+  it("a patient-agent model reply that permits stopping medication degrades", async () => {
+    process.env.DEMO_OPENAI_API_KEY = "k"; process.env.DEMO_OPENAI_BASE_URL = "http://llm.test/v1"; process.env.DEMO_OPENAI_MODEL = "m";
+    vi.stubGlobal("fetch", vi.fn(async () => json({ choices: [{ message: { role: "assistant", content: "可以先停药观察" } }] })));
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "下次要做什么检查？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(r.mode).toBe("deterministic"); expect(r.degraded).toBe("已切换至本地演示模式（输出未通过校验）"); expect(r.text).not.toMatch(/可以先停药/);
+  });
+  it("missing config maps to 配置缺失", async () => {
+    process.env.DEMO_OPENAI_API_KEY = "k"; const f = vi.fn(); vi.stubGlobal("fetch", f);
+    const r = await chat({ agent: "patient", messages: [{ role: "user", content: "下次要做什么检查？" }], context: { patientId: "P-A", page: "assistant" } });
+    expect(r.degraded).toBe("已切换至本地演示模式（配置缺失）"); expect(r.detail).toMatch(/DEMO_OPENAI_MODEL/); expect(f).not.toHaveBeenCalled();
   });
 });
 
