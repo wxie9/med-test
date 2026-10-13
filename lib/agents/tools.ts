@@ -113,7 +113,8 @@ export const TOOLS = {
     description: "当前患者最近一条医生处理反馈或随访计划更新（日期、类型、正文，不含任何编号）；没有则返回 null。",
     agents: ["patient"], schema: z.object({ patientId: z.string() }), bound: ["patientId"], parameters: noParams,
     run: ({ patientId }) => {
-      const m = getStore().messages.filter(x => x.patientId === patientId && (x.kind === "plan_update" || x.kind === "alert_feedback")).sort((a, b) => b.at.localeCompare(a.at))[0];
+      // newest first; equal timestamps (fixed demo clock) → the later-written message wins
+      const m = getStore().messages.filter(x => x.patientId === patientId && (x.kind === "plan_update" || x.kind === "alert_feedback")).reverse().sort((a, b) => b.at.localeCompare(a.at))[0];
       return m ? { date: m.at.slice(0, 10), kind: m.kind === "plan_update" ? "随访计划更新" : "随访反馈", text: m.text } : null;
     },
   }),

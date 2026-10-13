@@ -333,10 +333,13 @@ describe("agents: F10 clinician follow-up reaches the patient", () => {
     for (const q of ["医生怎么说？", "我的报告处理结果如何", "有反馈了吗"]) expect(pickTemplate("patient", "assistant", q)).toBe("patient_feedback");
     expect((await ask()).text).toMatch(/还没有医生对您报告的处理反馈/);
     const id = submitPro({ patientId: "P-A", scaleId: "endocrine_monthly_v1", items: { 关节痛: 3 }, flags: {} }).alerts[0].id;
+    for (const m of getStore().messages) { m.at = "2026-10-13T02:00:00.000Z"; m.kind = "alert_feedback"; } // fixed demo clock (daytime ack): same timestamp for every message
     actOnAlert(id, "accept", "x"); actOnAlert(id, "start", "x"); actOnAlert(id, "submit_review", "x", "已沟通，建议复评");
     closeAlertWithTask(id, "张医生", "2 周后复评", { type: "复评", due: "2026-10-27", owner: "个案管理师小陈" });
     const plan = runTool("get_followup_plan", {}, { patientId: "P-A", page: "assistant" }) as { title: string; due: string }[];
     expect(plan).toContainEqual({ title: "复评（医生安排）", due: "2026-10-27", kind: "visit" });
+    for (const m of getStore().messages) m.at = "2026-10-13T02:00:00.000Z";
+    expect(getStore().messages.filter(m => m.patientId === "P-A").map(m => m.kind)).toEqual(["alert_feedback", "plan_update"]);
     const r = await ask();
     expect(r.text).toContain("医生已处理您的报告：2 周后复评。新增随访：复评（2026-10-27）。");
     expect(r.text).toContain("已加入您的随访计划：2026-10-27 复评（医生安排）");

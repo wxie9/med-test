@@ -16,7 +16,7 @@ const KIND: Record<PatientMessage["kind"], { label: string; cls: string }> = {
 export default function MessagesPage() {
   const id = usePatientId();
   const { data, error } = usePatient(id);
-  const sorted = data ? [...data.messages].sort((a, b) => b.at.localeCompare(a.at)) : [];
+  const sorted = data ? [...data.messages].reverse().sort((a, b) => b.at.localeCompare(a.at)) : []; // newest first; ties → later-written first
   const idsKey = sorted.map(m => m.id).join(",");
   useEffect(() => { if (idsKey) markSeen(id, idsKey.split(",")); }, [id, idsKey]);
   if (!data) return <PatientStatus error={error} />;
