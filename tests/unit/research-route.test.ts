@@ -58,6 +58,16 @@ describe("research summaries, de-identification and survival threshold", () => {
     const few = researchUseCase("overview", "SNAP-FEW"); expect(few.events.death).toBe(9); expect(few.survivalEstimable).toBe(false);
   });
 });
+describe("scripted second snapshot (early_endocrine_ongoing)", () => {
+  it("has adherence data and discontinuation reasons", () => {
+    resetStore(); const e = expected.find(x => x.key === "early_endocrine_ongoing")!;
+    const c = createCohort("early", e.filter as CohortFilter, "x"); submitCohort(c.id); const snap = createSnapshot(c.id, "2026-10-13");
+    const a = researchUseCase("adherence", snap.id);
+    expect(a.n).toBeGreaterThan(0); expect(a.summary.n).toBe(a.n);
+    expect(Object.values(a.stopReasonDist).reduce((x, y) => x + y, 0)).toBeGreaterThan(0);
+    expect(Object.keys(a.stopReasonDist).every(k => !["completed", "ongoing"].includes(k))).toBe(true);
+  });
+});
 describe("scripted demo cohort (hrpos_evermet_cdk46)", () => {
   it("keeps deceased patients (survival estimable) and shows real 信息不足 at the HER2-low step", () => {
     resetStore(); const e = expected.find(x => x.key === "hrpos_evermet_cdk46")!;

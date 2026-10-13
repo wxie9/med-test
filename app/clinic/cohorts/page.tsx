@@ -46,7 +46,7 @@ export default function CohortsPage() {
           <p className="text-4xl font-semibold tabular-nums text-pink-700"><span data-testid="cohort-count" data-pending={pending ? "true" : "false"} aria-busy={pending}>{count ?? "…"}</span><span className="ml-1 text-base font-normal text-gray-500">例</span></p>
           <label className="block text-sm">
             <span className="mb-1 block text-gray-500">队列名称</span>
-            <input value={name} onChange={e => setName(e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" />
+            <input data-testid="cohort-name" value={name} onChange={e => setName(e.target.value)} className="w-full rounded border border-gray-300 px-2 py-1" />
           </label>
           <p className="text-xs text-gray-400">创建人：{identity}</p>
           <button type="button" data-testid="cohort-submit" disabled={busy} onClick={() => void submit()} className="w-full rounded bg-pink-600 px-3 py-2 text-sm font-semibold text-white hover:bg-pink-700 disabled:opacity-50">保存并提交数据治理</button>

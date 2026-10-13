@@ -8,7 +8,8 @@ type LiteState = { cohorts: CohortSummary[]; snapshots: SnapshotSummary[]; gapTa
 export default function GovernancePage() {
   const { data, error, refresh } = useDemoState<LiteState>(3000);
   if (!data) return <p className="text-sm text-gray-500">{error ? `加载失败：${error.message}` : "加载中…"}</p>;
-  const cohorts = data.cohorts.filter(c => c.status === "submitted").sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  // newest first; equal timestamps (fixed demo clock) keep reverse submission order
+  const cohorts = data.cohorts.filter(c => c.status === "submitted").reverse().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">候选队列</h1>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyFilter, runFunnel, PROTOCOL_ADC_301, lineGapStatus, qualityMetrics, alertMetrics } from "@/lib/compute";
+import { applyFilter, runFunnel, PROTOCOL_ADC_301, lineGapStatus, qualityMetrics, alertMetrics, adherenceStats } from "@/lib/compute";
 import { getStore } from "@/lib/state/store";
 import type { Alert, CohortFilter } from "@/lib/domain/types";
 import expected from "@/data/seed/expected.json";
@@ -45,6 +45,14 @@ describe("compute", () => {
     expect(applyFilter(all(), { everMetastatic: false }).length + ever.length).toBe(all().length);
     // stage semantics unchanged: "metastatic" stage excludes the deceased
     expect(applyFilter(all(), { stage: ["metastatic"] }).some(p => p.stage === "deceased")).toBe(false);
+  });
+  it("adherenceStats.stopReasonDist counts ended adjuvant endocrine events that did not complete, per event, across all patients", () => {
+    const a = structuredClone(getStore().patients.get("P-A")!); const b = structuredClone(getStore().patients.get("P-B")!);
+    const endo = a.treatments.find(t => t.type === "endocrine" && t.intent === "adjuvant")!;
+    a.treatments.push({ ...endo, id: "x1", end: "2025-01-01", stopReason: "toxicity" }, { ...endo, id: "x2", end: "2025-02-01", stopReason: "completed" }, { ...endo, id: "x3", intent: "metastatic", end: "2025-03-01", stopReason: "toxicity" });
+    // P-B: adjuvant anastrozole ended by progression (no adherence logs, still counted); P-A: ongoing letrozole not counted
+    expect(adherenceStats([a, b]).stopReasonDist).toEqual({ toxicity: 1, progression: 1 });
+    expect(adherenceStats([]).stopReasonDist).toEqual({});
   });
   it("line gap statuses are exhaustive", () => { const s = lineGapStatus(all(), 1, "2026-10-13"); const n = all().filter(p => p.lines.length >= 1).length; expect(Object.values(s).reduce((a, b) => a + b, 0)).toBe(n); });
   it("quality returns rates in [0,1]", () => { const q = qualityMetrics(all()); for (const v of Object.values(q.completeness)) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); } });

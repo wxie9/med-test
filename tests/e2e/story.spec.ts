@@ -34,6 +34,7 @@ test("full chain story: patient → clinic → governance → research → back 
   await waitCountSettled(page); // hydrated and first preview resolved
   for (const id of ["f-hrpos", "f-evermet", "f-cdk46"]) await page.getByTestId(id).check();
   await waitCountSettled(page);
+  await page.getByTestId("cohort-name").fill("HR+ 曾转移 CDK4/6 经治");
   expect(Number(await page.getByTestId("cohort-count").textContent())).toBeGreaterThan(0);
   await page.getByTestId("cohort-submit").click();
   await expect(page.getByTestId("cohort-submitted")).toBeVisible();
@@ -54,6 +55,22 @@ test("full chain story: patient → clinic → governance → research → back 
   await page.getByTestId("request-candidates").click();
   await expect(page.getByTestId("candidates-requested")).toBeVisible();
   await expect(page.getByTestId("candidates-requested")).toContainText("已向科室发出候选核查请求");
+
+  // 主线 D · 第二个快照：早期辅助内分泌在治队列 → SNAP-2026-10-13-v2 → 依从性页有数据
+  await page.goto("/clinic/cohorts");
+  await waitCountSettled(page);
+  for (const id of ["f-hrpos", "f-stage-early_adjuvant", "f-cur-endocrine"]) await page.getByTestId(id).check();
+  await waitCountSettled(page);
+  await page.getByTestId("cohort-name").fill("早期辅助内分泌在治");
+  await page.getByTestId("cohort-submit").click();
+  await expect(page.getByTestId("cohort-submitted")).toBeVisible();
+  await page.goto("/governance");
+  const earlyCard = page.getByTestId("cohort-card").filter({ hasText: "早期辅助内分泌在治" });
+  await earlyCard.getByTestId("create-snapshot").click();
+  await expect(earlyCard.getByTestId("snapshot-id")).toHaveText("SNAP-2026-10-13-v2");
+  await page.goto("/research/SNAP-2026-10-13-v2/adherence");
+  await expect(page.getByTestId("stat-footer").first()).toContainText(/n=[1-9]\d*，/);
+  await expect(page.getByTestId("stop-reason-chart")).toBeVisible();
 
   // 闭环 · 医生工作台：确认首个候选
   await page.goto("/clinic/candidates");

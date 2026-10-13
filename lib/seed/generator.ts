@@ -42,6 +42,15 @@ function genPatient(r: Rng, id: string, cutoff: string): Patient {
   if (chemoEnd) push({ type: "chemo", intent: "adjuvant", drug: "AC-T", start: addDays(surgeryDate, 21), end: chemoEnd, stopReason: "completed", source: "in_house" });
   // 所有 HR+ 患者（不论 HER2）均行辅助内分泌，化疗结束后 10 天开始；无化疗则术后 40 天
   if (hrPos) push({ type: "endocrine", intent: "adjuvant", drug: pick(r, ["来曲唑", "阿那曲唑", "他莫昔芬"]), start: chemoEnd ? addDays(chemoEnd, 10) : addDays(surgeryDate, 40), end: null, stopReason: "ongoing", source: "in_house" });
+  // 辅助内分泌换药：15% 在开始后 3～24 个月因不良反应 / 患者意愿 / 原因不明停用并换药（芳香化酶抑制剂 ↔ 他莫昔芬）
+  const endo0 = treatments.find(t => t.type === "endocrine" && t.intent === "adjuvant");
+  if (endo0 && chance(r, 0.15)) {
+    const sw = addDays(endo0.start!, between(r, 90, 720));
+    if (sw < cutoff) {
+      const u = r(); endo0.end = sw; endo0.stopReason = u < 0.55 ? "toxicity" : u < 0.85 ? "patient_choice" : "unknown";
+      push({ type: "endocrine", intent: "adjuvant", drug: endo0.drug === "他莫昔芬" ? "来曲唑" : "他莫昔芬", start: addDays(sw, between(r, 7, 30)), end: null, stopReason: "ongoing", source: "in_house" });
+    }
+  }
   // 辅助抗 HER2 与紫杉类同步：AC 4 周期（56 天）之后开始，持续一年
   if (subtype === "her2_pos") { const s = addDays(surgeryDate, 21 + 56); push({ type: "anti_her2", intent: "adjuvant", drug: "曲妥珠单抗", start: s, end: addDays(s, 365), stopReason: "completed", source: "in_house" }); }
 
@@ -87,10 +96,11 @@ function genPatient(r: Rng, id: string, cutoff: string): Patient {
       }
     }
   } else {
-    // 生存期：仅当辅助内分泌开始已满 5 年，并在满 5 年时以 completed 结束
-    const endo = treatments.find(t => t.type === "endocrine" && t.intent === "adjuvant");
-    const fiveYears = endo ? addDays(endo.start!, 1826) : null;
-    if (endo && fiveYears && fiveYears < cutoff && chance(r, 0.5)) { stage = "survivorship"; endo.end = fiveYears; endo.stopReason = "completed"; }
+    // 生存期：仅当辅助内分泌（自首个内分泌药物开始计）已满 5 年，并在满 5 年时以 completed 结束进行中的内分泌
+    const adjEndo = treatments.filter(t => t.type === "endocrine" && t.intent === "adjuvant");
+    const endo = adjEndo.find(t => t.end === null);
+    const fiveYears = adjEndo.length ? addDays(adjEndo[0].start!, 1826) : null;
+    if (endo && fiveYears && fiveYears > endo.start! && fiveYears < cutoff && chance(r, 0.5)) { stage = "survivorship"; endo.end = fiveYears; endo.stopReason = "completed"; }
   }
   // 截止日裁剪：开始晚于截止日的事件删除；结束晚于截止日的事件改为进行中（截止日时尚未结束）
   treatments = treatments.filter(t => t.start === null || t.start <= cutoff);
@@ -142,7 +152,7 @@ export function generateEdgeCases(): Patient[] {
     if (i % 4 === 0 && q.treatments[0]) q.treatments[0].end = "2000-01-01";           // end<start
     if (i % 4 === 1) q.treatments.push({ ...q.treatments[0], id: q.treatments[0].id }); // duplicate
     if (i % 4 === 2) { const t = q.treatments.find(t => t.intent === "adjuvant" && t.type !== "surgery" && t.start) ?? q.treatments[0]; t.start = addDays(q.surgeryDate!, -10); } // 辅助治疗早于手术
-    if (i % 4 === 3) q.outcomes.push({ id: "x", type: "death", date: "2020-01-01", evidence: "clinical_note", assessor: "x" }); // 死亡后仍有事件
+    if (i % 4 === 3) q.outcomes.unshift({ id: "x", type: "death", date: "2020-01-01", evidence: "clinical_note", assessor: "x" }); // 死亡后仍有事件（置首，已故患者亦被检出）
     return q;
   });
 }
