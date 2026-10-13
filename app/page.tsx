@@ -54,7 +54,7 @@ export default function Home() {
         >
           {resetting ? "重置中…" : "一键重置"}
         </button>
-        <Link href="/demo-script" className="text-sm text-pink-700 underline">演示脚本（docs/demo-script.md）</Link>
+        <Link href="/demo-script" className="text-sm text-pink-700 underline">演示脚本</Link>
       </section>
 
       <section className="rounded-lg border border-gray-200 p-4 text-sm">
