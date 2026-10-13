@@ -8,6 +8,7 @@ import { buildFollowUpPlan } from "@/lib/plan/followup";
 import { currentHer2, isHrPositive } from "@/lib/domain/her2";
 import { stageLabel } from "@/lib/patient/display";
 import { HER2_SHORT } from "@/lib/clinic/timeline";
+import { SCALE_SYMPTOMS, SCALE_TITLES } from "@/lib/pro/scales";
 import { CohortFilter, type DataGapTask, type Patient } from "@/lib/domain/types";
 import type { AgentKind, ChatContext, ChatRequest, Citation, SharedToolState, ToolCallRecord } from "./types";
 
@@ -56,6 +57,14 @@ const CTCAE: Record<string, [string, string][]> = {
   "乏力": [["经休息可缓解", "继续治疗"], ["休息不能缓解，影响工具性日常活动", "对症处理，必要时暂停"], ["休息不能缓解，影响自理活动", "暂停用药并评估原因"]],
 };
 
+/** Latest PRO of a patient: symptoms sorted by grade (desc), ties in scale order; null when the patient never answered. */
+function latestPro(p: Patient) {
+  const r = [...p.pro].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0]; if (!r) return null;
+  const order = SCALE_SYMPTOMS[r.scaleId];
+  const symptoms = Object.entries(r.items).map(([symptom, grade]) => ({ symptom, grade }))
+    .sort((a, b) => b.grade - a.grade || order.indexOf(a.symptom) - order.indexOf(b.symptom));
+  return { date: r.submittedAt.slice(0, 10), scale: SCALE_TITLES[r.scaleId], symptoms };
+}
 function patientOf(id: string): Patient { const p = getStore().patients.get(id); if (!p) throw new Error("未找到该患者"); return p; }
 function snapshotOf(id: string) { const s = getStore().snapshots.find(x => x.id === id); if (!s) throw new Error("未找到该研究快照"); return s; }
 const STOP_WORDS = /[\s，。？！、,.?!；;：:（）()「」“”"'《》]+|的|对|和|与|是|什么|怎么|如何|吗|呢|哪些|推荐|指南|请问|能不能|有没有/;
@@ -99,6 +108,11 @@ export const TOOLS = {
     description: "当前患者接下来的随访计划（日期、项目、类型）。",
     agents: PATIENT, schema: z.object({ patientId: z.string() }), bound: ["patientId"], parameters: noParams,
     run: ({ patientId }) => buildFollowUpPlan(patientOf(patientId), today()),
+  }),
+  get_latest_pro: defineTool({
+    description: "当前患者最近一次症状问卷：日期、量表名、各症状及其分级（按分级降序）；从未填写返回 null。",
+    agents: ["doctor"], schema: z.object({ patientId: z.string() }), bound: ["patientId"], parameters: noParams,
+    run: ({ patientId }) => latestPro(patientOf(patientId)),
   }),
   search_guidelines: defineTool({
     description: "检索指南要点库（CSCO 乳腺癌诊疗指南 2026 要点转述，待专家审阅）。query 用简短关键词，空格分隔；无命中返回 []。",

@@ -25,7 +25,23 @@ test("full chain story: patient → clinic → governance → research → back 
   const rows = page.getByTestId("alert-row");
   await expect(rows).toHaveCount(2);
   const row = rows.first();
-  for (const action of ["接单", "开始处置", "提交复核"]) await row.getByRole("button", { name: action, exact: true }).click();
+  await row.getByRole("button", { name: "接单", exact: true }).click();
+  await row.getByRole("button", { name: "开始处置", exact: true }).click();
+  await page.getByTestId("action-note").fill("电话沟通：关节痛导致漏服"); // 开始处置：处置记录可选
+  await page.getByTestId("action-confirm").click();
+  await expect(row.getByText("处置中", { exact: true })).toBeVisible();
+  await row.getByRole("button", { name: "提交复核", exact: true }).click();
+  await expect(page.getByTestId("action-confirm")).toBeDisabled(); // 提交复核：处置记录必填
+  await page.getByTestId("action-note").fill("已沟通，建议复评");
+  await page.getByTestId("action-confirm").click();
+  await expect(row.getByText("待复核", { exact: true })).toBeVisible();
+
+  // 医生助手 · 建议草稿（A4）：按最近一次问卷起草症状处理建议
+  await page.goto("/clinic/patients/P-A");
+  await page.getByRole("button", { name: "根据最近一次问卷起草症状处理建议", exact: true }).click();
+  await expect(page.getByTestId("agent-reply").last()).toContainText("以上为草稿，需医生确认");
+  await expect(page.getByTestId("agent-reply").last()).toContainText("关节痛（2 级）");
+  await page.goto("/clinic/alerts");
   await row.getByRole("button", { name: "关闭", exact: true }).click();
   await page.getByTestId("close-note").fill("2 周后复评");
   await page.getByTestId("close-task-due").fill("2026-10-27");

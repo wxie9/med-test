@@ -2,7 +2,7 @@ import { pct1, type ToolName, type ToolResult } from "./tools";
 import type { AgentKind, ToolCallRecord } from "./types";
 export type TemplateId =
   | "patient_stop_med" | "patient_next_visit" | "patient_research"
-  | "doctor_summary" | "doctor_ctcae" | "doctor_guideline"
+  | "doctor_summary" | "doctor_ctcae" | "doctor_draft" | "doctor_guideline"
   | "research_count" | "research_snapshot_size" | "research_gap" | "research_line_transition" | "research_boundary"
   | "generic_boundary";
 export const GENERIC_BOUNDARY = "这个问题超出了演示助手的范围。您可以尝试下方的快捷问题，或联系您的医生/个案管理师。";
@@ -21,6 +21,7 @@ const RULES: Record<AgentKind, Rule[]> = {
     { id: "patient_next_visit", match: any("检查", "复查", "随访", "复诊") },
   ],
   doctor: [
+    { id: "doctor_draft", match: all(any("起草", "草稿"), any("建议", "处理", "问卷", "症状")), pages: ["patient"] },
     { id: "doctor_ctcae", match: any("分级", "CTCAE", "不良事件"), pages: ["patient"] },
     { id: "doctor_summary", match: any("总结", "治疗经过"), pages: ["patient"] },
     { id: "doctor_guideline", match: any("指南") },
@@ -41,6 +42,10 @@ export function pickTemplate(agent: AgentKind, page: string, userText: string): 
 /** Side-effect-free AE focus per current treatment class (first class present wins). */
 const AE_FOCUS: [string, string[]][] = [["adc", ["间质性肺病", "恶心"]], ["cdk46", ["中性粒细胞减少", "腹泻"]], ["chemo", ["中性粒细胞减少", "周围神经病变"]], ["anti_her2", ["腹泻", "乏力"]], ["endocrine", ["关节痛", "潮热"]]];
 type Call = (name: ToolName, args?: Record<string, unknown>) => unknown;
+/** Top 2 symptoms (grade ≥ 1) of the latest PRO. */
+export const topSymptoms = (pro: ToolResult<"get_latest_pro">) => (pro?.symptoms ?? []).filter(x => x.grade >= 1).slice(0, 2);
+/** Search terms for the patient's current therapy class(es): aromatase inhibitors → "AI", otherwise the class label (e.g. "ADC", "内分泌"). */
+export const therapyTerms = (s: ToolResult<"get_patient_summary">) => [...new Set(s.current.map(t => (t.typeCode === "endocrine" && /唑|依西美坦/.test(t.drug ?? "") ? "AI" : t.type)))];
 /** Runs the tools a template needs (patientId/snapshotId are bound from the request context by the tool session). */
 export function runTemplateTools(id: TemplateId, call: Call, userText: string): void {
   switch (id) {
@@ -53,6 +58,14 @@ export function runTemplateTools(id: TemplateId, call: Call, userText: string): 
       const focus = AE_FOCUS.find(([type]) => s.current.some(t => t.typeCode === type));
       for (const symptom of focus?.[1] ?? []) for (const grade of [1, 2, 3]) call("ctcae_grade", { symptom, grade });
       call("search_guidelines", { query: "CTCAE 不良事件" }); return;
+    }
+    case "doctor_draft": {
+      const s = call("get_patient_summary") as ToolResult<"get_patient_summary">;
+      const pro = call("get_latest_pro") as ToolResult<"get_latest_pro">;
+      const top = topSymptoms(pro);
+      for (const t of top) call("ctcae_grade", { symptom: t.symptom, grade: t.grade });
+      if (top.length) call("search_guidelines", { query: [...top.map(t => t.symptom), ...therapyTerms(s)].join(" ") });
+      return;
     }
     case "doctor_guideline": call("search_guidelines", { query: userText }); return;
     case "research_count": call("funnel"); return;
@@ -113,6 +126,27 @@ export function renderTemplate(id: TemplateId, toolResults: ToolCallRecord[]): s
         cur ? `当前线治疗：${cur}。建议按 CTCAE v5.0 重点记录：` : "当前无进行中的系统治疗，按 CTCAE v5.0 记录的通用要求如下：",
         ...body,
         "记录要求：注明发生日期、最高级别、与药物的相关性、采取的措施（继续/暂停/减量/停药）及转归。",
+      ].join("\n");
+    }
+    case "doctor_draft": {
+      const pro = res("get_latest_pro");
+      if (!pro) return "该患者尚无问卷记录，无法起草症状处理建议。";
+      const top = topSymptoms(pro);
+      if (!top.length) return `最近一次问卷（${pro.date} · ${pro.scale}）各项症状均未达到 1 级，暂无需处理的症状。以上为草稿，需医生确认。`;
+      const hits = res("search_guidelines") ?? [];
+      const grades = toolResults.filter(c => c.name === "ctcae_grade").map(c => c.result as ToolResult<"ctcae_grade">);
+      const relevant = hits.filter(h => top.some(t => h.topic.includes(t.symptom) || h.text.includes(t.symptom)));
+      const bullet = (sym: string, grade: number) => {
+        const g = grades.find(x => x.symptom === sym && x.grade === grade && x.found);
+        if (g?.found) return `${g.action}（参考 CTCAE v5.0 ${grade} 级：${g.definition}）`;
+        const hit = hits.find(h => h.topic.includes(sym) || h.text.includes(sym));
+        return hit ? `参考 [${hit.id}] ${hit.topic}：${hit.text}` : "对症处理，下次随访时复评";
+      };
+      return [
+        `根据最近一次问卷（${pro.date} · ${pro.scale}），症状处理建议草稿：`,
+        ...top.map(t => `· ${t.symptom}（${t.grade} 级）→ ${bullet(t.symptom, t.grade)}`),
+        ...(hits.length ? [`相关指南要点：${(relevant.length ? relevant : hits).map(h => `[${h.id}] ${h.topic}`).join("；")}。`] : []),
+        "以上为草稿，需医生确认。",
       ].join("\n");
     }
     case "doctor_guideline": {

@@ -2,7 +2,9 @@ import { getStore } from "@/lib/state/store";
 import { now, newId } from "@/lib/state/clock";
 import { transition } from "@/lib/alerts/machine";
 import type { FollowUpTask } from "@/lib/domain/types";
+/** 提交复核 must record what was done (A3: the call is recorded in the alert notes). */
 export function actOnAlert(id: string, action: Parameters<typeof transition>[1], by: string, note?: string) {
+  if (action === "submit_review" && !note?.trim()) throw new Error("提交复核需填写处置记录");
   const s = getStore(); const i = s.alerts.findIndex(a => a.id === id); if (i < 0) throw new Error("alert not found");
   s.alerts[i] = transition(s.alerts[i], action, by, now(), note); return s.alerts[i];
 }

@@ -232,6 +232,30 @@ describe("agents: fix round 1 — stop-medication guard", () => {
   });
 });
 
+describe("agents: doctor_draft (A4 建议草稿)", () => {
+  beforeEach(() => { resetStore(); clearEnv(); });
+  const ask = (patientId: string) => chat({ agent: "doctor", messages: [{ role: "user", content: "根据最近一次问卷起草症状处理建议" }], context: { patientId, page: "patient" } });
+  it("drafts from the latest PRO's top 2 symptoms with CTCAE handling and guideline citations; numbers only from tools", async () => {
+    expect(pickTemplate("doctor", "patient", "根据最近一次问卷起草症状处理建议")).toBe("doctor_draft");
+    const r = await ask("P-B");
+    expect(r.text).toMatch(/^根据最近一次问卷（2026-10-06 · 每周治疗症状问卷）/);
+    expect(r.text).toContain("· 恶心（2 级）→"); expect(r.text).toContain("· 乏力（2 级）→"); expect(r.text).not.toContain("口腔炎（");
+    expect(r.text.trim().endsWith("以上为草稿，需医生确认。")).toBe(true);
+    expect(r.citations.length).toBeGreaterThan(0); expect(r.citations.map(c => c.id)).toContain("G-017");
+    const q = r.toolCalls.find(c => c.name === "search_guidelines")!.args as { query: string };
+    expect(q.query).toBe("恶心 乏力 ADC"); // the patient's actual top symptoms + current therapy class
+    expect(validateResponse(r, guidelineIds(), collectToolNumbers(r.toolCalls))).toEqual({ ok: true });
+  });
+  it("follows a newly submitted PRO (P-A 关节痛 2 / 潮热 2 → AI arthralgia guidance)", async () => {
+    const { submitPro } = await import("@/lib/pro/submit");
+    submitPro({ patientId: "P-A", scaleId: "endocrine_monthly_v1", items: { 关节痛: 2, 潮热: 2, 情绪: 0, 睡眠: 0 }, flags: { missedDoses14d: 5, stopIntent: true } });
+    const r = await ask("P-A");
+    expect(r.text).toContain("· 关节痛（2 级）→"); expect(r.text).toContain("· 潮热（2 级）→");
+    expect(r.citations.map(c => c.id)).toEqual(["G-004", "G-005", "G-006"]); // AI arthralgia entries (letrozole → "AI")
+    expect((r.toolCalls.find(c => c.name === "search_guidelines")!.args as { query: string }).query).toBe("关节痛 潮热 AI");
+  });
+});
+
 describe("agents: research_snapshot_size (统计一致: assistant == snapshot n)", () => {
   beforeEach(() => { resetStore(); clearEnv(); });
   it("routes 快照…多少例 / 样本量 and answers the snapshot n with its cutoff via count_cohort({})", async () => {
