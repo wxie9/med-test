@@ -53,6 +53,8 @@ test('390px and 1440px project form keeps labeled keyboard controls, deadlines a
   await page.getByLabel('关节痛', { exact: true }).focus(); await page.keyboard.press('ArrowRight'); await expect(page.getByLabel('关节痛', { exact: true })).toHaveValue('1');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   await page.screenshot({ path: testInfo.outputPath(`project-pro-${width}.png`), fullPage: true });
-  await page.goto('/patient/plan?patient=P-A'); await expect(page.getByText(/本阶段仅展示固定计划/)).toHaveCount(2);
+  await page.goto('/patient/plan?patient=P-A');
+  await expect(page.getByText('待服务团队联系', { exact: true })).toBeVisible();
+  await expect(page.getByText('待发送教育资料', { exact: true })).toBeVisible();
  }
 });

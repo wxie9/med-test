@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { PatientEducationLinks } from "@/components/psp/PatientEducationLinks";
 import { useEffect } from "react";
 import { usePatientId } from "@/lib/client/patientContext";
 import { usePatient } from "@/lib/client/usePatient";
@@ -21,7 +22,7 @@ export default function MessagesPage() {
   useEffect(() => { if (idsKey) markSeen(id, idsKey.split(",")); }, [id, idsKey]);
   if (!data) return <PatientStatus error={error} />;
   return (
-    <Section title="消息">
+    <><PatientEducationLinks patientId={id} /><Section title="消息">
       {sorted.length === 0 ? <p className="text-sm text-gray-500">暂无消息</p> : (
         <ul className="space-y-3">
           {sorted.map(m => (
@@ -36,6 +37,6 @@ export default function MessagesPage() {
           ))}
         </ul>
       )}
-    </Section>
+    </Section></>
   );
 }

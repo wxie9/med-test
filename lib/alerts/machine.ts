@@ -6,7 +6,7 @@ const NEXT: Record<string, Partial<Record<Action, Alert["status"]>>> = {
 };
 export function transition(a: Alert, action: Action, by: string, at: string, note?: string): Alert {
   const next = NEXT[a.status]?.[action]; if (!next) throw new Error("invalid transition");
-  return { ...a, status: next, assignee: action === "accept" ? by : a.assignee, timestamps: { ...a.timestamps, [next]: at }, notes: note ? [...a.notes, { at, by, text: note }] : a.notes };
+  return { ...a, version: (a.version ?? 1) + 1, status: next, assignee: action === "accept" ? by : a.assignee, timestamps: { ...a.timestamps, [next]: at }, notes: note ? [...a.notes, { at, by, text: note }] : a.notes };
 }
 const LIMIT_H = { high: 2, medium: 24 };
 export function checkEscalations(alerts: Alert[], nowIso: string): Alert[] {

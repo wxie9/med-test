@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2 与 Task 3 的项目问卷绑定；Task 4–12 尚未执行。第一阶段实施与验收记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)，问卷绑定见[Task 3 报告](../sdd-ledger/2026-10-14-psp-task3-report.md)。
+- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2 与 Task 3 的项目问卷绑定；Task 4 的联系事实、医生复核与教育闭环也已完成；Task 5–12 尚未执行。第一阶段实施与验收记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)，问卷绑定见[Task 3 报告](../sdd-ledger/2026-10-14-psp-task3-report.md)，服务闭环见[Task 4 报告](../sdd-ledger/2026-10-15-psp-task4-report.md)。
 - 详细需求以[PSP设计](../specs/2026-10-14-postlaunch-psp-demo-design.md)为准；[现状评审](../sdd-ledger/2026-10-14-psp-current-state-review.md)定义新增依赖。
 - 项目`PSP-BC-ENDO-001`，虚构药企A，治疗类别支持；周期2026-10-01至2026-12-31。
 - 固定时钟`2026-10-13T10:00:00+08:00`；阶段报告窗口为10月1日至该时点，不能称整月完成业绩。
@@ -41,7 +41,7 @@
 
 ## 2 文件边界
 
-下表保留完整规划；Task 0–3 的基础和问卷文件已实现，其余文件仍是后续计划，不能把未实现路径当成可用接口。
+下表保留完整规划；Task 0–4 的基础、问卷及服务文件已实现，其余文件仍是后续计划，不能把未实现路径当成可用接口。
 
 | 文件/目录 | 职责 |
 |---|---|
@@ -271,12 +271,12 @@ type ProjectAlertAction =
 
 `close`是医生确认动作，不增不存在的confirm状态。PSP保存精确dueAt，原FollowUpTask.due取其上海DateOnly并仍open；note/task按原route要求必填，dueAt必须晚于复核时间。本项目API不开放任意assign/escalate动作，系统继续原规则。
 
-- [ ] 先测一个interaction只能一个outcome，跨患者/项目alertIds拒绝；no_answer不算成功且不关闭预警；两预警一次电话只计一个interaction。
-- [ ] 既有alert状态机继续唯一执行者；start只记录开始，submit_review需结构化处置结果，医生close在一次命令中留复核证据并沿用原task/message。每个alert有复核引用，不靠联系记录猜已复核。
-- [ ] P-A既有常规contact计划可关联这次实际成功联系；同事实可覆盖两个alert，但不复制成三次联系或另造一个完成事件。
-- [ ] 教育发送只用approved固定内容版本；打开和反馈分开写；“仍需帮助”创建PSP跟进计划，不能自动改症状状态。重复打开可记录首次打开而不增加反馈完成，重试反馈幂等。
-- [ ] 将服务/教育卡接到姓名清晰的患者详情。未来复评dueAt由医生明确选择晚于cutoff，当前S6反馈不能把未来临床task完成。
-- [ ] Run `npx vitest run tests/unit/psp-service.test.ts tests/unit/psp-education.test.ts tests/unit/clinic-actions.test.ts tests/unit/clinic-timeline.test.ts`；预期接单、联系、处置、复核各有事实且旧流程不变。
+- [x] 先测一个interaction只能一个outcome，跨患者/项目alertIds拒绝；no_answer不算成功且不关闭预警；两预警一次电话只计一个interaction。
+- [x] 既有alert状态机继续唯一执行者；start只记录开始，submit_review需结构化处置结果，医生close在一次命令中留复核证据并沿用原task/message。每个alert有复核引用，不靠联系记录猜已复核。
+- [x] P-A既有常规contact计划可关联这次实际成功联系；同事实可覆盖两个alert，但不复制成三次联系或另造一个完成事件。
+- [x] 教育发送只用approved固定内容版本；打开和反馈分开写；“仍需帮助”创建PSP跟进计划，不能自动改症状状态。重复打开可记录首次打开而不增加反馈完成，重试反馈幂等。
+- [x] 将服务/教育卡接到姓名清晰的患者详情。未来复评dueAt由医生明确选择晚于cutoff，当前S6反馈不能把未来临床task完成。
+- [x] Run `npx vitest run tests/unit/psp-service.test.ts tests/unit/psp-education.test.ts tests/unit/clinic-actions.test.ts tests/unit/clinic-timeline.test.ts`；预期接单、联系、处置、复核各有事实且旧流程不变。
 
 ## Task 5：自报值副本与补录核验
 

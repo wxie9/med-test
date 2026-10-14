@@ -12,11 +12,16 @@ const event = {id,enrollmentId:id,occurredAt:time,recordedAt:time,actorId:id,seq
 export const PspMembershipEvent = z.object({...event,status:EnrollmentStatus,reason:id}).strict();
 export const PspPermissionEvent = z.object({...event,scope:z.enum(['service','aggregate']),action:z.enum(['grant','withdraw']),textVersion:id}).strict();
 export const PspAssignment = z.object({id,projectId:id,enrollmentId:id,kind:z.enum(['questionnaire','contact','education']),title:id,assignedAt:time,dueAt:time,ownerRole:PspRole,status:z.enum(['open','completed','paused','cancelled']),version,firstValidSubmittedAt:time.nullable(),latestValidResponseId:id.nullable(),source:z.literal('psp-v1')}).strict();
-export const PspServiceEvent = z.object({...event,projectId:id,assignmentId:id,kind:z.literal('contact'),interactionId:id,alertIds:z.array(id),outcome:z.enum(['reached','no_answer']),source:z.literal('psp-v1')}).strict();
+export const PspServiceEvent = z.object({...event,projectId:id,assignmentId:id.optional(),channel:z.enum(['phone','message']).optional(),kind:z.literal('contact'),interactionId:id,alertIds:z.array(id),outcome:z.enum(['reached','no_answer','refused','channel_unavailable']),source:z.literal('psp-v1')}).strict();
 export const EducationContentVersion = z.object({id,version,title:id,body:id,scope:id,status:z.literal('approved'),approvedAt:time,approvedBy:id,sourceNote:id}).strict();
-export const EducationAssignmentResult = z.object({assignmentId:id,contentVersionId:id,sentAt:time,openedAt:time,feedbackAt:time,understood:z.boolean(),needsHelp:z.boolean(),actorId:id,sequence:seq}).strict();
+export const EducationAssignmentResult = z.object({assignmentId:id,contentVersionId:id,sentAt:time,openedAt:time.nullable(),feedbackAt:time.nullable(),understood:z.boolean().nullable(),needsHelp:z.boolean().nullable(),actorId:id,sequence:seq}).strict();
+export const PspDisposition = z.object({category:id,summary:id,interactionIds:z.array(id).min(1)}).strict();
+export const PspAlertActionEvent = z.object({...event,projectId:id,alertId:id,action:z.enum(['accept','start','submit_review','close']),disposition:PspDisposition.optional(),note:id.optional(),followupTaskId:id.optional(),followupAssignmentId:id.optional()}).strict();
+export const PspEducationEvent = z.object({...event,projectId:id,assignmentId:id,contentVersionId:id,action:z.enum(['send','open','feedback']),understood:z.boolean().optional(),needsHelp:z.boolean().optional(),followupAssignmentId:id.optional()}).strict();
+export type PspAlertActionEvent = z.infer<typeof PspAlertActionEvent>;
+export type PspEducationEvent = z.infer<typeof PspEducationEvent>;
 export const CommandReceipt = z.object({id,scopeKey:id,bodyDigest:id,result:z.unknown(),objectVersion:version,ledgerRevision:z.number().int().nonnegative()}).strict();
-export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt)}).strict();
+export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt),alertActions:z.array(PspAlertActionEvent).optional(),educationEvents:z.array(PspEducationEvent).optional()}).strict();
 export type PspProject = z.infer<typeof PspProject>;
 export type PspEnrollment = z.infer<typeof PspEnrollment>;
 export type PspMembershipEvent = z.infer<typeof PspMembershipEvent>;
@@ -33,7 +38,7 @@ export function validatePspState(value:unknown):PspState {
  for(const [label,items] of Object.entries({enrollments:s.enrollments,assignments:s.assignments,membership:s.membershipEvents,permissions:s.permissionEvents,services:s.serviceEvents,contents:s.educationContents,receipts:s.commandReceipts}))unique(items.map(x=>x.id),label);
  unique(s.enrollments.map(e=>e.patientId),'patient');
  const enrollments=new Set(s.enrollments.map(e=>e.id)), assignments=new Map(s.assignments.map(a=>[a.id,a])),contents=new Map(s.educationContents.map(c=>[c.id,c]));
- const events=[...s.membershipEvents,...s.permissionEvents,...s.serviceEvents,...s.educationResults];
+ const events=[...s.membershipEvents,...s.permissionEvents,...s.serviceEvents,...(s.alertActions??[]),...(s.educationEvents??[]),...s.educationResults.filter(r=>!s.educationEvents?.some(e=>e.assignmentId===r.assignmentId))];
  unique(events.map(e=>String(e.sequence)),'sequence');
  if(events.some(e=>e.sequence>s.ledgerRevision))throw new Error('PSP revision behind ledger');
  for(const e of s.enrollments)if(e.projectId!==s.project.id || e.eligibilityConfirmed!==Boolean(e.eligibilityConfirmedAt && e.eligibilityConfirmedBy))throw new Error('Invalid PSP enrollment');
@@ -50,8 +55,8 @@ export function validatePspState(value:unknown):PspState {
  for(const e of [...s.membershipEvents,...s.permissionEvents,...s.serviceEvents])if(!enrollments.has(e.enrollmentId) || Date.parse(e.recordedAt)<Date.parse(e.occurredAt))throw new Error('Invalid PSP event');
  for(const a of s.assignments)if(!enrollments.has(a.enrollmentId)||a.projectId!==s.project.id||Date.parse(a.dueAt)<Date.parse(a.assignedAt))throw new Error('Invalid PSP assignment');
  for(const a of s.assignments.filter(a=>a.kind==='questionnaire'))if(Boolean(a.firstValidSubmittedAt)!==Boolean(a.latestValidResponseId)||(a.status==='completed'&&!a.firstValidSubmittedAt)||(a.status==='open'&&a.firstValidSubmittedAt))throw new Error('Invalid PSP questionnaire completion fields');
- for(const e of s.serviceEvents){const a=assignments.get(e.assignmentId);if(!a||a.kind!=='contact'||a.enrollmentId!==e.enrollmentId||e.projectId!==s.project.id||Date.parse(e.occurredAt)<Date.parse(a.assignedAt))throw new Error('Invalid PSP contact reference or time');}
- for(const e of s.educationResults){const a=assignments.get(e.assignmentId),c=contents.get(e.contentVersionId);if(!a||a.kind!=='education'||!c||Date.parse(e.sentAt)<Date.parse(a.assignedAt)||Date.parse(c.approvedAt)>Date.parse(e.sentAt)||Date.parse(e.sentAt)>Date.parse(e.openedAt)||Date.parse(e.openedAt)>Date.parse(e.feedbackAt))throw new Error('Invalid PSP education reference or time');}
+ for(const e of s.serviceEvents){const a=e.assignmentId?assignments.get(e.assignmentId):undefined;if((e.assignmentId&&(!a||a.kind!=='contact'||a.enrollmentId!==e.enrollmentId||Date.parse(e.occurredAt)<Date.parse(a.assignedAt)))||e.projectId!==s.project.id||(!e.assignmentId&&!e.channel))throw new Error('Invalid PSP contact reference or time');}
+ for(const e of s.educationResults){const a=assignments.get(e.assignmentId),c=contents.get(e.contentVersionId);if(!a||a.kind!=='education'||!c||Date.parse(e.sentAt)<Date.parse(a.assignedAt)||Date.parse(c.approvedAt)>Date.parse(e.sentAt)||(e.openedAt!==null&&Date.parse(e.sentAt)>Date.parse(e.openedAt))||(e.feedbackAt!==null&&(!e.openedAt||Date.parse(e.openedAt)>Date.parse(e.feedbackAt)))||(e.feedbackAt===null&&(e.understood!==null||e.needsHelp!==null))||(e.feedbackAt!==null&&(e.understood===null||e.needsHelp===null)))throw new Error('Invalid PSP education reference or time');}
  return s;
 }
 

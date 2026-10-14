@@ -159,3 +159,7 @@ Parked — Ruling: copy-draft copies last assistant reply of any kind — presen
 Parked — Ruling: OpenAI finish_reason "length" not degraded — real-key test before demo day is the human's step.
 Parked — Ruling: docs nuance 缺 ISH 12 (any specimen) vs 信息不足 11 (latest specimen) — both correct; presenter note.
 Final review clean after one fix wave. Ledger copied to docs/superpowers/sdd-ledger/ before workspace deletion.
+
+## 2026-10-15 PSP Task 4
+
+Base `4b4a23d`，Task 0–3 保留；联系记录、逐预警结构化处置/医生复核、教育发送/阅读/反馈完成。独立代码审查六项问题已关闭；最终 525 unit、lint、TypeScript、Next/Workers 各 23 E2E、安全构建/dry-run、实际 Workers 重启与 14 原回执重放通过。详情见 [实施报告](2026-10-15-psp-task4-report.md)与[代码复审](2026-10-15-psp-task4-code-review.md)。本次仅本地提交，下一项为 Task 5 自报值副本与补录核验；Task 5–12 未执行。

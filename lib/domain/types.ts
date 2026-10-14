@@ -46,7 +46,7 @@ export type ProResponse = z.infer<typeof ProResponse>;
 export const Alert = z.object({
   id: z.string(), patientId: z.string(), kind: z.enum(["symptom", "adherence"]), level: z.enum(["high", "medium"]), rule: z.string(),
   status: AlertStatus, assignee: z.string().nullable(), timestamps: z.record(z.string()), notes: z.array(z.object({ at: z.string(), by: z.string(), text: z.string() })),
-  proId: z.string(),
+  proId: z.string(), version: z.number().int().positive().optional(),
 });
 export const FollowUpTask = z.object({ id: z.string(), patientId: z.string(), type: z.string(), due: z.string(), owner: z.string(), status: z.enum(["open", "done"]), createdAt: z.string() });
 export const CohortFilter = z.object({
