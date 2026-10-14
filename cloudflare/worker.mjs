@@ -1,11 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 import handler from "../.open-next/worker.js";
-import files from "./files.generated.mjs";
+import files, { seedFingerprint } from "./files.generated.mjs";
 import { encodeDemoStore, decodeDemoStore } from "../lib/state/persistence.ts";
 
 globalThis.__demoFiles = files;
 const manifest = JSON.parse(files["data/seed/manifest.json"]);
-const stateKey = `demo-${manifest.version}-${manifest.checksum}`;
+const stateKey = `demo-v1-${manifest.version}-${seedFingerprint}`;
 
 /** One globally addressed coordinator preserves the existing shared demo semantics. */
 export class DemoState extends DurableObject {
