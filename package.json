@@ -13,7 +13,7 @@
     "e2e": "playwright test",
     "lint": "eslint .",
     "prebuild": "npm run seed",
-    "build:worker": "npm run seed && tsx scripts/build-worker-files.ts && opennextjs-cloudflare build",
+    "build:worker": "tsx scripts/build-worker-safe.ts",
     "preview:worker": "npm run build:worker && wrangler dev",
     "deploy:worker": "npm run build:worker && wrangler deploy"
   },

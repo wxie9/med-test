@@ -105,13 +105,19 @@ Git 构建已为 `med-test` 配置：构建命令 `npm run build:worker`，部�
 
 ```bash
 npm ci
-npm run build:worker       # 生成 gen-v4 数据并构建 Workers
+npm run build:worker       # 在隔离目录生成 gen-v4 数据并构建 Workers
 npx wrangler dev           # 在 Workers 本地运行时预览
 npx wrangler login         # 仅手动 CLI 发布时需要
 npx wrangler deploy
 ```
 
 运行时固定演示时间为 `2026-10-13T10:00:00+08:00`。仅将合成种子数据和公开演示脚本加入构建包；本地 `.env*`、`.dev.vars*`、生成包和账户凭据均不入库。静态资源由 Workers Assets 提供，未启用付费 R2 或在线模型。
+
+`build:worker` 将源文件和已安装依赖复制到临时目录，递归排除 `.env*` / `.dev.vars*`、本地构建缓存及工作区；构建子进程仅继承必要系统变量，并使用固定演示时间。它拒绝外部源链接/依赖链接，不读取或移动原环境文件，也不替换本地 `.next`。构建后检查 OpenNext 三种模式的环境模块均为空、产物无 dotenv 文件，才更新 `.open-next` 和 `cloudflare/files.generated.mjs`；更新失败回滚两份产物，失败不触发后续部署。复制依赖需要额外临时磁盘空间，临时目录在成功或失败后清理；若输出备份恢复也失败，保留备份并报告恢复路径。
+
+Workers 构建统一使用 `npm run build:worker`；`preview:worker` 和 `deploy:worker` 也调用这一入口。直接运行 OpenNext 构建不会经过隔离校验。需要验证部署打包而不发布时，可在安全构建成功后运行 `npx wrangler deploy --dry-run`。本地 `npm run demo` 的模型配置方式保持原样。
+
+本次构建隔离与 lint 修复的验证记录见 [Worker 构建修复报告](docs/superpowers/sdd-ledger/2026-10-14-worker-build-env-fix.md)。
 
 Workers 的 `/api/*` 统一经过一个 SQLite-backed Durable Object：跨实例访问使用同一份演示状态，并在请求结束前保存压缩快照；实例回收后恢复患者、预警、任务、研究快照和重置版本。静态页面及资源继续在边缘提供。它仍是**所有访问者共享的演示环境**，不是独立的多用户会话。首页“一键重置”会同时重置所有访问者的演示状态；勿在他人演示中操作。
 

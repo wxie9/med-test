@@ -14,6 +14,7 @@ const eslintConfig = [
   {
     ignores: [
       "node_modules/**",
+      ".claude/**",
       ".open-next/**",
       ".wrangler/**",
       "cloudflare/files.generated.mjs",
