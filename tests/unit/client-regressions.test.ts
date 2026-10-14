@@ -24,8 +24,6 @@ const researchState = (seedVersion: number, hasSnapshot = true): ResearchState =
 const reply: ChatResponse = { text: "演示回复", mode: "deterministic", citations: [], toolCalls: [] };
 
 beforeEach(() => {
-  // Vite's default JSX transform is classic; keep the actual React renderer in jsdom.
-  vi.stubGlobal("React", React);
   Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });

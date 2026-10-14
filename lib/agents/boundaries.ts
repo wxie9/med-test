@@ -36,15 +36,28 @@ export function permitsMedicationAdjustment(text: string): boolean {
   return false;
 }
 
-/** Research prose must consist of controlled descriptive facts; arbitrary conclusions are rejected. */
+/**
+ * Research reply rule. A reply is accepted when it is the boundary text, or when every
+ * clause (split on 。；！？\n) satisfies one of:
+ *   a. it is fully covered by verbatim server-rendered tool facts, or
+ *   b. it contains no outcome / efficacy / comparison / recommendation vocabulary
+ *      (CONCLUSION below). Such non-numeric prose is allowed as wording.
+ * Patient ids and all quantities are checked separately and strictly by
+ * validateResponse: a clause with any number must itself be a tool-fact clause.
+ * So the only free text that passes is number-free prose without conclusion wording.
+ */
+const CONCLUSION = /\b(?:OS|PFS|ORR|DCR|DFS|HR|RR)\b|生存|存活|活得|疗效|有效|获益|受益|缓解|缩小|控制|改善|延长|延缓|降低|提高|增加|减少|优于|劣于|更好|更差|更久|更长|更高|更低|更|最|较好|较差|显著|明显|说明|表明|证明|提示|因此|所以|导致|引起|归因|相关|对比|比较|差异|风险|预后|复发|进展|转移率|死亡率|推荐|建议|应该|应当|适合|安全|耐受/i;
 export function isControlledResearchReply(text: string, calls: ToolCallRecord[]): boolean {
   if (text === RESEARCH_BOUNDARY) return true;
   const normalize = (s: string) => s.normalize("NFKC").replace(/[\s，。；：、（）“”「」·]/g, "");
   const t = normalize(text); if (!t) return false;
-  const covered = new Uint8Array(t.length);
-  for (const fact of toolFacts(calls)) {
-    const f = normalize(fact.text); if (!f) continue;
-    for (let i = t.indexOf(f); i !== -1; i = t.indexOf(f, i + 1)) covered.fill(1, i, i + f.length);
+  const facts = toolFacts(calls).map(f => normalize(f.text)).filter(Boolean);
+  for (const raw of text.normalize("NFKC").split(/[。；！？\n]/)) {
+    const clause = normalize(raw); if (!clause) continue;
+    if (!CONCLUSION.test(clause)) continue;
+    const covered = new Uint8Array(clause.length);
+    for (const f of facts) for (let i = clause.indexOf(f); i !== -1; i = clause.indexOf(f, i + 1)) covered.fill(1, i, i + f.length);
+    if (!covered.every(x => x === 1)) return false;
   }
-  return covered.every(x => x === 1);
+  return true;
 }

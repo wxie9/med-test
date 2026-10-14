@@ -195,4 +195,48 @@ describe("agent provenance regressions", () => {
     toolThenText("count_cohort", { filter: {} }, `快照共 ${toolResult.n} 例。这种药让大家活得更久。`);
     assertFallback(await chat(req("research", "解读当前快照", s.id)));
   });
+
+  describe("everyday numeral wording (validator is unit-aware)", () => {
+    const noTools = (text: string) => validateResponse({ text, citations: [], toolCalls: [] }, guidelineIds());
+    it.each(["请一定按时服药，一般来说不适会逐渐缓解。", "万一出现发热，请立即到急诊就诊。", "一旦有不适，请统一通过“消息”联系个案管理师，大家一起商量。", "这与一些患者的情况一样，两者都需要医生确认。", "请进一步观察，一定不要自行调整。"])("patient sentences without quantities stay online: %s", async text => {
+      expect(noTools(text).ok).toBe(true);
+      openaiEnv(); completion(text);
+      const r = await chat(req("patient", "下次要做什么检查？")); expect(r.mode).toBe("openai"); expect(r.degraded).toBeUndefined();
+    });
+    it.each(["建议进一步完善影像学评估后再决定。", "两者需结合病历统一判断，万一有疑问请复核。"])("doctor sentences without quantities stay online: %s", async text => {
+      expect(noTools(text).ok).toBe(true);
+      openaiEnv(); completion(text);
+      const r = await chat(req("doctor", "总结这位患者的治疗经过")); expect(r.mode).toBe("openai"); expect(r.degraded).toBeUndefined();
+    });
+    it.each(["请一天服用一次。", "半年后复查。", "两周后复诊。", "随访三个月。", "共一百二十例。", "有效率为百分之九十。", "剂量为五毫克。", "一线治疗后再评估。", "万一天气变化请注意，一周后复诊。"])("Chinese numerals followed by a unit still need a tool-field fact: %s", text => {
+      expect(noTools(text).ok).toBe(false); expect(noTools(text).reason).toMatch(/^number /);
+    });
+    it("Arabic numbers stay strictly fact-bound", () => {
+      expect(noTools("一般 3 天后复查。").ok).toBe(false);
+      expect(validateResponse({ text: "患者 53 岁。", citations: [], toolCalls: [{ name: "get_patient_summary", args: {}, result: { age: 52 } }] }, guidelineIds()).ok).toBe(false);
+    });
+  });
+  describe("research reply rule", () => {
+    it("number-free descriptive prose without conclusion wording passes", async () => {
+      const s = snapshot(); openaiEnv(); completion("本演示仅提供描述性统计与入组可行性评估，请结合上方的筛选漏斗阅读计数结果。");
+      const r = await chat(req("research", "解读当前快照", s.id)); expect(r.mode).toBe("openai"); expect(r.degraded).toBeUndefined();
+    });
+    it.each(["入组后预后更好。", "两者差异不大。", "这些患者更适合该方案。", "建议优先纳入这部分患者。"])("conclusion wording outside a server fact still fails: %s", async text => {
+      const s = snapshot(); openaiEnv(); completion(text); assertFallback(await chat(req("research", "解读当前快照", s.id)));
+    });
+    it("fabricated counts still fail", async () => {
+      const s = snapshot(); openaiEnv();
+      const total = runTool("count_cohort", { filter: {} }, { snapshotId: s.id, page: "feasibility" }) as { n: number };
+      toolThenText("count_cohort", { filter: {} }, `快照共 ${total.n + 1} 例。`);
+      assertFallback(await chat(req("research", "解读当前快照", s.id)));
+      completion("共有 10 例符合条件。"); assertFallback(await chat(req("research", "解读当前快照", s.id)));
+    });
+    it("unknown citations and patient ids still fail", async () => {
+      const s = snapshot();
+      expect(validateResponse({ text: "参考 G-999。", citations: [], toolCalls: [] }, guidelineIds())).toEqual({ ok: false, reason: "unknown citation G-999" });
+      expect(validateResponse({ text: "P-A 符合条件。", citations: [], toolCalls: [] }, guidelineIds())).toEqual({ ok: false, reason: "patient id in reply" });
+      openaiEnv(); completion("P-A 符合条件。"); assertFallback(await chat(req("research", "解读当前快照", s.id)));
+      completion("参考 G-999。"); assertFallback(await chat(req("research", "解读当前快照", s.id)));
+    });
+  });
 });

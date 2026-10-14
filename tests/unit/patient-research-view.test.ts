@@ -33,7 +33,7 @@ function renderPage(initialId: string) {
   localStorage.setItem("demo.patientId", initialId);
   return render(createElement(PatientProvider, null, createElement(Harness)));
 }
-beforeEach(() => { vi.stubGlobal("React", React); localStorage.clear(); });
+beforeEach(() => { localStorage.clear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe("patient research opportunity identity", () => {
