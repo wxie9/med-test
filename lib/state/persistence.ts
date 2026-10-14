@@ -1,3 +1,4 @@
+import {validatePspEvidenceLinks} from '@/lib/psp/evidenceValidation';
 import {validatePspServiceLinks} from '@/lib/psp/serviceValidation';
 import { z } from 'zod';
 import type { DemoStore } from './store';
@@ -16,12 +17,13 @@ const payload=z.object({version:z.literal(2),store:z.object({
  manifest:z.object({seed:z.number(),version:z.string(),cutoff:z.string(),checksum:z.string(),counts:z.record(z.number()),violations:z.number().int().nonnegative()}).strict(),agentMode:z.enum(['deterministic','claude','openai']),seedVersion:z.number().int().positive(),psp:PspState,
 }).strict()}).strict();
 function freezeDeep(value:unknown):void { if(value && typeof value==='object'){for(const v of Object.values(value))freezeDeep(v);Object.freeze(value);} }
-export function hydrateImmutableState(store:DemoStore):DemoStore { for(const snapshot of store.snapshots)freezeDeep(snapshot);for(const content of store.psp.educationContents)freezeDeep(content);return store; }
+export function hydrateImmutableState(store:DemoStore):DemoStore { for(const snapshot of store.snapshots)freezeDeep(snapshot);for(const content of store.psp.educationContents)freezeDeep(content);for(const source of store.psp.selfReportRevisions??[])freezeDeep(source);for(const correction of store.psp.corrections??[])freezeDeep(correction);return store; }
 export async function encodeDemoStore(store:DemoStore):Promise<Uint8Array> {
  const value=payload.parse({version:2,store:{...store,patients:[...store.patients.values()]}});
  validatePspState(value.store.psp);
  validatePspClinicalLinks(value.store.psp,value.store.patients as import('@/lib/domain/types').Patient[]);
  validatePspServiceLinks({...value.store,patients:new Map((value.store.patients as import('@/lib/domain/types').Patient[]).map(p=>[p.id,p]))} as DemoStore);
+ validatePspEvidenceLinks({...value.store,patients:new Map((value.store.patients as import('@/lib/domain/types').Patient[]).map(p=>[p.id,p]))} as DemoStore);
  const stream=new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream('gzip'));
  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
@@ -31,7 +33,7 @@ export async function decodeDemoStore(encoded:Uint8Array):Promise<DemoStore> {
  const store={...saved.store,patients:new Map(saved.store.patients.map(p=>[p.id,p]))} as DemoStore;
  validatePspState(store.psp);
  validatePspClinicalLinks(store.psp,store.patients.values());
- validatePspServiceLinks(store);
+ validatePspServiceLinks(store);validatePspEvidenceLinks(store);
  if(store.patients.size!==saved.store.patients.length)throw new Error('Duplicate persisted patient');
  for(const e of store.psp.enrollments)if(!store.patients.has(e.patientId))throw new Error('Unknown persisted PSP patient');
  return hydrateImmutableState(store);

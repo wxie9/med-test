@@ -1,3 +1,4 @@
+import {validatePspEvidenceLinks} from './evidenceValidation';
 import {validatePspServiceLinks} from '@/lib/psp/serviceValidation';
 import { createHash } from 'node:crypto';
 import { getStore, replaceStore, type DemoStore } from '@/lib/state/store';
@@ -45,7 +46,7 @@ export function transact<T>(enrollmentId:string, body:unknown, rawMeta:CommandMe
   draft.psp.commandReceipts.push({id:`receipt:${scopeKey}`,scopeKey,bodyDigest,result:structuredClone(result),objectVersion:target.version,ledgerRevision:draft.psp.ledgerRevision});
   validatePspState(draft.psp);
   validatePspClinicalLinks(draft.psp,draft.patients.values());
-  validatePspServiceLinks(draft);
+  validatePspServiceLinks(draft);validatePspEvidenceLinks(draft);
   replaceStore(hydrateImmutableState(draft));
   return structuredClone(result);
 }
@@ -76,7 +77,7 @@ export function transactAssignment<T>(assignmentId:string, patientId:string, bod
   draft.psp.commandReceipts.push({id:`receipt:${scopeKey}`,scopeKey,bodyDigest,result:structuredClone(result),objectVersion:target.version,ledgerRevision:draft.psp.ledgerRevision});
   validatePspState(draft.psp);
   validatePspClinicalLinks(draft.psp,draft.patients.values());
-  validatePspServiceLinks(draft);
+  validatePspServiceLinks(draft);validatePspEvidenceLinks(draft);
   replaceStore(hydrateImmutableState(draft));
   return structuredClone(result);
 }
@@ -91,14 +92,14 @@ export function projectEnrollmentForAlert(store:DemoStore,alertId:string):PspEnr
   while(proId&&!seen.has(proId)){if(proId===alert.proId)return enrollment;seen.add(proId);proId=patient.pro.find(p=>p.id===proId)?.revisionOf??null;}
  }
 }
-export type ServiceTarget={kind:'enrollment'|'assignment'|'alert';id:string};
+export type ServiceTarget={kind:'enrollment'|'assignment'|'alert'|'correction';id:string};
 /** Care commands use isolated drafts and receipts; they never change authorizationVersion. */
 export function runServiceCommand<T>(target:ServiceTarget,rawMeta:CommandMeta,normalizedBody:unknown,roles:readonly PspRole[],mutate:(draft:DemoStore)=>{data:T;changed:boolean}):CommandResult<T> {
  const meta=CommandMeta.parse(rawMeta),current=getStore();
  if(meta.seedVersion!==current.seedVersion)throw new PspError(409,'stale_seed','演示已重置，请刷新后重新操作');
- const object=target.kind==='enrollment'?current.psp.enrollments.find(e=>e.id===target.id):target.kind==='assignment'?current.psp.assignments.find(a=>a.id===target.id):current.alerts.find(a=>a.id===target.id);
+ const object=target.kind==='enrollment'?current.psp.enrollments.find(e=>e.id===target.id):target.kind==='assignment'?current.psp.assignments.find(a=>a.id===target.id):target.kind==='correction'?current.psp.corrections?.find(c=>c.id===target.id):current.alerts.find(a=>a.id===target.id);
  if(!object)throw new PspError(404,'not_found','项目服务对象不存在');
- const enrollment=target.kind==='enrollment'?object as PspEnrollment:target.kind==='assignment'?current.psp.enrollments.find(e=>e.id===('enrollmentId' in object?object.enrollmentId:'')):projectEnrollmentForAlert(current,target.id);
+ const enrollment=target.kind==='enrollment'?object as PspEnrollment:(target.kind==='assignment'||target.kind==='correction')?current.psp.enrollments.find(e=>e.id===('enrollmentId' in object?object.enrollmentId:'')):projectEnrollmentForAlert(current,target.id);
  if(!enrollment||enrollment.projectId!==current.psp.project.id||!current.patients.has(enrollment.patientId))throw new PspError(404,'not_found','对象不属于本项目');
  requireIdentity(meta.role,meta.actorId,roles,enrollment.patientId);
  const scopeKey=JSON.stringify([current.seedVersion,current.psp.project.id,target.kind,target.id,meta.actorId,meta.clientRequestId]),bodyDigest=createHash('sha256').update(canonical(normalizedBody)).digest('hex');
@@ -106,12 +107,12 @@ export function runServiceCommand<T>(target:ServiceTarget,rawMeta:CommandMeta,no
  if(existing){if(existing.bodyDigest!==bodyDigest)throw new PspError(400,'request_reused','同一请求编号不能用于其他操作');return structuredClone(existing.result) as CommandResult<T>;}
  const previousVersion=object.version??1;if(previousVersion!==meta.expectedVersion)throw new PspError(409,'stale_version','服务状态已更新，请刷新后重试');
  const draft=structuredClone(current),{data,changed}=mutate(draft);
- const updated=target.kind==='enrollment'?draft.psp.enrollments.find(e=>e.id===target.id)!:target.kind==='assignment'?draft.psp.assignments.find(a=>a.id===target.id)!:draft.alerts.find(a=>a.id===target.id)!;
+ const updated=target.kind==='enrollment'?draft.psp.enrollments.find(e=>e.id===target.id)!:target.kind==='assignment'?draft.psp.assignments.find(a=>a.id===target.id)!:target.kind==='correction'?draft.psp.corrections!.find(c=>c.id===target.id)!:draft.alerts.find(a=>a.id===target.id)!;
  if(changed&&(updated.version??1)===previousVersion)updated.version=previousVersion+1;
  draft.psp.ledgerRevision++;
  const result={data,objectVersion:updated.version??1,ledgerRevision:draft.psp.ledgerRevision,seedVersion:draft.seedVersion};
  draft.psp.commandReceipts.push({id:`receipt:${scopeKey}`,scopeKey,bodyDigest,result:structuredClone(result),objectVersion:result.objectVersion,ledgerRevision:result.ledgerRevision});
  validatePspState(draft.psp);validatePspClinicalLinks(draft.psp,draft.patients.values());
- validatePspServiceLinks(draft);
+ validatePspServiceLinks(draft);validatePspEvidenceLinks(draft);
   replaceStore(hydrateImmutableState(draft));return structuredClone(result);
 }

@@ -1,0 +1,10 @@
+import {z} from 'zod';
+const id=z.string().min(1),time=z.string().datetime(),seq=z.number().int().positive();
+export const EvidenceDate=z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value=>{const date=new Date(`${value}T00:00:00Z`);return Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===value;},'日期无效');
+export const ContactOutcome=z.enum(['reached','no_answer','refused','channel_unavailable']);
+export const ContactSourceRef=z.object({kind:z.literal('contact'),id}).strict();
+export const ContactCorrectedValue=z.object({kind:z.literal('contact'),channel:z.enum(['phone','message']),outcome:ContactOutcome}).strict();
+export const PspSelfReportRevision=z.object({sourceId:id,projectId:id,enrollmentId:id,logDate:EvidenceDate,due:z.number().int().positive(),taken:z.number().int().nonnegative(),reason:z.string().nullable(),precision:z.enum(['date_only','instant']),occurredAt:time.nullable(),recordedAt:time,actorId:id,sequence:seq,sourceHash:z.string().regex(/^[a-f0-9]{64}$/),revisionOf:id.optional()}).strict().superRefine((s,ctx)=>{if(s.taken>s.due||(s.precision==='instant')!==(s.occurredAt!==null)||(s.precision==='date_only'&&s.revisionOf!==undefined))ctx.addIssue({code:z.ZodIssueCode.custom,message:'Invalid PSP self-report value or precision'});});
+export type PspSelfReportRevision=z.infer<typeof PspSelfReportRevision>;
+export const PspCorrection=z.object({id,projectId:id,enrollmentId:id,sourceRef:ContactSourceRef,interactionId:id,assignmentId:id.optional(),alertIds:z.array(id),sourceValue:z.object({channel:z.enum(['phone','message']).nullable(),outcome:ContactOutcome,occurredAt:time}).strict(),correctedValue:ContactCorrectedValue,reason:z.string().trim().min(1),occurredAt:time,recordedAt:time,proposedBy:id,sequence:seq,version:z.number().int().positive(),status:z.enum(['proposed','verified']),verifiedAt:time.nullable(),verifiedBy:id.nullable(),verificationSequence:seq.nullable()}).strict();
+export type PspCorrection=z.infer<typeof PspCorrection>;

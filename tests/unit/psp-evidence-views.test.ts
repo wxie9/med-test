@@ -1,0 +1,41 @@
+import {afterEach,beforeEach,expect,it} from 'vitest';
+import {buildPspTestStore,installPspTestStore,PSP_TEST_NOW} from '../helpers/psp';
+import {getStore} from '@/lib/state/store';
+import {getProjectAdherenceView,getCorrectionDeskView} from '@/lib/psp/evidenceView';
+import {importLegacySelfReports,submitProjectAdherence} from '@/lib/psp/selfReport';
+import {proposeCorrection,verifyCorrection} from '@/lib/psp/corrections';
+const project='PSP-BC-ENDO-001';
+beforeEach(()=>{process.env.DEMO_FIXED_NOW=PSP_TEST_NOW;installPspTestStore(buildPspTestStore());});
+afterEach(()=>{delete process.env.DEMO_FIXED_NOW;});
+const meta=(id:string,role:'case_manager'|'patient'|'data_reviewer',version:number)=>({seedVersion:getStore().seedVersion,expectedVersion:version,clientRequestId:id,role,actorId:role==='patient'?'P-A':role==='case_manager'?'case-manager-chen':'data-reviewer-psp'});
+it('returns only the owning member records and does not write on any GET',()=>{
+ const before=structuredClone(getStore());
+ const view=getProjectAdherenceView('ENR-01','patient','P-A');
+ expect(view).toMatchObject({patientId:'P-A',displayName:'王女士',canSubmit:true,serverToday:'2026-10-13',latestToday:null,records:[]});
+ expect(JSON.stringify(view)).not.toContain('P-0002');
+ for(const [role,actor] of [['patient','P-B'],['pharma_owner','pharma-owner-a'],['doctor','case-manager-chen'],[null,null]])expect(()=>getProjectAdherenceView('ENR-01',role,actor)).toThrow();
+ expect(()=>getProjectAdherenceView('missing','patient','P-A')).toThrow();expect(getStore()).toEqual(before);
+});
+it('projects exact today and frozen historical evidence with known availability, never labeling staff as patient writeable',()=>{
+ const imported=importLegacySelfReports('ENR-01',meta('import','case_manager',1));
+ submitProjectAdherence({enrollmentId:'ENR-01',due:1,taken:1},meta('live','patient',imported.objectVersion));
+ const before=structuredClone(getStore()),view=getProjectAdherenceView('ENR-01','patient','P-A');
+ expect(view.latestToday).toMatchObject({taken:1,precision:'instant'});expect(view.records).toHaveLength(13);
+ expect(view.history).toMatchObject({importedCount:12,includedCount:12,excludedCount:0});
+ expect(view.history.notice).toMatch(/日期|完整日/);expect(getProjectAdherenceView('ENR-01','doctor','doctor-zhang').canSubmit).toBe(false);
+ view.records[0].taken=99;expect(getStore()).toEqual(before);
+});
+it('projects original and proposed evidence by staff role while preserving all clinical facts',()=>{
+ const before=structuredClone(getStore()),cm=getCorrectionDeskView(project,'case_manager','case-manager-chen');
+ expect(cm.enrollments).toHaveLength(20);expect(cm.contacts).toHaveLength(18);
+ const contact=cm.contacts.find(c=>c.enrollmentId==='ENR-01')!;expect(contact).toMatchObject({displayName:'王女士',background:true,channel:null,canPropose:true});
+ expect(getStore()).toEqual(before);
+ for(const [role,actor] of [['pharma_owner','pharma-owner-a'],['patient','P-A'],['doctor','doctor-zhang']])expect(()=>getCorrectionDeskView(project,role,actor)).toThrow();
+ expect(()=>getCorrectionDeskView('other','case_manager','case-manager-chen')).toThrow();
+ const proposal=proposeCorrection({sourceRef:contact.sourceRef,correctedValue:{kind:'contact',channel:'phone',outcome:'no_answer'},reason:'补录合成联系渠道',occurredAt:contact.occurredAt},meta('proposal','case_manager',1));
+ const dr=getCorrectionDeskView(project,'data_reviewer','data-reviewer-psp');expect(dr.corrections[0]).toMatchObject({displayName:'王女士',status:'proposed',canVerify:true});
+ expect(getCorrectionDeskView(project,'case_manager','case-manager-chen').corrections[0].canVerify).toBe(false);
+ verifyCorrection(proposal.data.id,meta('verify','data_reviewer',1));
+ const after=getCorrectionDeskView(project,'data_reviewer','data-reviewer-psp');expect(after.corrections[0]).toMatchObject({status:'verified',canVerify:false});
+ expect(getStore().psp.serviceEvents).toEqual(before.psp.serviceEvents);expect(getStore().alerts).toEqual(before.alerts);expect(getStore().tasks).toEqual(before.tasks);expect(getStore().psp.assignments).toEqual(before.psp.assignments);
+});

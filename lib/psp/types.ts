@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import {PspSelfReportRevision,PspCorrection} from './evidenceTypes';
+export {PspSelfReportRevision,PspCorrection} from './evidenceTypes';
 import { ProBody } from '@/lib/pro/validation';
 const id = z.string().min(1), time = z.string().datetime(), version = z.number().int().positive(), seq = z.number().int().positive();
 export const PspRole = z.enum(['patient','case_manager','doctor','project_manager','data_reviewer','medical_reviewer','pharma_owner']);
@@ -21,7 +23,7 @@ export const PspEducationEvent = z.object({...event,projectId:id,assignmentId:id
 export type PspAlertActionEvent = z.infer<typeof PspAlertActionEvent>;
 export type PspEducationEvent = z.infer<typeof PspEducationEvent>;
 export const CommandReceipt = z.object({id,scopeKey:id,bodyDigest:id,result:z.unknown(),objectVersion:version,ledgerRevision:z.number().int().nonnegative()}).strict();
-export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt),alertActions:z.array(PspAlertActionEvent).optional(),educationEvents:z.array(PspEducationEvent).optional()}).strict();
+export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt),alertActions:z.array(PspAlertActionEvent).optional(),educationEvents:z.array(PspEducationEvent).optional(),selfReportRevisions:z.array(PspSelfReportRevision).optional(),corrections:z.array(PspCorrection).optional()}).strict();
 export type PspProject = z.infer<typeof PspProject>;
 export type PspEnrollment = z.infer<typeof PspEnrollment>;
 export type PspMembershipEvent = z.infer<typeof PspMembershipEvent>;
@@ -38,7 +40,7 @@ export function validatePspState(value:unknown):PspState {
  for(const [label,items] of Object.entries({enrollments:s.enrollments,assignments:s.assignments,membership:s.membershipEvents,permissions:s.permissionEvents,services:s.serviceEvents,contents:s.educationContents,receipts:s.commandReceipts}))unique(items.map(x=>x.id),label);
  unique(s.enrollments.map(e=>e.patientId),'patient');
  const enrollments=new Set(s.enrollments.map(e=>e.id)), assignments=new Map(s.assignments.map(a=>[a.id,a])),contents=new Map(s.educationContents.map(c=>[c.id,c]));
- const events=[...s.membershipEvents,...s.permissionEvents,...s.serviceEvents,...(s.alertActions??[]),...(s.educationEvents??[]),...s.educationResults.filter(r=>!s.educationEvents?.some(e=>e.assignmentId===r.assignmentId))];
+ const events=[...(s.selfReportRevisions??[]),...(s.corrections??[]),...(s.corrections??[]).filter(c=>c.verificationSequence!==null).map(c=>({sequence:c.verificationSequence!})),...s.membershipEvents,...s.permissionEvents,...s.serviceEvents,...(s.alertActions??[]),...(s.educationEvents??[]),...s.educationResults.filter(r=>!s.educationEvents?.some(e=>e.assignmentId===r.assignmentId))];
  unique(events.map(e=>String(e.sequence)),'sequence');
  if(events.some(e=>e.sequence>s.ledgerRevision))throw new Error('PSP revision behind ledger');
  for(const e of s.enrollments)if(e.projectId!==s.project.id || e.eligibilityConfirmed!==Boolean(e.eligibilityConfirmedAt && e.eligibilityConfirmedBy))throw new Error('Invalid PSP enrollment');

@@ -1,12 +1,14 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ProjectAdherence } from "@/components/psp/ProjectAdherence";
 import { usePatientId } from "@/lib/client/patientContext";
 import { usePatient } from "@/lib/client/usePatient";
 import { PatientStatus } from "@/components/patient/PatientStatus";
 import { Section } from "@/components/patient/Section";
 import { AdherenceCalendar } from "@/components/patient/AdherenceCalendar";
 const REASONS = ["忘记", "副作用", "药物用完", "其他"];
-export default function AdherencePage() {
+function GenericAdherence() {
   const id = usePatientId();
   const { data, error, refresh } = usePatient(id);
   const [reason, setReason] = useState(REASONS[0]);
@@ -44,3 +46,11 @@ export default function AdherencePage() {
     </>
   );
 }
+
+function AdherencePageContent() {
+  const id = usePatientId();
+  const params = useSearchParams();
+  return params.has("enrollment") ? <ProjectAdherence patientId={id} enrollmentId={params.get("enrollment") ?? ""} /> : <GenericAdherence />;
+}
+
+export default function AdherencePage() { return <Suspense fallback={<p className="p-4 text-sm">正在加载服药记录…</p>}><AdherencePageContent /></Suspense>; }

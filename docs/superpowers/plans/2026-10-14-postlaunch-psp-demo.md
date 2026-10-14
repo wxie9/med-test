@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2 与 Task 3 的项目问卷绑定；Task 4 的联系事实、医生复核与教育闭环也已完成；Task 5–12 尚未执行。第一阶段实施与验收记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)，问卷绑定见[Task 3 报告](../sdd-ledger/2026-10-14-psp-task3-report.md)，服务闭环见[Task 4 报告](../sdd-ledger/2026-10-15-psp-task4-report.md)。
+- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2、Task 3 项目问卷绑定及 Task 4 联系/复核/教育闭环。Task 5 的项目今日自报不可变副本/显式修订、CM 显式历史导入与联系补录、DR 核验现已实现，独立复审与最终全量验收已通过；Task 6–12 尚未执行。第一阶段记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)，后续见[Task 3 报告](../sdd-ledger/2026-10-14-psp-task3-report.md)、[Task 4 报告](../sdd-ledger/2026-10-15-psp-task4-report.md)、[Task 5 报告](../sdd-ledger/2026-10-15-psp-task5-report.md)。
 - 详细需求以[PSP设计](../specs/2026-10-14-postlaunch-psp-demo-design.md)为准；[现状评审](../sdd-ledger/2026-10-14-psp-current-state-review.md)定义新增依赖。
 - 项目`PSP-BC-ENDO-001`，虚构药企A，治疗类别支持；周期2026-10-01至2026-12-31。
 - 固定时钟`2026-10-13T10:00:00+08:00`；阶段报告窗口为10月1日至该时点，不能称整月完成业绩。
@@ -41,7 +41,7 @@
 
 ## 2 文件边界
 
-下表保留完整规划；Task 0–4 的基础、问卷及服务文件已实现，其余文件仍是后续计划，不能把未实现路径当成可用接口。
+下表保留完整规划；Task 0–5 的基础、问卷、服务、证据副本及补录文件已实现，Task 5 最终验收已通过。Task 6–12 的指标、快照、报告、审核与交付文件仍是后续计划，不能把未实现路径当成可用接口。
 
 | 文件/目录 | 职责 |
 |---|---|
@@ -52,6 +52,7 @@
 | `lib/psp/transaction.ts`、`commands.ts` | 同步暂存、版本校验、幂等去重、原子写临床与PSP账 |
 | `lib/psp/views.ts`、`pharmaView.ts` | 内部/患者/药企三个白名单投影，外部仅汇总 |
 | `lib/psp/contact.ts`、`education.ts`、`selfReport.ts`、`corrections.ts` | 独立联系事实、医学批准教育版本、不可变服药副本、补录核验 |
+| `lib/psp/evidenceTypes.ts`、`evidenceValidation.ts`、`evidenceWindow.ts`、`evidenceView.ts` | 已实现证据 schema/恢复校验、历史整日与精确来源资格、内部/患者只读 DTO；尚不计算月报指标 |
 | `lib/psp/metrics.ts`、`protection.ts`、`snapshot.ts` | 唯一计算、k策略、独立服务快照与内部来源追溯 |
 | `lib/psp/reports.ts`、`review.ts`、`delivery.ts` | 草稿/版本、双审核、交付验收与独立授权门控 |
 | `lib/psp/reportTemplate.ts` | 固定章节、受控事实句和结构化下一步；不接临床聊天或整份store |
@@ -64,7 +65,7 @@
 
 ## 3 跨任务接口与版本
 
-这些签名是实施契约，Task 1创建对应类型。数组/普通对象保存到PSP状态，避免额外Map的JSON还原陷阱。
+这些签名保留完整实施契约，Task 1–5 已创建当前业务需要的类型，Metric、ProtectedMetric 与报告类型仍属后续规划。数组/普通对象保存到PSP状态，避免额外Map的JSON还原陷阱。
 
 ```ts
 type PspRole = "patient" | "case_manager" | "doctor" | "project_manager"
@@ -95,7 +96,7 @@ type ReportStatus = "draft" | "in_review" | "changes_requested" | "approved"
 type ReportGate = { authorizationGate: "eligible" | "blocked" | "revoked"; authorizationVersion: number };
 ```
 
-`PspState`目前保存project、enrollments、membershipEvents、permissionEvents、assignments、serviceEvents、educationContents、educationResults、commandReceipts及fixtureVersion/checksum/ledgerRevision/authorizationVersion。selfReportRevisions/snapshots/reportVersions/reviewActions/deliveryReceipts/corrections为后续任务规划，尚未实现，不预填伪功能数据。实体字段按规格§13落实，每个可修改聚合有`version`，事件有唯一ID、occurredAt、recordedAt和账序号。去重回执保存请求作用域、规范化body摘要与结果引用；同ID换body返回400，不静默复用不同操作。
+`PspState`目前保存project、enrollments、membershipEvents、permissionEvents、assignments、serviceEvents、educationContents、educationResults、commandReceipts及fixtureVersion/checksum/ledgerRevision/authorizationVersion。Task 5 已实现可选 `selfReportRevisions` / `corrections` 数组，无默认值，不预填证据或修改 fixture；继续沿用 schema v2/storage key。snapshots/reportVersions/reviewActions/deliveryReceipts 仍为后续任务规划，尚未实现。实体字段按规格§13落实，每个可修改聚合有`version`，事件有唯一ID、occurredAt、recordedAt和账序号；date-only 来源保留日期精度且 occurredAt 为 null。去重回执保存请求作用域、规范化body摘要与结果引用；同ID换body返回400，不静默复用不同操作。
 
 精确时间统一存UTC ISO（沿用now().toISOString），比较用epoch；显示与自然日/月份边界用Asia/Shanghai。第4节+08:00写法是人可读时点，不能用字符串字面相等代替时间相等。日期级历史值保留DateOnly及精度标记。
 
@@ -104,7 +105,7 @@ type ReportGate = { authorizationGate: "eligible" | "blocked" | "revoked"; autho
 | 角色 | 预置actorId | 允许动作 |
 |---|---|---|
 | patient | 当前patientId | 自己的授权、问卷/打卡、教育打开/反馈和自己项目GET |
-| case_manager | case-manager-chen | 本项目纳入/暂停/退出、接单、联系、开始处置/提交复核、发送批准教育与服务跟进 |
+| case_manager | case-manager-chen | 本项目纳入/暂停/退出、接单、联系、开始处置/提交复核、发送批准教育与服务跟进、显式导入历史服药副本及提议联系补录 |
 | doctor | doctor-zhang | 服务适用性确认、临床复核/关闭/未来复评 |
 | project_manager | project-manager-psp | 内部运营读取、非临床成员管理、冻结、草稿/修订、提交和双审版交付 |
 | data_reviewer | data-reviewer-psp | 内部来源读取、冻结/补录核验、数据签署或退回 |
@@ -280,17 +281,19 @@ type ProjectAlertAction =
 
 ## Task 5：自报值副本与补录核验
 
-**Files:** Create `lib/psp/{selfReport,corrections}.ts`、`app/api/psp/enrollments/[enrollmentId]/adherence/route.ts`、`app/api/psp/projects/[projectId]/corrections/route.ts`；Modify `lib/adherence/checkin.ts`、`app/patient/adherence/page.tsx`、内部服务台；Test `tests/unit/psp-selfreport.test.ts`、`psp-corrections.test.ts`。
+**Files:** 实际创建 `lib/psp/{selfReport,corrections,evidenceTypes,evidenceValidation,evidenceWindow,evidenceView}.ts`、`app/api/psp/enrollments/[id]/adherence/route.ts`、`app/api/psp/projects/[projectId]/corrections/route.ts`、`app/governance/projects/[projectId]/corrections/page.tsx`、`components/psp/{ProjectAdherence,CorrectionDesk}.tsx`；修改 `lib/adherence/checkin.ts`、`app/patient/adherence/page.tsx`、内部服务台及患者项目卡。原计划 `[enrollmentId]` slug 实际沿用 Next 已有父目录 `[id]`，其值仍为 enrollmentId，避免同级动态 slug 冲突。测试包含 `psp-selfreport`、`psp-corrections`、`psp-evidence-window/views/durable/ui` 及 `psp-adherence-page`。
 
-**Interfaces:** `submitProjectAdherence({ enrollmentId, logDate, due, taken, reason, revisionOf? }, meta)`；`proposeCorrection({ sourceRef, correctedValue, reason, occurredAt }, meta)`、`verifyCorrection(correctionId, meta)`。旧date-only导入创建固定sourceId/哈希/值副本，不能指向后续可覆盖数组。
+**Interfaces:** `submitProjectAdherence({ enrollmentId, logDate?, due, taken, reason?, revisionOf? }, meta)`、`importLegacySelfReports(enrollmentId, meta)`；`proposeCorrection({ sourceRef, correctedValue, reason, occurredAt }, meta)`、`verifyCorrection(correctionId, meta)`。旧date-only导入创建固定sourceId/哈希/值副本，不能指向后续可覆盖数组。
 
-首版现场打卡只支持上海今天、due=1、taken=0|1，与旧recordAdherence兼容；occurredAt/recordedAt由服务器now生成，拒绝客户端伪造。logDate若保留在body必须等于serverToday，不开放任意日临床剂次编辑；同日显式修订仍记新证据版本。历史date-only副本只读导入；corrections route POST action=propose/verify，补录历史服务的occurredAt可提供，但recordedAt只能服务端生成，已冻结副本不覆盖。
+首版现场打卡只支持上海今天、due=1、taken=0|1，与旧recordAdherence兼容；occurredAt/recordedAt由服务器now生成，拒绝客户端伪造。logDate若保留在body必须等于serverToday，不开放任意日临床剂次编辑；同日显式修订仍记新证据版本。历史 date-only 副本通过 CM 显式 POST `action=import_legacy` 导入，两个新 GET 仅查询 DTO，不导入或写入；corrections route POST action=propose/verify，补录历史服务的occurredAt可提供，但recordedAt只能服务端生成，已冻结副本不覆盖。
 
-- [ ] 先测taken不能超due、项目/授权不适用拒绝、临床打卡与PSP证据同成同败；再次修改同日创建revision而不改旧值。
-- [ ] 只纳入完整落在授权/服务/报告窗口内的历史日期；cutoff当日及跨时刻授权边界日排除，界面说明精度不足。精确新打卡按occurredAt/recordedAt处理。
-- [ ] 补录请求必须含修改值、发生时间、真实入账时间、原因、原来源；数据审核者核验才成为新快照可用来源。点击旧gap task done不能使PSP质量指标改善。
-- [ ] 迟到记录不进入旧冻结快照，新冻结版列修订及迟到说明；不能把recordedAt倒写为发生时间。
-- [ ] Run `npx vitest run tests/unit/psp-selfreport.test.ts tests/unit/psp-corrections.test.ts tests/unit/adherence-checkin.test.ts`；原date-only临床API继续兼容。
+**当前实现状态：** 来源与补录保持不可变原值；日初用最终已知状态，严格日内按有效时间和 sequence 逐个检查中断，同刻撤回/暂停后恢复仍排除当天，晚入账及账版本限制保持。CM 联系提议为待核验，DR 核验后仅供未来新快照取源，不覆盖原联系/计划/医生事实。已核验记录的 fresh 请求仍检查当前/历史服务及来源，旧相同请求从原 receipt 重放。最终 586 项单测、lint/类型、Next/Workers 各 27 E2E、安全构建/dry-run、真实重启/15 原回执回放均通过；Task 6–12 尚未实现。详见 [Task 5 报告](../sdd-ledger/2026-10-15-psp-task5-report.md)。
+
+- [x] 先测taken不能超due、项目/授权不适用拒绝、临床打卡与PSP证据同成同败；再次修改同日创建revision而不改旧值。
+- [x] 只纳入完整落在授权/服务/报告窗口内的历史日期；cutoff当日及跨时刻授权边界日排除，界面说明精度不足。精确新打卡按occurredAt/recordedAt处理。
+- [x] 补录请求必须含修改值、发生时间、真实入账时间、原因、原来源；数据审核者核验才成为新快照可用来源。点击旧gap task done不能使PSP质量指标改善。
+- [x] 已实现截止/账版本来源筛选：迟到记录、晚核验不被旧 cutoff/revision 选中，recordedAt 不倒写。实际新冻结版与报告中列修订/迟到说明由 Task 7–8 的消费者实现，本项勾选仅指 Task 5 的固定来源与选择边界。
+- [x] Run `npx vitest run tests/unit/psp-selfreport.test.ts tests/unit/psp-corrections.test.ts tests/unit/adherence-checkin.test.ts`；原date-only临床API继续兼容。
 
 ## Task 6：唯一指标计算与历史区间规则
 
@@ -430,6 +433,6 @@ PM交付使用既有内部`POST /api/psp/reports/[reportVersionId]/actions`的`a
 
 ## 6 当前交接状态
 
-本轮仅做代码现状审查、已有检查、fixture名单只读核算与文档。以上Tasks均未执行，没有新增PSP种子或应用文件。默认采用分段实施和独立review；下一轮明确开始编码后从Task 0执行，不直接跳到报告UI。
+Task 0–4 已实现并有分阶段记录；最新 Task 5 的项目今日自报/显式修订副本、CM 显式历史导入、联系补录 CM 提议/DR 核验及只读 GET 已实现，独立复审与对应最终全量验收通过。Task 6–12 尚未执行。获得后续用户授权后，从 Task 6 指标计算与历史区间规则继续，不重复已实现流程，不直接跳到报告 UI。
 
 商业输入仍沿用虚构参数：真实采购/验收部门、SOW、专家内容、服务覆盖时段和授权文本没有被本计划认定已确认。它们不阻碍合成演示实施，但不能替换标签或用作实际项目承诺。
