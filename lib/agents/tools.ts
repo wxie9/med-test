@@ -2,10 +2,11 @@ import { z } from "zod";
 import guidelineData from "@/data/seed/guidelines.json";
 import { getStore } from "@/lib/state/store";
 import { now, today, newId } from "@/lib/state/clock";
+import { compareTimestamps, shanghaiCalendarDay } from "@/lib/domain/dates";
 import { applyFilter, latestBio, currentTreatments, lineLabel, lineGapStatus } from "@/lib/compute";
 import { researchUseCase } from "@/lib/research/usecases";
 import { buildFollowUpPlan } from "@/lib/plan/followup";
-import { currentHer2, isHrPositive } from "@/lib/domain/her2";
+import { currentHer2, deriveHr } from "@/lib/domain/her2";
 import { stageLabel } from "@/lib/patient/display";
 import { HER2_SHORT } from "@/lib/clinic/timeline";
 import { SCALE_SYMPTOMS, SCALE_TITLES } from "@/lib/pro/scales";
@@ -22,7 +23,7 @@ export function citationFor(id: string): Citation {
 /** Fraction → percentage with one decimal (the only way a rate may be shown in a reply). */
 export const pct1 = (x: number) => Math.round(x * 1000) / 10;
 
-/** Every number a tool returned (recursively); fractions in [0,1] also contribute their 1-decimal percentage. */
+/** Legacy diagnostic helper only; validateResponse never uses this pool as evidence. */
 export function collectToolNumbers(toolCalls: { result: unknown }[]): Set<number> {
   const out = new Set<number>();
   const walk = (v: unknown) => {
@@ -59,11 +60,11 @@ const CTCAE: Record<string, [string, string][]> = {
 
 /** Latest PRO of a patient: symptoms sorted by grade (desc), ties in scale order; null when the patient never answered. */
 function latestPro(p: Patient) {
-  const r = [...p.pro].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0]; if (!r) return null;
+  const r = [...p.pro].sort((a, b) => compareTimestamps(b.submittedAt, a.submittedAt))[0]; if (!r) return null;
   const order = SCALE_SYMPTOMS[r.scaleId];
   const symptoms = Object.entries(r.items).map(([symptom, grade]) => ({ symptom, grade }))
     .sort((a, b) => b.grade - a.grade || order.indexOf(a.symptom) - order.indexOf(b.symptom));
-  return { date: r.submittedAt.slice(0, 10), scale: SCALE_TITLES[r.scaleId], symptoms };
+  return { date: shanghaiCalendarDay(r.submittedAt), scale: SCALE_TITLES[r.scaleId], symptoms };
 }
 function patientOf(id: string): Patient { const p = getStore().patients.get(id); if (!p) throw new Error("未找到该患者"); return p; }
 function snapshotOf(id: string) { const s = getStore().snapshots.find(x => x.id === id); if (!s) throw new Error("未找到该研究快照"); return s; }
@@ -96,7 +97,7 @@ export const TOOLS = {
     run: ({ patientId }) => {
       const p = patientOf(patientId); const b = latestBio(p);
       return {
-        age: p.age, stage: stageLabel(p.stage), hr: b ? (isHrPositive(b) ? "阳性" : "阴性") : "未知", her2: HER2_SHORT[currentHer2(p.biomarkers)],
+        age: p.age, stage: stageLabel(p.stage), hr: b ? ({ positive: "阳性", negative: "阴性", indeterminate: "未知" }[deriveHr(b)]) : "未知", her2: HER2_SHORT[currentHer2(p.biomarkers)],
         brca: BRCA[p.genomics.brca], consentResearch: p.consent.research,
         treatments: [...p.treatments].sort((x, y) => (x.start ?? "").localeCompare(y.start ?? "")).map(t => ({ type: TX[t.type], typeCode: t.type, intent: INTENT[t.intent], drug: t.drug, start: t.start, end: t.end, status: STOP[t.stopReason], source: t.source === "external" ? "外院" : "本院" })),
         lines: p.lines.map(l => ({ lineNo: l.lineNo, regimen: lineLabel(p, l.lineNo), start: l.start, end: l.end })),
@@ -114,8 +115,8 @@ export const TOOLS = {
     agents: ["patient"], schema: z.object({ patientId: z.string() }), bound: ["patientId"], parameters: noParams,
     run: ({ patientId }) => {
       // newest first; equal timestamps (fixed demo clock) → the later-written message wins
-      const m = getStore().messages.filter(x => x.patientId === patientId && (x.kind === "plan_update" || x.kind === "alert_feedback")).reverse().sort((a, b) => b.at.localeCompare(a.at))[0];
-      return m ? { date: m.at.slice(0, 10), kind: m.kind === "plan_update" ? "随访计划更新" : "随访反馈", text: m.text } : null;
+      const m = getStore().messages.filter(x => x.patientId === patientId && (x.kind === "plan_update" || x.kind === "alert_feedback")).reverse().sort((a, b) => compareTimestamps(b.at, a.at))[0];
+      return m ? { date: shanghaiCalendarDay(m.at), kind: m.kind === "plan_update" ? "随访计划更新" : "随访反馈", text: m.text } : null;
     },
   }),
   get_latest_pro: defineTool({

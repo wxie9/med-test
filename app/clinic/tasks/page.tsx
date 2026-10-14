@@ -4,13 +4,13 @@ import { useDemoState } from "@/lib/client/useDemoState";
 import { PatientName } from "@/components/clinic/PatientName";
 import { TASK_STATUS, fmtDateTime } from "@/lib/clinic/labels";
 import type { FollowUpTask } from "@/lib/domain/types";
-type LiteState = { tasks: FollowUpTask[]; serverNow: string };
+type LiteState = { tasks: FollowUpTask[]; serverNow: string; serverToday: string };
 export default function TasksPage() {
   const { data, error, refresh } = useDemoState<LiteState>(3000);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   if (!data) return <p className="text-sm text-gray-500">{error ? `加载失败：${error.message}` : "加载中…"}</p>;
-  const today = data.serverNow.slice(0, 10);
+  const today = data.serverToday;
   const tasks = [...data.tasks].sort((a, b) => (a.status === b.status ? a.due.localeCompare(b.due) : a.status === "open" ? -1 : 1));
   async function done(id: string) {
     setBusy(id); setErr(null);

@@ -9,7 +9,7 @@ export function MissedReasonPie({ dist }: { dist: Record<string, number> }) {
     <div className="h-72 w-full" data-testid="missed-reason-pie">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie data={data} dataKey="value" nameKey="name" outerRadius={100} label={({ name, value }) => `${name} ${value}`} isAnimationActive={false}>
+          <Pie data={data} dataKey="value" nameKey="name" outerRadius="65%" label={({ name, value }) => `${name} ${value}`} isAnimationActive={false}>
             {data.map((d, i) => <Cell key={d.name} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
           <Tooltip formatter={(v: number) => [`${v} 次`, "漏服记录"]} />

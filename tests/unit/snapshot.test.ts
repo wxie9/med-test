@@ -18,10 +18,8 @@ describe("snapshot", () => {
     const c = createCohort("all", {}, "x"); submitCohort(c.id);
     expect(c.patientIds).toContain("P-L");
     const early = createSnapshot(c.id, "2026-09-01"); const late = createSnapshot(c.id, "2026-10-13");
-    const idx = c.patientIds.filter(id => getStore().patients.get(id)!.consent.pharmaDeidentified).indexOf("P-L");
-    expect(idx).toBeGreaterThanOrEqual(0);
-    expect(early.patients[idx].biomarkers.map(b => b.id)).toEqual(["P-L-b1"]);
-    expect(late.patients[idx].biomarkers.map(b => b.id)).toEqual(["P-L-b1", "P-L-b2"]);
+    expect(early.patients.find(p => p.id === "P-L")!.biomarkers.map(b => b.id)).toEqual(["P-L-b1"]);
+    expect(late.patients.find(p => p.id === "P-L")!.biomarkers.map(b => b.id)).toEqual(["P-L-b1", "P-L-b2"]);
     expect(getStore().patients.get("P-L")!.biomarkers).toHaveLength(2);
   });
   it("includes a result entered on the cutoff day, even with a time component", () => {

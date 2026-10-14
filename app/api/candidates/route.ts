@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getStore } from "@/lib/state/store";
 import { requestCandidates, pharmaView, clinicView } from "@/lib/research/candidates";
 export const dynamic = "force-dynamic";
-const Body = z.object({ snapshotId: z.string().min(1), protocolId: z.string().min(1) });
+const Body = z.object({ snapshotId: z.string().min(1), protocolId: z.literal("XX-ADC-301") });
 /** Pharma side: request candidate verification for a snapshot; the response is counts only (never patient ids). */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));

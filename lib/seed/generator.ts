@@ -142,7 +142,12 @@ function genProAndAdherence(r: Rng, p: Patient, cutoff: string) {
     for (let d = 59; d >= 0; d--) { const date = addDays(cutoff, -d); if (date < endo.start!) continue; const miss = chance(r, 0.07); p.adherence.push({ date, due: 1, taken: miss ? 0 : 1, missedReason: miss ? (chance(r, 0.7) ? pick(r, ["忘记", "关节痛", "外出"]) : null) : null }); }
   }
   const active = p.treatments.find(t => t.intent === "metastatic" && !t.end && t.start);
-  if (active && p.stage === "metastatic") for (let w = 1; w <= 4; w++) p.pro.push({ id: `${p.id}-prow${w}`, scaleId: "treatment_weekly_v1", submittedAt: addDays(cutoff, -7 * w) + "T09:00:00+08:00", items: { 恶心: between(r, 0, 2), 乏力: between(r, 0, 3), 口腔炎: between(r, 0, 2), 腹泻: between(r, 0, 1), 手足综合征: 0, 发热: 0 }, flags: {} });
+  if (active && p.stage === "metastatic") for (let w = 1; w <= 4; w++) {
+    const at = addDays(cutoff, -7 * w);
+    // Consume the same draws even for an omitted response, keeping all later patients reproducible.
+    const response: Patient["pro"][number] = { id: `${p.id}-prow${w}`, scaleId: "treatment_weekly_v1", submittedAt: at + "T09:00:00+08:00", items: { 恶心: between(r, 0, 2), 乏力: between(r, 0, 3), 口腔炎: between(r, 0, 2), 腹泻: between(r, 0, 1), 手足综合征: 0, 发热: 0 }, flags: {} };
+    if (at >= active.start!) p.pro.push(response);
+  }
 }
 
 export function generateEdgeCases(): Patient[] {

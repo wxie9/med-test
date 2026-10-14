@@ -5,9 +5,13 @@ import { currentHer2 } from "@/lib/domain/her2";
 import { HER2_LABEL } from "@/lib/clinic/labels";
 import { SCALE_TITLES } from "@/lib/pro/scales";
 import type { CandidateRequest, Patient } from "@/lib/domain/types";
+import { compareTimestamps, shanghaiCalendarDay } from "@/lib/domain/dates";
 /** Candidates = funnel finalMet ∩ consent.research (only patients who agreed to research contact); the pharma side only ever sees counts (pharmaView). */
 export function requestCandidates(snapshotId: string, protocolId: string): CandidateRequest {
+  if (protocolId !== "XX-ADC-301") throw new Error("unsupported protocol");
   const s = getStore(); const snap = s.snapshots.find(x => x.id === snapshotId); if (!snap) throw new Error("snapshot not found");
+  const existing = s.candidateRequests.find(r => r.snapshotId === snapshotId && r.protocolId === protocolId);
+  if (existing) return existing;
   const { finalMet } = runFunnel(snap.patients, PROTOCOL_ADC_301);
   const consented = new Set(snap.patients.filter(p => p.consent.research).map(p => p.id));
   const req: CandidateRequest = { id: newId("cand"), snapshotId, protocolId, candidates: finalMet.filter(id => consented.has(id)).map(patientId => ({ patientId, status: "pending" as const })), createdAt: now() };
@@ -25,11 +29,11 @@ export function confirmCandidate(requestId: string, patientId: string, status: "
 export function candidateSummary(p: Patient) {
   const line = p.lines.filter(l => l.end === null).sort((a, b) => b.lineNo - a.lineNo)[0];
   const drugs = line ? p.treatments.filter(t => line.eventIds.includes(t.id) && t.drug).map(t => t.drug as string) : [];
-  const pro = [...p.pro].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0];
+  const pro = [...p.pro].sort((a, b) => compareTimestamps(b.submittedAt, a.submittedAt))[0];
   return {
     patientId: p.id, her2: HER2_LABEL[currentHer2(p.biomarkers)], consentResearch: p.consent.research,
     currentLine: line ? `第 ${line.lineNo} 线${drugs.length ? `（${drugs.join(" + ")}）` : ""}` : null,
-    latestPro: pro ? `${pro.submittedAt.slice(0, 10)} · ${SCALE_TITLES[pro.scaleId]}` : null,
+    latestPro: pro ? `${shanghaiCalendarDay(pro.submittedAt)} · ${SCALE_TITLES[pro.scaleId]}` : null,
   };
 }
 export type CandidateSummary = ReturnType<typeof candidateSummary>;

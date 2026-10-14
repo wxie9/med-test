@@ -16,7 +16,7 @@ export default function AdherencePage() {
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">辅助内分泌依从性描述（合成数据，关联不构成发现） <span className="font-mono text-sm font-normal text-gray-500">{id}</span></h1>
-      <div className="grid grid-cols-[1fr_20rem] gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <ResearchCard title="漏服原因分布">
           <MissedReasonPie dist={a.missedReasonDist} />
           <StatFooter {...a.summary} />

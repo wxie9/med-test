@@ -4,6 +4,7 @@ import { usePatient } from "@/lib/client/usePatient";
 import { PatientStatus } from "@/components/patient/PatientStatus";
 import { Section } from "@/components/patient/Section";
 import { ResearchOpportunity } from "@/components/patient/ResearchOpportunity";
+import { displayName } from "@/lib/patient/display";
 export default function ResearchPage() {
   const id = usePatientId();
   const { data, error } = usePatient(id);
@@ -11,6 +12,11 @@ export default function ResearchPage() {
   const items = data.messages.filter(m => m.kind === "research_opportunity").sort((a, b) => b.at.localeCompare(a.at));
   return (
     <Section title="研究机会">
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-lg bg-gray-50 px-3 py-2">
+        <span className="text-xs text-gray-500">当前患者</span>
+        <span className="text-sm font-semibold text-gray-800">{displayName(data.patient.id)}</span>
+        <span className="text-xs text-gray-600">{data.patient.id}</span>
+      </div>
       {items.length === 0 ? <p className="text-sm text-gray-500">暂无研究机会</p> : (
         <ul className="space-y-3">{items.map(m => <ResearchOpportunity key={m.id} m={m} />)}</ul>
       )}

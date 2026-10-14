@@ -1,5 +1,11 @@
 import type { Patient } from "@/lib/domain/types";
 const OPEN_END = "9999-12-31";
+const SYSTEMIC = new Set(["chemo", "endocrine", "anti_her2", "cdk46", "adc"]);
+const shanghaiDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" });
+const submissionDay = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? OPEN_END : shanghaiDay.format(date);
+};
 export const DEFAULT_CUTOFF = "2026-10-13";
 /** Hard constraints (see docs/data-generation.md §5). `cutoff`: no treatment / outcome / PRO / adherence / biomarker date may lie after it. */
 export function validatePatients(ps: Patient[], cutoff: string = DEFAULT_CUTOFF): string[] {
@@ -7,7 +13,14 @@ export function validatePatients(ps: Patient[], cutoff: string = DEFAULT_CUTOFF)
   for (const p of ps) {
     for (const t of p.treatments) for (const d of [t.start, t.end]) if (d && d > cutoff) errs.push(`${p.id}:${t.id} treatment date ${d} after cutoff`);
     for (const o of p.outcomes) if (o.date > cutoff) errs.push(`${p.id}:${o.id} outcome after cutoff`);
-    for (const r of p.pro) if (r.submittedAt.slice(0, 10) > cutoff) errs.push(`${p.id}:${r.id} PRO after cutoff`);
+    for (const r of p.pro) {
+      const day = submissionDay(r.submittedAt);
+      if (day > cutoff) errs.push(`${p.id}:${r.id} PRO after cutoff`);
+      if (r.scaleId === "treatment_weekly_v1" && !p.treatments.some(t => t.intent === "metastatic" && SYSTEMIC.has(t.type) &&
+          t.start !== null && t.start <= day && (t.end === null || day <= t.end))) {
+        errs.push(`${p.id}:${r.id} PRO outside dated metastatic treatment`);
+      }
+    }
     for (const a of p.adherence) if (a.date > cutoff) errs.push(`${p.id} adherence ${a.date} after cutoff`);
     for (const b of p.biomarkers) if (b.specimenDate > cutoff) errs.push(`${p.id}:${b.id} biomarker after cutoff`);
     const firstMet = p.outcomes.filter(o => o.type === "distant_metastasis").map(o => o.date).sort()[0];
@@ -27,7 +40,7 @@ export function validatePatients(ps: Patient[], cutoff: string = DEFAULT_CUTOFF)
       if (p.outcomes.some(o => o.type !== "death" && o.date > death.date)) errs.push(`${p.id} event after death`);
       if (p.treatments.some(t => t.start && t.start > death.date)) errs.push(`${p.id} treatment after death`);
       if (p.treatments.some(t => t.stopReason === "ongoing" || (t.start && !t.end))) errs.push(`${p.id} ongoing treatment after death`);
-      if (p.pro.some(r => r.submittedAt.slice(0, 10) > death.date)) errs.push(`${p.id} PRO after death`);
+      if (p.pro.some(r => submissionDay(r.submittedAt) > death.date)) errs.push(`${p.id} PRO after death`);
       if (p.adherence.some(a => a.date > death.date)) errs.push(`${p.id} adherence after death`);
     } else if (p.stage === "deceased") errs.push(`${p.id} deceased stage without death event`);
     if (p.stage === "metastatic" && !p.outcomes.some(o => o.type === "distant_metastasis")) errs.push(`${p.id} metastatic stage without metastasis event`);

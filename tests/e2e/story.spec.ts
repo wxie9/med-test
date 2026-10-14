@@ -129,6 +129,9 @@ test("full chain story: patient → clinic → governance → research → back 
   await candidate.getByTestId("candidate-open").click();
   await expect(page).toHaveURL(new RegExp(`/patient/research\\?patient=${pid}$`));
   await expect(page.getByText(/可能适合您/)).toBeVisible();
+  await expect(page.getByText("当前患者", { exact: true })).toBeVisible();
+  await expect(page.getByText("陈女士", { exact: true })).toBeVisible();
+  await expect(page.getByText(pid!, { exact: true })).toBeVisible();
   await page.goto("/patient/assistant");
   await page.getByRole("button", { name: "参加临床研究需要注意什么？", exact: true }).click();
   await expect(page.getByTestId("agent-reply")).toBeVisible();

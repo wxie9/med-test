@@ -66,7 +66,12 @@ describe("agents: guideline knowledge base and tools", () => {
   });
   it("validateResponse rejects patient ids in the reply and accepts tool-backed numbers", () => {
     expect(validateResponse({ text: "P-0012 符合", citations: [], toolCalls: [] }, new Set(), new Set()).ok).toBe(false);
-    expect(validateResponse({ text: "共 12 例，占 48.7%", citations: [{ id: "G-001" }], toolCalls: [] }, new Set(["G-001"]), new Set([12, 48.7])).ok).toBe(true);
+    const calls: ToolCallRecord[] = [
+      { name: "line_transition", args: { lineNo: 1 }, result: { lineNo: 1, n: 25, next_line: 12, nextLineRate: 0.487, on_treatment: 13, lost: 0, deceased: 0, unknown: 0 } },
+      { name: "search_guidelines", args: { query: "骨健康" }, result: runTool("search_guidelines", { query: "骨健康" }, { page: "patient" }) },
+    ];
+    expect(validateResponse({ text: "进入二线 12 例（占 48.7%），参考 G-009。", citations: [{ id: "G-009" }], toolCalls: calls }, guidelineIds())).toEqual({ ok: true });
+    expect(validateResponse({ text: "共 12 例，占 48.7%", citations: [], toolCalls: [] }, new Set(), new Set([12, 48.7])).ok).toBe(false);
   });
   it("patient tools are bound to the request context (model cannot read another patient)", () => {
     const r = runTool("get_patient_summary", { patientId: "P-B" }, { patientId: "P-A", page: "assistant" }) as { stage: string; age: number };
@@ -220,7 +225,7 @@ describe("agents: fix round 1 — research routing boundaries", () => {
   it("符合已知条件的比例 is not the line-transition answer", async () => {
     const s = metSnapshot(); const r = await ask(s.id, "符合已知条件的比例？");
     expect(r.toolCalls.map(c => c.name)).not.toContain("line_transition"); expect(r.text).not.toMatch(/进入二线/);
-    expect(pickTemplate("research", "feasibility", "进入下一线的有多少？")).toBe("research_line_transition");
+    expect(pickTemplate("research", "feasibility", "进入下一线的有多少？")).toBe("generic_boundary");
   });
   it("outcome / comparison questions get research_boundary with zero tool calls", async () => {
     const s = metSnapshot(); const r = await ask(s.id, "有多少例患者 OS 超过 2 年？");

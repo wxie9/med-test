@@ -1,6 +1,6 @@
 import type { Patient } from "@/lib/domain/types";
 import { deriveHer2Low, type Her2Class } from "@/lib/domain/her2";
-import { diffDays } from "@/lib/domain/dates";
+import { diffDays, shanghaiCalendarDay } from "@/lib/domain/dates";
 export type LaneKey = "specimen" | "staging" | "treatment" | "outcome" | "pro";
 export type TimelineItem = {
   id: string; start: string; end: string | null; title: string; detail: string;
@@ -38,7 +38,7 @@ export function buildTimeline(p: Patient, today: string): TimelineModel {
         title: lineNo ? `L${lineNo} · ${name}` : name, detail: `${INTENT[t.intent]}${TX[t.type]} · ${t.start} ~ ${t.end ?? "进行中"}${t.stopReason !== "ongoing" ? `（${STOP[t.stopReason]}）` : ""}` };
     }),
     outcome: p.outcomes.map(o => ({ id: o.id, start: o.date, end: null, tone: "outcome", title: OUTCOME[o.type], detail: `${o.date} · ${EVIDENCE[o.evidence]}` })),
-    pro: p.pro.map(r => ({ id: r.id, start: r.submittedAt.slice(0, 10), end: null, tone: "pro", title: "", detail: `${r.submittedAt.slice(0, 10)} · ${Object.entries(r.items).map(([k, v]) => `${k} ${v}`).join("、")}` })),
+    pro: p.pro.map(r => ({ id: r.id, start: shanghaiCalendarDay(r.submittedAt), end: null, tone: "pro", title: "", detail: `${shanghaiCalendarDay(r.submittedAt)} · ${Object.entries(r.items).map(([k, v]) => `${k} ${v}`).join("、")}` })),
   };
   const dates = Object.values(raw).flat().map(i => i.start).concat(p.enrolledAt);
   const start = dates.reduce((m, d) => (d < m ? d : m), today);

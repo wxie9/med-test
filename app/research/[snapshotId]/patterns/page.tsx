@@ -18,7 +18,7 @@ export default function PatternsPage() {
         <PatternChart sequences={d.patterns.sequences} />
         <StatFooter {...d.summary} />
       </ResearchCard>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ResearchCard title="一线后状态">
           <LineGapBar gap={d.gapAfterLine1} />
           <StatFooter {...d.summary} />

@@ -11,7 +11,7 @@ import { quickQuestions } from "@/lib/agents/quickQuestions";
 export default function FeasibilityPage() {
   const { snapshotId } = useParams<{ snapshotId: string }>();
   const id = decodeURIComponent(snapshotId);
-  const { data: f, error } = useResearch("feasibility", id);
+  const { data: f, error, researchState } = useResearch("feasibility", id);
   if (!f) return <PageStatus error={error} />;
   const reasons = new Map<string, number>();
   for (const s of f.steps) for (const [k, v] of Object.entries(s.unknownReasons)) reasons.set(k, (reasons.get(k) ?? 0) + v);
@@ -19,12 +19,12 @@ export default function FeasibilityPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">入组可行性评估 · {f.protocol} <span className="font-mono text-sm font-normal text-gray-500">{id}</span></h1>
-      <div className="grid grid-cols-[1fr_20rem] items-start gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <ResearchCard title="三态入组漏斗（符合 / 不符合 / 信息不足）">
           <FunnelChart steps={f.steps} />
           <StatFooter {...f.summary} />
         </ResearchCard>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <ResearchCard title="信息不足原因">
             {reasons.size === 0 ? <p className="text-sm text-gray-400">无</p> : (
               <table className="w-full text-sm" data-testid="unknown-reasons">
@@ -42,7 +42,7 @@ export default function FeasibilityPage() {
           符合已知条件 <b className="tabular-nums">{f.finalMetCount}</b> 例，仍需医生核查（ECOG 待现场核查 <span className="tabular-nums">{ecogPending}</span> 例）
           {f.finalUnknownCount > 0 && <span className="text-gray-500">；另有 <span className="tabular-nums">{f.finalUnknownCount}</span> 例因信息不足暂无法判断</span>}
         </p>
-        <CandidateRequestPanel snapshotId={id} expectedCount={f.finalMetCount} />
+        <CandidateRequestPanel snapshotId={id} expectedCount={f.finalMetCount} researchState={researchState} />
       </section>
     </div>
   );

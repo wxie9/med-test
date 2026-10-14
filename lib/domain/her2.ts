@@ -13,4 +13,11 @@ export function currentHer2(biomarkers: Biomarker[]): Her2Class {
   const sorted = [...biomarkers].sort((a, b) => (a.specimenDate === b.specimenDate ? (a.specimenSite === "metastatic" ? -1 : 1) : a.specimenDate < b.specimenDate ? 1 : -1));
   return deriveHer2Low(sorted[0]);
 }
-export const isHrPositive = (b: Biomarker) => (b.erPct ?? 0) >= 1 || (b.prPct ?? 0) >= 1;
+export type HrClass = "positive" | "negative" | "indeterminate";
+/** Either known positive receptor establishes HR+; HR− requires both known negative results. */
+export function deriveHr(b: Biomarker): HrClass {
+  if ((b.erPct !== null && b.erPct >= 1) || (b.prPct !== null && b.prPct >= 1)) return "positive";
+  if (b.erPct !== null && b.prPct !== null) return "negative";
+  return "indeterminate";
+}
+export const isHrPositive = (b: Biomarker) => deriveHr(b) === "positive";

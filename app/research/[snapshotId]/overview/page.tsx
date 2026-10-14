@@ -19,13 +19,13 @@ export default function OverviewPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">快照概览 <span className="font-mono text-sm font-normal text-gray-500">{id}</span></h1>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <MetricCard label="患者数 n" value={String(o.n)} />
         <MetricCard label="转移事件" value={String(o.events.metastasis)} note="有远处转移记录的患者" />
         <MetricCard label="进展事件" value={String(o.events.progression)} note="有疾病进展记录的患者" />
         <MetricCard label="死亡事件" value={String(o.events.death)} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ResearchCard title="随访时长分布（入组至末次联系）">
           <FollowUpBar p25={o.followUpMonths.p25} median={o.followUpMonths.median} p75={o.followUpMonths.p75} />
           <StatFooter {...o.summary} />

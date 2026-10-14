@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSnapshot } from "@/lib/governance/snapshot";
 import { getStore, snapshotSummary } from "@/lib/state/store";
+import { DateOnly } from "@/lib/domain/dateSchema";
 export const dynamic = "force-dynamic";
-const Body = z.object({ cohortId: z.string().min(1), cutoff: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
+const Body = z.object({ cohortId: z.string().min(1), cutoff: DateOnly });
 /** Creates an immutable research snapshot; the response omits the patient payload. */
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));

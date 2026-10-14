@@ -51,7 +51,7 @@ export default function PatientsPage() {
                 </td>
                 <td className="px-2 py-2 tabular-nums">{r.age}</td>
                 <td className="px-2 py-2">{stageLabel(r.stage)}</td>
-                <td className="px-2 py-2">{r.hrPositive ? "HR+" : "HR−"}</td>
+                <td className="px-2 py-2">{r.hrPositive === null ? "待定" : r.hrPositive ? "HR+" : "HR−"}</td>
                 <td className="px-2 py-2">{HER2_LABEL[r.her2]}</td>
                 <td className="px-2 py-2">{r.currentTreatment ?? "—"}</td>
                 <td className="px-2 py-2 tabular-nums">{r.lastContact}</td>

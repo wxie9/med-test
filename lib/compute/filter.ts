@@ -1,5 +1,5 @@
 import type { Patient, CohortFilter } from "@/lib/domain/types";
-import { currentHer2, isHrPositive } from "@/lib/domain/her2";
+import { currentHer2, deriveHr } from "@/lib/domain/her2";
 export const latestBio = (p: Patient) => [...p.biomarkers].sort((a, b) => b.specimenDate.localeCompare(a.specimenDate))[0];
 export const hadType = (p: Patient, type: string) => p.treatments.some(t => t.type === type);
 export const everMetastatic = (p: Patient) => p.outcomes.some(o => o.type === "distant_metastasis");
@@ -7,7 +7,7 @@ export const currentTreatments = (p: Patient) => p.treatments.filter(t => t.star
 export function applyFilter(ps: Patient[], f: CohortFilter): Patient[] {
   return ps.filter(p => {
     const b = latestBio(p);
-    if (f.hrPositive !== undefined && (!b || isHrPositive(b) !== f.hrPositive)) return false;
+    if (f.hrPositive !== undefined && (!b || deriveHr(b) !== (f.hrPositive ? "positive" : "negative"))) return false;
     // indeterminate HER2 never matches a her2 filter
     const c = currentHer2(p.biomarkers);
     if (f.her2 && (c === "indeterminate" || !f.her2.includes(c))) return false;

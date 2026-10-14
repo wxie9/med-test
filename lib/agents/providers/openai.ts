@@ -1,8 +1,8 @@
 import { createToolSession, toolsFor } from "../tools";
 import type { ChatRequest, ProviderOutput, SharedToolState } from "../types";
-import { systemPrompt, execForModel, finish, TIMEOUT_MS, MAX_TOOL_ROUNDS, MAX_TOKENS } from "./shared";
+import { systemPrompt, execForModel, finish, TIMEOUT_MS, MAX_TOOL_ROUNDS, MAX_TOKENS, OutputRejected } from "./shared";
 type ToolCall = { id: string; type?: string; function: { name: string; arguments?: string } };
-type Message = { role: string; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string };
+type Message = { role: string; content: string | null; refusal?: string | null; tool_calls?: ToolCall[]; tool_call_id?: string };
 /** OpenAI-compatible chat/completions with function calling; at most MAX_TOOL_ROUNDS tool rounds, one 8 s deadline for the whole turn. */
 export async function run(req: ChatRequest, shared: SharedToolState = {}): Promise<ProviderOutput> {
   const key = process.env.DEMO_OPENAI_API_KEY; if (!key) throw new Error("missing DEMO_OPENAI_API_KEY");
@@ -19,8 +19,11 @@ export async function run(req: ChatRequest, shared: SharedToolState = {}): Promi
       body: JSON.stringify({ model, max_tokens: MAX_TOKENS, tools, messages }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = (await res.json()) as { choices?: { message?: Message }[] };
-    const msg = data.choices?.[0]?.message; if (!msg) throw new Error("invalid response");
+    const data = (await res.json()) as { choices?: { finish_reason?: string; message?: Message }[] };
+    const choice = data.choices?.[0];
+    if (choice?.finish_reason === "length" || choice?.finish_reason === "content_filter") throw new OutputRejected(choice.finish_reason);
+    const msg = choice?.message; if (!msg) throw new Error("invalid response");
+    if (msg.refusal) throw new OutputRejected("refusal");
     const calls = msg.tool_calls ?? [];
     if (calls.length) {
       if (round >= MAX_TOOL_ROUNDS) throw new Error("too many tool rounds");

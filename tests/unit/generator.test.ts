@@ -54,6 +54,18 @@ describe("generator", () => {
     // treatments that would have run past the cutoff are ongoing at the cutoff
     expect(cohort.some(p => p.treatments.some(t => t.type === "anti_her2" && t.intent === "adjuvant" && t.stopReason === "ongoing" && t.end === null))).toBe(true);
   });
+  it("weekly treatment PROs begin no earlier than active therapy, including P-0579", () => {
+    const p579 = cohort.find(p => p.id === "P-0579")!;
+    const therapy = p579.treatments.find(t => t.intent === "metastatic" && t.start && !t.end)!;
+    expect(therapy).toBeDefined();
+    expect(p579.pro.every(r => r.scaleId !== "treatment_weekly_v1" || r.submittedAt.slice(0, 10) >= therapy.start!)).toBe(true);
+    for (const p of cohort) {
+      const active = p.treatments.find(t => t.intent === "metastatic" && t.start && !t.end);
+      for (const r of p.pro.filter(r => r.scaleId === "treatment_weekly_v1")) {
+        expect(active && r.submittedAt.slice(0, 10) >= active.start!, `${r.id} predates therapy`).toBe(true);
+      }
+    }
+  });
   it("anchors parse and pass hard constraints", () => {
     const anchors = Patient.array().parse(JSON.parse(readFileSync("data/seed/anchors.json", "utf8")));
     expect(anchors).toHaveLength(12);
@@ -96,5 +108,43 @@ describe("validator: cutoff rules (purpose-built violations)", () => {
   it("a later cutoff accepts the same dates", () => {
     const p = base(); p.outcomes.push({ id: "late-o", type: "progression", date: "2026-10-14", evidence: "imaging", assessor: "x" });
     expect(validatePatients([p], "2026-12-31")).toEqual([]);
+  });
+  it("independently rejects weekly PRO before therapy and accepts one at therapy start", () => {
+    const p = base();
+    p.pro = [{ ...p.pro[0], id: "before-therapy", scaleId: "treatment_weekly_v1", submittedAt: "2025-04-01T09:00:00+08:00", flags: {} }];
+    expect(validatePatients([p]).some(e => e.includes("before-therapy PRO outside dated metastatic treatment"))).toBe(true);
+    p.pro[0].submittedAt = "2025-04-15T09:00:00+08:00";
+    expect(validatePatients([p])).toEqual([]);
+  });
+  it("rejects weekly PRO without a dated applicable therapy", () => {
+    const p = base();
+    p.treatments = p.treatments.filter(t => t.intent !== "metastatic");
+    expect(validatePatients([p]).some(e => e.includes("PRO outside dated metastatic treatment"))).toBe(true);
+  });
+  it("accepts a UTC weekly timestamp on the Shanghai therapy-start day", () => {
+    const p = base();
+    p.pro = [{ ...p.pro[0], id: "shanghai-start", scaleId: "treatment_weekly_v1", submittedAt: "2025-04-14T16:30:00Z", flags: {} }];
+    expect(validatePatients([p])).toEqual([]);
+  });
+  it("rejects a UTC weekly timestamp after the Shanghai therapy-end day", () => {
+    const p = base();
+    p.pro = [{ ...p.pro[0], id: "shanghai-after-end", scaleId: "treatment_weekly_v1", submittedAt: "2026-06-30T16:30:00Z", flags: {} }];
+    expect(validatePatients([p])).toContain("P-B:shanghai-after-end PRO outside dated metastatic treatment");
+    p.pro[0].submittedAt = "2026-06-30T15:30:00Z";
+    expect(validatePatients([p])).toEqual([]);
+  });
+  it("uses the Shanghai submission day for the cutoff boundary", () => {
+    const p = base();
+    p.pro = [{ ...p.pro[0], id: "shanghai-cutoff", scaleId: "treatment_weekly_v1", submittedAt: "2026-10-13T16:30:00Z", flags: {} }];
+    expect(validatePatients([p], CUT)).toContain("P-B:shanghai-cutoff PRO after cutoff");
+    p.pro[0].submittedAt = "2026-10-13T15:30:00Z";
+    expect(validatePatients([p], CUT)).toEqual([]);
+  });
+  it("uses the Shanghai submission day for the death boundary", () => {
+    const p = structuredClone(Patient.array().parse(JSON.parse(readFileSync("data/seed/anchors.json", "utf8"))).find(p => p.id === "P-J")!);
+    p.pro = [{ id: "shanghai-death", scaleId: "endocrine_monthly_v1", submittedAt: "2025-05-22T16:30:00Z", items: {}, flags: {} }];
+    expect(validatePatients([p])).toContain("P-J PRO after death");
+    p.pro[0].submittedAt = "2025-05-22T15:30:00Z";
+    expect(validatePatients([p])).toEqual([]);
   });
 });

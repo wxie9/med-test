@@ -2,9 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import { MODE_LABELS } from "@/components/ModeBadge";
 import type { AgentKind, ChatContext, ChatMessage, ChatResponse, ToolCallRecord } from "@/lib/agents/types";
-type Entry = { role: "user"; content: string } | { role: "assistant"; content: string; reply: ChatResponse } | { role: "error"; content: string };
+type Entry = { role: "user"; content: string; accepted: boolean } | { role: "assistant"; content: string; reply: ChatResponse } | { role: "error"; content: string };
 const TITLES: Record<AgentKind, string> = { patient: "患者管家", doctor: "医生助手", research: "研究助手" };
 const MAX_SENT = 20;
+const MAX_CONTENT = 4000;
 /** At most the last MAX_SENT messages, starting with a user turn. */
 const recent = (ms: ChatMessage[]) => { const r = ms.slice(-MAX_SENT); return r[0]?.role === "assistant" ? r.slice(1) : r; };
 const fmtArgs = (args: unknown) => args && typeof args === "object" ? Object.entries(args).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(", ") : "";
@@ -36,13 +37,19 @@ export function AgentPanel({ agent, context, quickQuestions }: { agent: AgentKin
   const last = [...entries].reverse().find((e): e is Extract<Entry, { role: "assistant" }> => e.role === "assistant")?.reply;
   async function send(text: string) {
     const content = text.trim(); if (!content || loading) return;
-    const history: ChatMessage[] = entries.filter((e): e is Exclude<Entry, { role: "error" }> => e.role !== "error").map(e => ({ role: e.role, content: e.content }));
-    setEntries(es => [...es, { role: "user", content }]); setInput(""); setLoading(true);
+    const history: ChatMessage[] = entries.filter((e): e is Exclude<Entry, { role: "error" }> => e.role === "assistant" || (e.role === "user" && e.accepted)).map(e => ({ role: e.role, content: e.content.slice(0, MAX_CONTENT) }));
+    const entry: Entry = { role: "user", content, accepted: false };
+    setInput("");
+    if (content.length > MAX_CONTENT) {
+      setEntries(es => [...es, entry, { role: "error", content: `发送失败：问题最多 ${MAX_CONTENT} 个字符，请缩短后重试。` }]);
+      return;
+    }
+    setEntries(es => [...es, entry]); setLoading(true);
     try {
       const r = await fetch("/api/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ agent, context, messages: recent([...history, { role: "user", content }]) }) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const reply = (await r.json()) as ChatResponse;
-      setEntries(es => [...es, { role: "assistant", content: reply.text, reply }]);
+      setEntries(es => [...es.map(e => e === entry ? { ...entry, accepted: true } : e), { role: "assistant", content: reply.text, reply }]);
     } catch (e) {
       setEntries(es => [...es, { role: "error", content: `发送失败：${e instanceof Error ? e.message : String(e)}` }]);
     } finally { setLoading(false); }

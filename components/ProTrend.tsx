@@ -1,13 +1,14 @@
 "use client";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ProResponse } from "@/lib/domain/types";
+import { compareTimestamps, shanghaiCalendarDay } from "@/lib/domain/dates";
 const COLORS = ["#db2777", "#2563eb", "#059669", "#d97706", "#7c3aed", "#0891b2"];
 /** Item scores (0–3) across PRO submissions, one line per item. */
 export function ProTrend({ pro }: { pro: ProResponse[] }) {
   if (!pro.length) return <p className="text-sm text-gray-400">暂无 PRO 记录</p>;
-  const sorted = [...pro].sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
+  const sorted = [...pro].sort((a, b) => compareTimestamps(a.submittedAt, b.submittedAt));
   const items = [...new Set(sorted.flatMap(r => Object.keys(r.items)))];
-  const data = sorted.map(r => ({ date: r.submittedAt.slice(0, 10), ...r.items }));
+  const data = sorted.map(r => ({ date: shanghaiCalendarDay(r.submittedAt), ...r.items }));
   return (
     <div className="h-56 w-full">
       <ResponsiveContainer width="100%" height="100%">

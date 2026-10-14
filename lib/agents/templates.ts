@@ -11,18 +11,38 @@ const any = (...words: string[]) => (t: string) => words.some(w => t.includes(w.
 const all = (...preds: ((t: string) => boolean)[]) => (t: string) => preds.every(p => p(t));
 const not = (pred: (t: string) => boolean) => (t: string) => !pred(t);
 /** Outcome / comparison questions the snapshot cannot answer (no efficacy or survival conclusions). Latin tokens need word boundaries (POSITIVE / DOSE are not OS). */
-const OUTCOME = (t: string) => /\b(OS|PFS)\b/.test(t) || any("生存", "疗效", "有效率", "缓解")(t);
+export const isResearchOutcomeQuestion = (t: string) => /\b(OS|PFS|ORR|DCR)\b/i.test(t) || /生存|疗效|有效率|缓解|肿瘤缩小|缩小肿瘤|疾病控制|治疗有效/.test(t);
+const OUTCOME = isResearchOutcomeQuestion;
 /** Severe symptoms: always the emergency template, in every mode. */
 export const EMERGENCY_TEXT = "您描述的情况可能需要紧急处理：请立即前往最近医院急诊就诊，或拨打值班电话 021-0000-0000（演示），不要等待线上回复。就诊时请告诉医生您正在接受的乳腺癌治疗。";
 const EMERGENCY = any("发热", "高烧", "出血", "呼吸困难", "胸痛", "意识");
 /** Self-adjusting medication: explicit phrasings, or a medication noun together with a stop / skip / delay verb. */
 const STOP_MED_PHRASES = ["停药", "停掉", "不吃", "减量", "减药", "剂量", "换药", "自己调", "关节痛", "少打", "少吃", "跳过", "推迟", "暂停", "不打", "漏服一次", "自己停"];
-const MED_NOUN = any("药", "打针", "化疗", "输液");
-const STOP_VERB = any("停", "减", "换", "少打", "少吃", "跳过", "推迟", "暂停", "不打", "不吃", "漏服一次", "自己停");
+const MED_NOUN = any("药", "打针", "化疗", "输液", "来曲唑", "阿那曲唑", "依西美坦");
+const STOP_VERB = any("停", "减", "换", "调", "少打", "少吃", "跳过", "推迟", "暂停", "不打", "不吃", "漏服一次", "自己停", "隔天服用");
 const STOP_MED = (t: string) => any(...STOP_MED_PHRASES)(t) || (MED_NOUN(t) && STOP_VERB(t));
 /** Templates answered without ever calling a model (short-circuit in every mode). */
 export const SAFETY_TEMPLATES: ReadonlySet<TemplateId> = new Set(["patient_emergency", "patient_stop_med"]);
 type Rule = { id: TemplateId; match: (upperText: string) => boolean; pages?: string[] };
+/** Supported explicit transitions. Ambiguous, skipped or later lines have no demo answer. */
+export function transitionLine(userText: string): 1 | 2 | undefined {
+  const text = userText.normalize("NFKC").replace(/\s+/g, "");
+  if (/不是|并非|还是|或者|分别|各自|和|及|、/.test(text)) return undefined;
+  const refs = [...text.matchAll(/(?<!下)(?:第)?(\d+|[一二三四五六七八九十])线/g)];
+  const value = (ref: RegExpMatchArray) => ({ 一: 1, 二: 2, 三: 3 }[ref[1]] ?? Number(ref[1]));
+  const relation = /^(?:治疗)?(?:结束)?(?:后)?(?:进入|转入|转到|到|至)$/;
+  if (refs.length === 2) {
+    const source = value(refs[0]);
+    const between = text.slice(refs[0].index! + refs[0][0].length, refs[1].index);
+    if ((source === 1 || source === 2) && value(refs[1]) === source + 1 && relation.test(between) && !text.includes("下一线")) return source;
+  }
+  if (refs.length === 1) {
+    const source = value(refs[0]), next = text.indexOf("下一线");
+    if ((source === 1 || source === 2) && next > refs[0].index! && relation.test(text.slice(refs[0].index! + refs[0][0].length, next))) return source;
+  }
+  return undefined;
+}
+export const isLineQuestion = (text: string) => /(?:第)?(?:\d+|[一二三四五六七八九十])\s*线|下一线/.test(text.normalize("NFKC"));
 /** First matching rule wins; order matters within an agent. research_gap is the only route that writes data, so it is the narrowest. */
 const RULES: Record<AgentKind, Rule[]> = {
   patient: [
@@ -40,10 +60,12 @@ const RULES: Record<AgentKind, Rule[]> = {
   ],
   research: [
     { id: "research_boundary", match: (t: string) => OUTCOME(t) || any("对比", "比较")(t) },
+    { id: "research_line_transition", match: (t: string) => transitionLine(t) !== undefined },
+    { id: "generic_boundary", match: isLineQuestion },
+    { id: "research_count", match: all(any("符合"), any("多少", "比例", "数量"), not(OUTCOME)) },
     { id: "research_snapshot_size", match: (t: string) => /快照.*(共|有)多少例|样本量/.test(t) },
     { id: "research_gap", match: all(any("信息不足"), any("原因", "补齐", "补录")) },
-    { id: "research_line_transition", match: any("一线", "二线", "下一线", "进入") },
-    { id: "research_count", match: all(any("符合", "多少例"), not(OUTCOME)) },
+    { id: "research_count", match: all(any("多少例"), not(OUTCOME)) },
   ],
 };
 export function pickTemplate(agent: AgentKind, page: string, userText: string): TemplateId {
@@ -103,7 +125,11 @@ export function runTemplateTools(id: TemplateId, call: Call, userText: string): 
       if (g.reasons.length) call("create_gap_task", { field: g.reasons[0].reason });
       return;
     }
-    case "research_line_transition": call("line_transition", { lineNo: 1 }); return;
+    case "research_line_transition": {
+      const lineNo = transitionLine(userText);
+      if (lineNo !== undefined) call("line_transition", { lineNo });
+      return;
+    }
     case "research_boundary": case "generic_boundary": return;
   }
 }
@@ -221,10 +247,13 @@ export function renderTemplate(id: TemplateId, toolResults: ToolCallRecord[]): s
     }
     case "research_line_transition": {
       const t = res("line_transition");
-      if (!t.n) return "快照中没有一线治疗记录，无法计算进入二线的比例。";
+      if (!t) return GENERIC_BOUNDARY;
+      const labels = ["", "一线", "二线", "三线"];
+      const source = labels[t.lineNo] ?? `第 ${t.lineNo} 线`, next = labels[t.lineNo + 1] ?? `第 ${t.lineNo + 1} 线`;
+      if (!t.n) return `快照中没有${source}治疗记录，无法计算进入${next}的比例。`;
       return [
-        `快照中有一线治疗记录的共 ${t.n} 例：进入二线 ${t.next_line} 例（占 ${pct1(t.nextLineRate)}%）；仍在一线治疗 ${t.on_treatment} 例；失访 ${t.lost} 例；死亡 ${t.deceased} 例；去向不明 ${t.unknown} 例。`,
-        "（治疗线为规则推断；“去向不明”指一线已结束但无后续治疗或结局记录。）",
+        `快照中有${source}治疗记录的共 ${t.n} 例：进入${next} ${t.next_line} 例（占 ${pct1(t.nextLineRate)}%）；仍在${source}治疗 ${t.on_treatment} 例；失访 ${t.lost} 例；死亡 ${t.deceased} 例；去向不明 ${t.unknown} 例。`,
+        `（治疗线为规则推断；“去向不明”指${source}已结束但无后续治疗或结局记录。）`,
       ].join("\n");
     }
     case "research_boundary": return RESEARCH_BOUNDARY;
