@@ -9,3 +9,5 @@ The existing in-memory store is volatile and globally shared among requests hand
 Alternatives: static export cannot preserve the API; migrating frameworks adds unnecessary behavior changes. OpenNext is the initial path, subject to Free-plan size and CPU limits. No paid plan or R2 billing activation is authorized.
 
 Validation: filesystem-free seed loading regression, existing unit suite, lint, types, Next/OpenNext build, local Workers runtime page/API/story checks, and the published URL. Cloudflare Git build commands must match the repository scripts. Deliver the live URL, reproducible deployment instructions and any verified state limitations.
+
+Public validation found a 503 on repeated reset and missing research snapshots across requests. Route all API requests through DemoState, a SQLite-backed Durable Object addressed by one global name. Persist gzip-encoded store state before responding and restore it on activation. Frontend rendering stays on the ordinary Worker. Key snapshots by seed version/checksum; retain shared-demo/reset semantics and do not enable billing.
