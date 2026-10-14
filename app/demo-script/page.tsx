@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import { readDemoFile } from "@/lib/runtime/files";
 import { parseInline, parseMarkdown, type Block } from "@/lib/docs/markdown";
-export const dynamic = "force-dynamic"; // re-read docs/demo-script.md on every request
+export const dynamic = "force-dynamic"; // local source or immutable deployment bundle
 
 function Text({ text }: { text: string }) {
   return <>{parseInline(text).map((s, i) => s.kind === "code"
@@ -33,7 +32,7 @@ function BlockView({ b }: { b: Block }) {
 
 export default function DemoScriptPage() {
   let src: string;
-  try { src = readFileSync(path.join(process.cwd(), "docs", "demo-script.md"), "utf8"); }
+  try { src = readDemoFile("docs/demo-script.md"); }
   catch { return <main className="mx-auto max-w-5xl px-6 py-10"><p className="text-sm text-red-600">未找到 docs/demo-script.md</p></main>; }
   return (
     <main className="mx-auto max-w-5xl space-y-4 px-6 py-10">

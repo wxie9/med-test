@@ -51,3 +51,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Cloudflare generated artifacts and local credentials
+.open-next/
+.wrangler/
+.dev.vars*
+cloudflare/files.generated.mjs

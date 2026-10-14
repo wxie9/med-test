@@ -98,3 +98,19 @@ docs/                演示脚本、数据生成说明、设计规格与方案
 - `docs/superpowers/sdd-ledger/2026-10-14-review-fix-report.md`：第一轮系统 Review 的修复、复审、验证记录与剩余依赖项
 
 锚点病例与指南要点库均为演示转述，待专家审阅。
+
+## Cloudflare Workers 部署
+
+Git 构建已为 `med-test` 配置：构建命令 `npm run build:worker`，部署命令 `npx wrangler deploy`，项目根目录 `/`。推送到 `main` 后自动构建发布。采用 OpenNext 保留页面和 API，默认运行确定性助手，无需在线模型密钥。
+
+```bash
+npm ci
+npm run build:worker       # 生成 gen-v4 数据并构建 Workers
+npx wrangler dev           # 在 Workers 本地运行时预览
+npx wrangler login         # 仅手动 CLI 发布时需要
+npx wrangler deploy
+```
+
+运行时固定演示时间为 `2026-10-13T10:00:00+08:00`。仅将合成种子数据和公开演示脚本加入构建包；本地 `.env*`、`.dev.vars*`、生成包和账户凭据均不入库。静态资源由 Workers Assets 提供，未启用付费 R2 或在线模型。
+
+本版状态仍为内存演示状态：同一 Worker isolate 内的访问共享状态；不同 isolate 的状态可能不同，服务实例回收和重新部署后可能恢复种子。它不是持久化数据库或独立的多用户会话。正式演示前重置并走完一次故事线；多人同时操作可能互相影响。若公网验证发现状态连续性问题，须先补状态协调，不应只凭首页能打开就认定部署可演示。
