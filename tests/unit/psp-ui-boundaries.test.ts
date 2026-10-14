@@ -20,10 +20,10 @@ it("pharma page and mode badge fetch only protected pharma projection and show a
 });
 it("patient authorization scopes stay independent and project questionnaire has no generic PRO link", async () => {
  const posts: Record<string, unknown>[] = [];
- const fetcher = vi.fn((_url: string, options?: RequestInit) => { if (options?.method === "POST") posts.push(JSON.parse(options.body as string)); return Promise.resolve(json({ seedVersion: 1, patientId: "P-A", displayName: "演示患者甲", projects: [{ project, enrollment: { id: "ENR-01", status: "active", version: 1 }, permissions: { service: true, aggregate: false }, permissionHistory: [], assignments: [{ id: "assignment", kind: "questionnaire", title: "项目症状问卷", dueAt: "2026-10-13T01:00:00Z", status: "open", actionable: true }] }] })); });
+ const fetcher = vi.fn((_url: string, options?: RequestInit) => { if (options?.method === "POST") posts.push(JSON.parse(options.body as string)); return Promise.resolve(json({ seedVersion: 1, serverNow: "2026-10-13T02:00:00Z", patientId: "P-A", displayName: "演示患者甲", projects: [{ project, enrollment: { id: "ENR-01", status: "active", version: 1 }, permissions: { service: true, aggregate: false }, permissionHistory: [], assignments: [{ id: "assignment", kind: "questionnaire", title: "项目症状问卷", dueAt: "2026-10-13T01:00:00Z", status: "open", actionable: true }] }] })); });
  vi.stubGlobal("fetch", fetcher); render(createElement(PatientService, { patientId: "P-A" }));
  await waitFor(() => expect(screen.getByText("接受支持服务：已授权")).toBeTruthy());
- expect(screen.getByText("允许项目汇总：未授权")).toBeTruthy(); expect(screen.getByText(/未提交 · 项目问卷填写/)).toBeTruthy();
+ expect(screen.getByText("允许项目汇总：未授权")).toBeTruthy(); expect(screen.getByRole("link", { name: "填写项目问卷" }).getAttribute("href")).toContain("assignment=assignment");
  expect(document.querySelector('a[href="/patient/pro"]')).toBeNull(); fireEvent.click(screen.getByRole("button", { name: "同意授权" }));
  await waitFor(() => expect(posts.length).toBe(1)); expect(posts[0].scope).toBe("aggregate"); expect(posts[0].action).toBe("grant");
 });

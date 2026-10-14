@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2；Task 3–12 尚未执行。第一阶段实施与验收记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)。
+- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2 与 Task 3 的项目问卷绑定；Task 4–12 尚未执行。第一阶段实施与验收记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)，问卷绑定见[Task 3 报告](../sdd-ledger/2026-10-14-psp-task3-report.md)。
 - 详细需求以[PSP设计](../specs/2026-10-14-postlaunch-psp-demo-design.md)为准；[现状评审](../sdd-ledger/2026-10-14-psp-current-state-review.md)定义新增依赖。
 - 项目`PSP-BC-ENDO-001`，虚构药企A，治疗类别支持；周期2026-10-01至2026-12-31。
 - 固定时钟`2026-10-13T10:00:00+08:00`；阶段报告窗口为10月1日至该时点，不能称整月完成业绩。
@@ -41,7 +41,7 @@
 
 ## 2 文件边界
 
-下表保留完整规划；Task 0–2 的基础文件已实现，其余文件仍是后续计划，不能把未实现路径当成可用接口。
+下表保留完整规划；Task 0–3 的基础和问卷文件已实现，其余文件仍是后续计划，不能把未实现路径当成可用接口。
 
 | 文件/目录 | 职责 |
 |---|---|
@@ -79,7 +79,7 @@ type CommandMeta = {
 type PspErrorCode = "INVALID_INPUT" | "NOT_FOUND" | "FORBIDDEN_ACTION"
   | "STALE_SEED" | "VERSION_CONFLICT" | "CONSENT_REQUIRED"
   | "AUTHORIZATION_BLOCKED" | "INVALID_TRANSITION" | "PERSISTENCE_FAILED";
-type CommandResult<T> = { value: T; objectVersion: number; ledgerRevision: number; replayed: boolean };
+type CommandResult<T> = { data: T; objectVersion: number; ledgerRevision: number; seedVersion: number }; // 已实现：相同请求返回完全相同回执
 type Metric = {
   key: string; unit: "people" | "forms" | "assignments" | "alerts" | "interactions" | "doses" | "hours" | "records";
   sampleUnit: "people" | "forms" | "assignments" | "alerts" | "interactions" | "records";
@@ -95,7 +95,7 @@ type ReportStatus = "draft" | "in_review" | "changes_requested" | "approved"
 type ReportGate = { authorizationGate: "eligible" | "blocked" | "revoked"; authorizationVersion: number };
 ```
 
-`PspState`包含project/enrollments/permissionEvents/assignments/serviceEvents/selfReportRevisions/educationContents/educationResults/snapshots/reportVersions/reviewActions/deliveryReceipts/corrections/commandReceipts数组，及`fixtureVersion/checksum/ledgerRevision`。实体字段按规格§13落实，每个可修改聚合有`version`，事件有唯一ID、occurredAt、recordedAt和账序号。去重回执保存请求作用域、规范化body摘要与结果引用；同ID换body返回400，不静默复用不同操作。
+`PspState`目前保存project、enrollments、membershipEvents、permissionEvents、assignments、serviceEvents、educationContents、educationResults、commandReceipts及fixtureVersion/checksum/ledgerRevision/authorizationVersion。selfReportRevisions/snapshots/reportVersions/reviewActions/deliveryReceipts/corrections为后续任务规划，尚未实现，不预填伪功能数据。实体字段按规格§13落实，每个可修改聚合有`version`，事件有唯一ID、occurredAt、recordedAt和账序号。去重回执保存请求作用域、规范化body摘要与结果引用；同ID换body返回400，不静默复用不同操作。
 
 精确时间统一存UTC ISO（沿用now().toISOString），比较用epoch；显示与自然日/月份边界用Asia/Shanghai。第4节+08:00写法是人可读时点，不能用字符串字面相等代替时间相等。日期级历史值保留DateOnly及精度标记。
 
@@ -113,7 +113,7 @@ type ReportGate = { authorizationGate: "eligible" | "blocked" | "revoked"; autho
 
 两类审核用不同预置actor，不允许同一个actor换kind完成双签。活动状态与授权scope分别验证；计划类型对应合法执行者不能靠任意role绕过。只用一个预置项目，跨项目参数仍要拒绝。
 
-写入次序：校验seed→校验对象/项目/角色场景/当前授权→命中同body幂等回执可返回原结果→校验expectedVersion→在隔离副本执行业务→校验完整新状态→同步替换全局状态。不要在业务提交中等待模型。本地业务校验失败时原状态不变。
+写入次序：校验seed→校验对象/项目/角色场景/归属→命中同body幂等回执可返回原结果→校验expectedVersion与当前授权→在隔离副本执行业务→校验完整新状态→同步替换全局状态。已持久化请求丢失响应后的重试回放，不产生撤回授权后的新写入。不要在业务提交中等待模型。本地业务校验失败时原状态不变。
 
 Workers成功响应以durable保存完成为提交点：写入确定失败且未落存储时，恢复上一次已持久化状态，返回503；新tentative状态不供下一次请求读取。写入结果不确定时重新读取存储，按真实保存值恢复，恢复读取也失败则保持503并阻止读取tentative状态。不能承诺已写成功但客户端丢失响应的请求会回滚：该情形已提交，重试从保存的幂等回执返回原结果。handler异常/500、压缩失败、容量超限与put失败分别注入测试；后续GET与重启都必须匹配实际durable状态，而不是把不确定结果当成成功或重复执行业务。
 
@@ -225,12 +225,12 @@ REST错误映射：输入400、对象不存在404、非法动作/授权403、旧
 
 **Interfaces:** `submitProjectPro({ assignmentId, patientId, scaleId, items, flags, revisionOf? }, meta): CommandResult<{ proId: string; alertIds: string[]; feedback: string }>`。从现有PRO route抽出同一题项/flag校验；临床提交函数支持传入暂存store/时间/ID工厂，旧API包装保持原行为。
 
-- [ ] 创建失败用例：缺题/错题、非本患者计划、无授权、旧seed/版本、普通重试与显式修订。问卷items使用完整`SCALE_SYMPTOMS.endocrine_monthly_v1`，不能用不全的示例绕过原校验。
-- [ ] 一个同步命令创建PRO、原规则预警/消息、计划关联、首次完成时间、最新有效答卷引用和幂等回执；任一步失败没有部分写入。
-- [ ] 已完成的普通重复提交返回既有有效结果；显式revisionOf创建新PRO及可适用的新告警，不重复计计划完成；相同修订请求不重生告警。
-- [ ] PSP回执按虚构自然小时目标呈现；原急症/off-hours提示保留。不能同时声称“1工作日”就是2小时联系合同。
-- [ ] 患者从固定计划进入表单，发送时绑定patientId/assignment/seed；切患者后旧成功或失败结果都不可覆盖新页面。
-- [ ] Run `npx vitest run tests/unit/psp-pro.test.ts tests/unit/psp-pro-route.test.ts tests/unit/pro-route.test.ts tests/unit/alerts.test.ts`；断言A在10:00完成、dueAt09:00迟交、完成数+1且按时数不增。
+- [x] 创建失败用例：缺题/错题、非本患者计划、无授权、旧seed/版本、普通重试与显式修订。问卷items使用完整`SCALE_SYMPTOMS.endocrine_monthly_v1`，不能用不全的示例绕过原校验。
+- [x] 一个同步命令创建PRO、原规则预警/消息、计划关联、首次完成时间、最新有效答卷引用和幂等回执；任一步失败没有部分写入。
+- [x] 已完成的普通重复提交返回既有有效结果；显式revisionOf创建新PRO及可适用的新告警，不重复计计划完成；相同修订请求不重生告警。
+- [x] PSP回执按虚构自然小时目标呈现；原急症/off-hours提示保留。不能同时声称“1工作日”就是2小时联系合同。
+- [x] 患者从固定计划进入表单，发送时绑定patientId/assignment/seed；切患者后旧成功或失败结果都不可覆盖新页面。
+- [x] Run `npx vitest run tests/unit/psp-pro.test.ts tests/unit/psp-pro-route.test.ts tests/unit/pro-route.test.ts tests/unit/alerts.test.ts`；断言A在10:00完成、dueAt09:00迟交、完成数+1且按时数不增。
 
 核心验收断言（Task 1 helper与本task接口）：
 
@@ -245,13 +245,13 @@ const input = {
 };
 const assignment = store.psp.assignments.find(a => a.id === input.assignmentId)!;
 const meta: CommandMeta = {
-  seedVersion: store.seedVersion, expectedVersion: assignment.version,
+  seedVersion: store.seedVersion, expectedVersion: assignment.version, // 问卷动作校验计划版本，不使用成员版本
   clientRequestId: "psp-pro-test-first", actorId: "P-A", role: "patient"
 };
 const first = submitProjectPro(input, meta);
 const retry = submitProjectPro(input, meta);
-expect(retry.value.proId).toBe(first.value.proId);
-expect(retry.replayed).toBe(true);
+expect(retry.data.proId).toBe(first.data.proId);
+expect(retry).toEqual(first);
 expect(Date.parse(getStore().psp.assignments.find(a => a.id === input.assignmentId)!.firstValidSubmittedAt!))
   .toBe(Date.parse("2026-10-13T10:00:00+08:00"));
 ```

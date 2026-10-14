@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { DemoStore } from './store';
 import { Patient, Alert, FollowUpTask, Cohort, ResearchSnapshot, CandidateRequest, DataGapTask, PatientMessage } from '@/lib/domain/types';
-import { PspState, validatePspState } from '@/lib/psp/types';
+import { PspState, validatePspState, validatePspClinicalLinks } from '@/lib/psp/types';
 /** Reject unknown fields throughout persisted clinical objects rather than silently dropping them. */
 function strict(schema:z.ZodTypeAny):z.ZodTypeAny {
  if(schema instanceof z.ZodObject)return z.object(Object.fromEntries(Object.entries(schema.shape).map(([k,v])=>[k,strict(v as z.ZodTypeAny)]))).strict();
@@ -19,6 +19,7 @@ export function hydrateImmutableState(store:DemoStore):DemoStore { for(const sna
 export async function encodeDemoStore(store:DemoStore):Promise<Uint8Array> {
  const value=payload.parse({version:2,store:{...store,patients:[...store.patients.values()]}});
  validatePspState(value.store.psp);
+ validatePspClinicalLinks(value.store.psp,value.store.patients as import('@/lib/domain/types').Patient[]);
  const stream=new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream('gzip'));
  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
@@ -27,6 +28,7 @@ export async function decodeDemoStore(encoded:Uint8Array):Promise<DemoStore> {
  const saved=payload.parse(JSON.parse(await new Response(stream).text()));
  const store={...saved.store,patients:new Map(saved.store.patients.map(p=>[p.id,p]))} as DemoStore;
  validatePspState(store.psp);
+ validatePspClinicalLinks(store.psp,store.patients.values());
  if(store.patients.size!==saved.store.patients.length)throw new Error('Duplicate persisted patient');
  for(const e of store.psp.enrollments)if(!store.patients.has(e.patientId))throw new Error('Unknown persisted PSP patient');
  return hydrateImmutableState(store);

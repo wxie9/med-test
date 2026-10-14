@@ -26,7 +26,7 @@ export const SystemicTherapyLine = z.object({
   rulesVersion: z.string(), reviewStatus: z.enum(["unreviewed", "confirmed", "corrected"]), reviewer: z.string().nullable(),
 });
 export const OutcomeEvent = z.object({ id: z.string(), type: OutcomeType, date: z.string(), evidence: z.enum(["imaging", "pathology", "clinical_note"]), assessor: z.string() });
-export const ProResponse = z.object({ id: z.string(), scaleId: z.enum(["endocrine_monthly_v1", "treatment_weekly_v1"]), submittedAt: z.string(), items: z.record(z.number()), flags: z.object({ stopIntent: z.boolean().optional(), missedDoses14d: z.number().optional() }) });
+export const ProResponse = z.object({ revisionOf: z.string().min(1).optional(), id: z.string(), scaleId: z.enum(["endocrine_monthly_v1", "treatment_weekly_v1"]), submittedAt: z.string(), items: z.record(z.number()), flags: z.object({ stopIntent: z.boolean().optional(), missedDoses14d: z.number().optional() }) });
 export const AdherenceLog = z.object({ date: z.string(), due: z.number(), taken: z.number(), missedReason: z.string().nullable() });
 export const Consent = z.object({ followUp: z.boolean(), research: z.boolean(), pharmaDeidentified: z.boolean(), signedAt: z.string().nullable() });
 

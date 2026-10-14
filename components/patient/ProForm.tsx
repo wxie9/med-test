@@ -1,11 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { SCALE_SYMPTOMS, hasAdherenceFlags, type ScaleId } from "@/lib/pro/scales";
 const LEVELS = ["无", "轻度", "中度", "重度"];
 type Result = { feedback: string; emergency: boolean };
 /** Symptom questionnaire (0–3 sliders) plus adherence flags for the monthly endocrine scale. */
 export function ProForm({ patientId, scaleId, onSubmitted }: { patientId: string; scaleId: ScaleId; onSubmitted: () => void }) {
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const symptoms = SCALE_SYMPTOMS[scaleId];
   const [items, setItems] = useState<Record<string, number>>(() => Object.fromEntries(symptoms.map(s => [s, 0])));
   const [missed, setMissed] = useState(0);
@@ -20,8 +22,10 @@ export function ProForm({ patientId, scaleId, onSubmitted }: { patientId: string
       const r = await fetch("/api/pro", { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ patientId, scaleId, items, flags: withFlags ? { missedDoses14d: missed, stopIntent } : {} }) });
       if (!r.ok) throw new Error(`提交失败（${r.status}）`);
-      setResult((await r.json()) as Result); onSubmitted();
-    } catch (x) { setErr(x instanceof Error ? x.message : String(x)); } finally { setBusy(false); }
+      const value = (await r.json()) as Result;
+      if (!mounted.current) return;
+      setResult(value); onSubmitted();
+    } catch (x) { if (mounted.current) setErr(x instanceof Error ? x.message : String(x)); } finally { if (mounted.current) setBusy(false); }
   }
   return (
     <form onSubmit={submit} className="space-y-4">

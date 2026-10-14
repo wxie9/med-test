@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ProBody } from '@/lib/pro/validation';
 const id = z.string().min(1), time = z.string().datetime(), version = z.number().int().positive(), seq = z.number().int().positive();
 export const PspRole = z.enum(['patient','case_manager','doctor','project_manager','data_reviewer','medical_reviewer','pharma_owner']);
 export type PspRole = z.infer<typeof PspRole>;
@@ -48,7 +49,32 @@ export function validatePspState(value:unknown):PspState {
  if(s.commandReceipts.some(r=>r.ledgerRevision>s.ledgerRevision))throw new Error('PSP receipt revision ahead of ledger');
  for(const e of [...s.membershipEvents,...s.permissionEvents,...s.serviceEvents])if(!enrollments.has(e.enrollmentId) || Date.parse(e.recordedAt)<Date.parse(e.occurredAt))throw new Error('Invalid PSP event');
  for(const a of s.assignments)if(!enrollments.has(a.enrollmentId)||a.projectId!==s.project.id||Date.parse(a.dueAt)<Date.parse(a.assignedAt))throw new Error('Invalid PSP assignment');
+ for(const a of s.assignments.filter(a=>a.kind==='questionnaire'))if(Boolean(a.firstValidSubmittedAt)!==Boolean(a.latestValidResponseId)||(a.status==='completed'&&!a.firstValidSubmittedAt)||(a.status==='open'&&a.firstValidSubmittedAt))throw new Error('Invalid PSP questionnaire completion fields');
  for(const e of s.serviceEvents){const a=assignments.get(e.assignmentId);if(!a||a.kind!=='contact'||a.enrollmentId!==e.enrollmentId||e.projectId!==s.project.id||Date.parse(e.occurredAt)<Date.parse(a.assignedAt))throw new Error('Invalid PSP contact reference or time');}
  for(const e of s.educationResults){const a=assignments.get(e.assignmentId),c=contents.get(e.contentVersionId);if(!a||a.kind!=='education'||!c||Date.parse(e.sentAt)<Date.parse(a.assignedAt)||Date.parse(c.approvedAt)>Date.parse(e.sentAt)||Date.parse(e.sentAt)>Date.parse(e.openedAt)||Date.parse(e.openedAt)>Date.parse(e.feedbackAt))throw new Error('Invalid PSP education reference or time');}
  return s;
+}
+
+/** Cross-store questionnaire links are validated at transaction and persistence boundaries. */
+export function validatePspClinicalLinks(state:PspState, patients:Iterable<{id:string;pro:import('@/lib/domain/types').ProResponse[]}>):void {
+ const patientList=[...patients],enrollments=new Map(state.enrollments.map(e=>[e.id,e]));
+ for(const a of state.assignments.filter(a=>a.kind==='questionnaire')){
+  const first=a.firstValidSubmittedAt,latest=a.latestValidResponseId;
+  if(Boolean(first)!==Boolean(latest)||(a.status==='completed'&&!first)||(a.status==='open'&&first))throw new Error('Invalid PSP questionnaire completion fields');
+  if(!first||!latest)continue;
+  const patientId=enrollments.get(a.enrollmentId)?.patientId,patient=patientList.find(p=>p.id===patientId);
+  const references=patientList.flatMap(p=>p.pro.filter(pro=>pro.id===latest).map(pro=>({patientId:p.id,pro})));
+  if(!patient||references.length!==1||references[0].patientId!==patientId)throw new Error('Invalid PSP questionnaire response ownership');
+  const seen=new Set<string>();let pro=references[0].pro;
+  while(true){
+   const submitted=Date.parse(pro.submittedAt);
+   if(seen.has(pro.id)||pro.scaleId!=='endocrine_monthly_v1'||!Number.isFinite(submitted)||submitted<Date.parse(a.assignedAt)||submitted<Date.parse(state.project.startsAt)||submitted>Date.parse(state.project.endsAt)||submitted<Date.parse(first))throw new Error('Invalid PSP questionnaire response scale or time');
+   ProBody.parse({patientId:patient.id,scaleId:pro.scaleId,items:pro.items,flags:pro.flags});
+   seen.add(pro.id);
+   if(!pro.revisionOf){if(submitted!==Date.parse(first))throw new Error('Invalid PSP questionnaire first completion time');break;}
+   const parents=patient.pro.filter(p=>p.id===pro.revisionOf);
+   if(parents.length!==1||Date.parse(parents[0].submittedAt)>submitted)throw new Error('Invalid PSP questionnaire revision reference');
+   pro=parents[0];
+  }
+ }
 }
