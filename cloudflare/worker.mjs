@@ -1,34 +1,33 @@
 import { DurableObject } from "cloudflare:workers";
 import handler from "../.open-next/worker.js";
 import files, { seedFingerprint } from "./files.generated.mjs";
+import { createDurableRequest } from "../lib/state/durableRequest.ts";
 import { encodeDemoStore, decodeDemoStore } from "../lib/state/persistence.ts";
 
 globalThis.__demoFiles = files;
 const manifest = JSON.parse(files["data/seed/manifest.json"]);
-const stateKey = `demo-v1-${manifest.version}-${seedFingerprint}`;
+const stateKey = `demo-v2-${manifest.version}-${seedFingerprint}`;
 
 /** One globally addressed coordinator preserves the existing shared demo semantics. */
 export class DemoState extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
-    ctx.blockConcurrencyWhile(async () => {
-      const saved = await ctx.storage.get(stateKey);
-      globalThis.__demoStore = saved ? await decodeDemoStore(saved) : undefined;
+    this.runDurableRequest = createDurableRequest({
+      read: () => ctx.storage.get(stateKey),
+      write: saved => ctx.storage.put(stateKey, saved),
+      getState: () => globalThis.__demoStore,
+      setState: state => { globalThis.__demoStore = state; },
+      encode: encodeDemoStore,
+      decode: decodeDemoStore,
+      handle: request => handler.fetch(request, this.env, {
+        waitUntil: promise => ctx.waitUntil(promise), passThroughOnException() {},
+      }),
     });
   }
 
   async fetch(request) {
-    return this.ctx.blockConcurrencyWhile(async () => {
-      const context = { waitUntil: promise => this.ctx.waitUntil(promise), passThroughOnException() {} };
-      const response = await handler.fetch(request, this.env, context);
-      // GET /api/state can also escalate alerts, so persist all stateful requests.
-      if (response.status < 500 && globalThis.__demoStore) {
-        const saved = await encodeDemoStore(globalThis.__demoStore);
-        if (saved.byteLength > 2 * 1024 * 1024 - 1024) throw new Error("Demo state is too large; reset the demo");
-        await this.ctx.storage.put(stateKey, saved);
-      }
-      return response;
-    });
+    // GET /api/state can also escalate alerts: every stateful request is persisted.
+    return this.ctx.blockConcurrencyWhile(() => this.runDurableRequest(request));
   }
 }
 

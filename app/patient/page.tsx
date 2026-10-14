@@ -1,4 +1,5 @@
 "use client";
+import { PatientService } from "@/components/psp/PatientService";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePatientId } from "@/lib/client/patientContext";
@@ -26,6 +27,7 @@ export default function PatientHome() {
         <h1 className="text-xl font-semibold">{displayName(id)}</h1>
         <p className="mt-1 text-sm opacity-90">{stageLabel(patient.stage)}</p>
       </div>
+      <PatientService patientId={id} />
       <Section title="当前治疗">
         <p className="text-sm text-gray-700">{drugs.length ? drugs.join("、") : "暂无进行中的药物治疗"}</p>
       </Section>

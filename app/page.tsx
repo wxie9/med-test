@@ -11,7 +11,7 @@ const CARDS = [
   { href: "/patient", title: "患者端", desc: "随访提醒、PRO 填报与消息" },
   { href: "/clinic/alerts", title: "医生工作台", desc: "预警处理与随访任务" },
   { href: "/governance", title: "数据治理", desc: "数据缺口与质控任务" },
-  { href: "/research", title: "药企研究", desc: "队列筛选与研究快照" },
+  { href: "/pharma/projects", title: "药企项目", desc: "支持服务项目与授权汇总" },
 ];
 
 export default function Home() {

@@ -1,0 +1,10 @@
+{
+  "version": "psp-v1",
+  "checksum": "6ab9eaf94182b2559e2155b78d946d955960224c7317fb29a31dda74886fd71a",
+  "counts": {
+    "candidates": 20,
+    "activeService": 18,
+    "aggregateAllowed": 14,
+    "assignments": 54
+  }
+}

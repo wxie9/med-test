@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 本轮仅写计划，所有checkbox未执行；用户明确“暂不编码”。代码基线`48b519f`，后续执行前重新确认git状态，不覆盖他人改动。
+- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2；Task 3–12 尚未执行。第一阶段实施与验收记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)。
 - 详细需求以[PSP设计](../specs/2026-10-14-postlaunch-psp-demo-design.md)为准；[现状评审](../sdd-ledger/2026-10-14-psp-current-state-review.md)定义新增依赖。
 - 项目`PSP-BC-ENDO-001`，虚构药企A，治疗类别支持；周期2026-10-01至2026-12-31。
 - 固定时钟`2026-10-13T10:00:00+08:00`；阶段报告窗口为10月1日至该时点，不能称整月完成业绩。
@@ -41,7 +41,7 @@
 
 ## 2 文件边界
 
-下表中的新文件为计划创建，当前仓库不存在；不要把路径当成已实现接口。
+下表保留完整规划；Task 0–2 的基础文件已实现，其余文件仍是后续计划，不能把未实现路径当成可用接口。
 
 | 文件/目录 | 职责 |
 |---|---|
@@ -181,12 +181,12 @@ REST错误映射：输入400、对象不存在404、非法动作/授权403、旧
 
 **Interfaces:** `buildWorkerBundle({ sourceRoot, outputRoot, env }): Promise<{ environmentNames: string[]; artifactPaths: string[] }>`；构建子进程环境只允许运行工具必要变量和固定DEMO_FIXED_NOW，不继承模型密钥。
 
-- [ ] 先用临时fixture的`.env.local`和`.env.production.local`写非真实sentinel，验证现有compileEnvFiles能打包它；测试只断言包含布尔值，不输出值。
-- [ ] 实现隔离目录构建：复制明确源目录app/components/lib/data/public/scripts/cloudflare、docs/demo-script.md及package.json/package-lock.json/next.config.ts/open-next.config.ts/tsconfig.json/wrangler.jsonc/postcss.config.mjs/eslint.config.mjs；递归排除.env*、.dev.vars*、node_modules和生成包，next-env.d.ts在构建时生成。依赖在隔离目录安装或复用已确认依赖，构建脚本不能递归调用自身。源目录env文件不移动、不改写。
-- [ ] 子进程使用变量白名单；在Wrangler打包前检查所有模式的next-env.mjs只有允许的固定演示变量，发现未知变量停止构建。不能仅在生成后删掉模型密钥，因为Next编译阶段也可能读取env。
-- [ ] 将`build:worker`接入安全wrapper，`preview:worker/deploy:worker`继续依赖它；隔离产物`.open-next/`与`cloudflare/files.generated.mjs`同时复制到项目相应位置，Worker入口的两个import都必须可解析。Wrangler账户凭据只供后续已授权部署命令使用，不能传给构建子进程。
-- [ ] eslint忽略`.claude/**`等实际嵌套工作区；重新跑`npx vitest run tests/unit/worker-build-policy.test.ts`、`npm run lint`、`npx tsc --noEmit`。标准lint必须exit0，不能用诊断参数冒充已修复。
-- [ ] Review gate：sentinel不在任何输出文件中，原env文件字节未改变，默认mode仍deterministic；再运行`npm run build:worker`，不发布。
+- [x] 先用临时fixture的`.env.local`和`.env.production.local`写非真实sentinel，验证现有compileEnvFiles能打包它；测试只断言包含布尔值，不输出值。
+- [x] 实现隔离目录构建：复制明确源目录app/components/lib/data/public/scripts/cloudflare、docs/demo-script.md及package.json/package-lock.json/next.config.ts/open-next.config.ts/tsconfig.json/wrangler.jsonc/postcss.config.mjs/eslint.config.mjs；递归排除.env*、.dev.vars*、node_modules和生成包，next-env.d.ts在构建时生成。依赖在隔离目录安装或复用已确认依赖，构建脚本不能递归调用自身。源目录env文件不移动、不改写。
+- [x] 子进程使用变量白名单；在Wrangler打包前检查所有模式的next-env.mjs只有允许的固定演示变量，发现未知变量停止构建。不能仅在生成后删掉模型密钥，因为Next编译阶段也可能读取env。
+- [x] 将`build:worker`接入安全wrapper，`preview:worker/deploy:worker`继续依赖它；隔离产物`.open-next/`与`cloudflare/files.generated.mjs`同时复制到项目相应位置，Worker入口的两个import都必须可解析。Wrangler账户凭据只供后续已授权部署命令使用，不能传给构建子进程。
+- [x] eslint忽略`.claude/**`等实际嵌套工作区；重新跑`npx vitest run tests/unit/worker-build-policy.test.ts`、`npm run lint`、`npx tsc --noEmit`。标准lint必须exit0，不能用诊断参数冒充已修复。
+- [x] Review gate：sentinel不在任何输出文件中，原env文件字节未改变，默认mode仍deterministic；再运行`npm run build:worker`，不发布。
 
 ## Task 1：PSP类型、fixture与持久化恢复
 
@@ -194,28 +194,30 @@ REST错误映射：输入400、对象不存在404、非法动作/授权403、旧
 
 **Interfaces:** `loadPspSeed(patients: Map<string, Patient>): PspState`、`validatePspState(value: unknown): PspState`、`hydrateImmutableState(store: DemoStore): DemoStore`、`buildPspTestStore(): DemoStore`、`installPspTestStore(store: DemoStore): void`。测试helper返回隔离store、固定时钟、无历史日志版本，install只在测试中绑定该store到既有全局容器，afterEach恢复，不能复用测试间的变更。
 
-- [ ] 新测试断言名单、20/18/14、固定dueAt、当月初始完成0；邀请者无计划；fixture记录授权和教育批准时间均不晚于对应事实。
-- [ ] 按第4节写固定fixture；独立psp-v1 checksum由规范化内容SHA-256生成，临床manifest与generator不修改。
-- [ ] Store增`psp`，reset同时恢复临床与PSP。runtime统一清单含原四临床文件与两个PSP文件；demo-script入包但不入种子指纹。缺少必需PSP文件应明确构建失败，不能fallback成空项目。
-- [ ] payload升v2和`demo-v2-...`key；按Zod验证保存对象，恢复patients Map并重新冻结研究/PSP快照与报告内容。只有允许生命周期变化的metadata可更新，不能freeze整个活动状态。
-- [ ] 测试v2 roundtrip、旧v1不误读、损坏payload错误、PSP文件单独变化导致key变化、demo-script变化不失效、重置后全新PSP状态。明确升级会重新初始化共享演示，不做隐式v1迁移。
-- [ ] Run `npx vitest run tests/unit/psp-seed.test.ts tests/unit/worker-files.test.ts tests/unit/worker-persistence.test.ts tests/unit/worker-seed-fingerprint.test.ts tests/unit/generator.test.ts`；预期全部通过，临床checksum及五组人数不变。
+- [x] 新测试断言名单、20/18/14、固定dueAt、当月初始完成0；邀请者无计划；fixture记录授权和教育批准时间均不晚于对应事实。
+- [x] 按第4节写固定fixture；独立psp-v1 checksum由规范化内容SHA-256生成，临床manifest与generator不修改。
+- [x] Store增`psp`，reset同时恢复临床与PSP。runtime统一清单含原四临床文件与两个PSP文件；demo-script入包但不入种子指纹。缺少必需PSP文件应明确构建失败，不能fallback成空项目。
+- [x] payload升v2和`demo-v2-...`key；按Zod严格验证保存对象及账与成员的一致性，恢复patients Map并重新冻结研究快照和已批准教育内容；PSP快照/报告实体待后续阶段。只有允许生命周期变化的metadata可更新，不能freeze整个活动状态。
+- [x] 测试v2 roundtrip、旧v1不误读、损坏payload错误、PSP文件单独变化导致key变化、demo-script变化不失效、重置后全新PSP状态。明确升级会重新初始化共享演示，不做隐式v1迁移。
+- [x] Run `npx vitest run tests/unit/psp-seed.test.ts tests/unit/worker-files.test.ts tests/unit/worker-persistence.test.ts tests/unit/worker-seed-fingerprint.test.ts tests/unit/generator.test.ts`；预期全部通过，临床checksum及五组人数不变。
 
 ## Task 2：原子命令、授权历史及两侧项目入口
 
-**Files:** Create `lib/psp/{transaction,permissions,views,pharmaView}.ts`、`lib/client/usePspState.ts`、`app/api/psp/projects/[projectId]/route.ts`、`app/api/psp/patients/[patientId]/projects/route.ts`、`app/api/psp/enrollments/[enrollmentId]/{permissions,actions}/route.ts`、`app/api/pharma/projects/route.ts`、`app/api/pharma/projects/[projectId]/route.ts`、`app/pharma/layout.tsx`、`app/pharma/projects/{page.tsx,[projectId]/page.tsx}`、`app/clinic/projects/[projectId]/services/page.tsx`；Modify `app/page.tsx`、`components/{ViewSwitcher,ModeBadge}.tsx`、`lib/state/store.ts`；Test `tests/unit/psp-permissions.test.ts`、`psp-views.test.ts`、`psp-transaction.test.ts`。
+**Files:** Create `lib/psp/{transaction,permissions,views,pharmaView}.ts`、`lib/client/usePspState.ts`、`app/api/psp/projects/[projectId]/route.ts`、`app/api/psp/patients/[patientId]/projects/route.ts`、`app/api/psp/enrollments/[enrollmentId]/{permissions,actions}/route.ts`、`app/api/pharma/projects/route.ts`、`app/api/pharma/projects/[projectId]/route.ts`、`app/pharma/layout.tsx`、`app/pharma/projects/{page.tsx,[projectId]/page.tsx}`、`app/clinic/projects/[projectId]/services/page.tsx`；Modify `app/page.tsx`、`components/{ViewSwitcher,ModeBadge}.tsx`、`lib/state/store.ts`；Test `tests/unit/psp-permissions.test.ts`、`psp-views.test.ts`、`psp-transaction.test.ts`、`psp-routes.test.ts`；浏览器 `psp-phase1.spec.ts`。
 
-**Interfaces:** `runPspCommand<T>(meta, targetVersion, normalizedBody, mutateDraft): CommandResult<T>`；`recordPermission(enrollmentId, scope, action, meta)`；`recordEnrollmentState(enrollmentId, { state, occurredAt, reason, eligibilityConfirmed? }, meta)`；`getInternalProjectView(projectId)`、`getPatientProjectView(patientId)`、`getPharmaProjectView(projectId)`。患者专用GET只返回该patientId的成员、授权、计划及消息引用；内部项目GET返回服务台DTO。药企view返回项目合同配置、保护后的批次指标、报告摘要和agentMode/seedVersion/gate，绝不返回ledger及成员ID。
+**Interfaces（第一阶段实际签名）:** `transact<T>(enrollmentId, normalizedBody, meta, roles, mutateDraft): CommandResult<T>`；`recordPermission(enrollmentId, scope, action, meta)`；`recordEnrollmentState(enrollmentId, { state, reason, eligibilityConfirmed? }, meta)`（发生/入账时间由服务端生成）；`getInternalProjectView(projectId, role, actorId)`、`getPatientProjectsView(patientId, role, actorId)`、`getPharmaProjectView(projectId)`。患者专用GET只返回该patientId的成员、授权、计划及消息引用；内部项目GET返回服务台DTO。药企view返回项目合同配置、保护后的批次指标、报告摘要和agentMode/seedVersion/gate，绝不返回ledger及成员ID。
 
-- [ ] 先测撤回后不能安排新服务、首次汇总授权不追溯、月中退出前责任保留；临床research同意不能使PSP变已授权。
-- [ ] 纳入/暂停/退出命令保留历史：doctor确认适用性，case_manager/project_manager记录合法状态变更，只有有效service授权和适用性确认齐全才可active；暂停/退出不取消独立医疗随访。默认fixture的18人包含明确的合成适用性确认。
-- [ ] grant service本身不替代医生确认；未满足条件保持invited，条件齐全由合法纳入动作激活。service撤回同一命令结束服务有效区间并将active成员转paused，停止新PSP安排，逾期前责任保留；aggregate授权仍独立，不因单独停止服务而自动撤销其已授权历史汇总。
-- [ ] 实现同步暂存/提交与幂等回执，失败保持原state字节等价。版本冲突返回409，提示刷新；同请求ID换body返回400。
-- [ ] 收紧serialize与serializeLite显式排除psp；PSP内部和患者信息只走专用投影。`/pharma`的ModeBadge走仅模式元数据或药企state，原research保持原hook。
-- [ ] 为药企新增项目入口，内部服务台呈现固定计划、授权范围和积压；患者授权卡允许“接受服务、不同意项目汇总”。任何模拟角色切换旁明确标识演示身份。
-- [ ] 本段药企页仅展示合同范围、允许汇总人数和暂无交付提示，不预造服务指标。Task 7后指标引用明确的固定汇总批次/快照，Task 10后完整报告只取已交付版本；不按患者操作逐条实时推送差值。
-- [ ] 浏览器网络契约：打开`/pharma/projects`及概览，不请求`/api/state`、`/api/patients`或内部PSP接口；接口JSON递归检查无patientId/name/sourceRefs/备注或内部18。
-- [ ] Run `npx vitest run tests/unit/psp-permissions.test.ts tests/unit/psp-views.test.ts tests/unit/psp-transaction.test.ts tests/unit/client-regressions.test.ts`；预期通过。390和1440px手动看入口/授权卡，失败消息可读。
+- [x] 先测撤回后不能安排新服务、首次汇总授权不追溯、月中退出前责任保留；临床research同意不能使PSP变已授权。
+- [x] 纳入/暂停/退出命令保留历史：doctor确认适用性，case_manager/project_manager记录合法状态变更，只有有效service授权和适用性确认齐全才可active；暂停/退出不取消独立医疗随访。默认fixture的18人包含明确的合成适用性确认。
+- [x] grant service本身不替代医生确认；未满足条件保持invited，条件齐全由合法纳入动作激活。service撤回同一命令结束服务有效区间并将active成员转paused，停止新PSP安排，逾期前责任保留；aggregate授权仍独立，不因单独停止服务而自动撤销其已授权历史汇总。
+- [x] 实现同步暂存/提交与幂等回执，失败保持原state字节等价。版本冲突返回409，提示刷新；同请求ID换body返回400。
+- [x] 收紧serialize与serializeLite显式排除psp；PSP内部和患者信息只走专用投影。`/pharma`的ModeBadge走仅模式元数据或药企state，原research保持原hook。
+- [x] 为药企新增项目入口，内部服务台呈现固定计划、授权范围和积压；患者授权卡允许“接受服务、不同意项目汇总”。任何模拟角色切换旁明确标识演示身份。
+- [x] 本段药企页仅展示合同范围、允许汇总人数和暂无交付提示，不预造服务指标。Task 7后指标引用明确的固定汇总批次/快照，Task 10后完整报告只取已交付版本；不按患者操作逐条实时推送差值。
+- [x] 浏览器网络契约：打开`/pharma/projects`及概览，不请求`/api/state`、`/api/patients`或内部PSP接口；接口JSON递归检查无patientId/name/sourceRefs/备注或内部18。
+- [x] Run `npx vitest run tests/unit/psp-permissions.test.ts tests/unit/psp-views.test.ts tests/unit/psp-transaction.test.ts tests/unit/client-regressions.test.ts`；预期通过。390和1440px手动看入口/授权卡，失败消息可读。
+
+第一阶段补充决策：邀请成员在授权和医生确认齐全后，由合法内部身份激活。初次激活从项目固定 10–12 月日历选择各类型未来一期，不给新成员补发已逾期的 10 月计划；当前固定时钟下三项均为 11 月。既有 18 人计划、撤回/暂停/退出前的责任均保留。教育/联系合成背景只读，未开放任务执行接口。
 
 ## Task 3：把P-A现场问卷原子绑定固定计划
 

@@ -1,4 +1,5 @@
 "use client";
+import { PatientService } from "@/components/psp/PatientService";
 import { usePatientId } from "@/lib/client/patientContext";
 import { usePatient } from "@/lib/client/usePatient";
 import { buildFollowUpPlan } from "@/lib/plan/followup";
@@ -11,7 +12,7 @@ export default function PlanPage() {
   if (!data) return <PatientStatus error={error} />;
   const plan = buildFollowUpPlan(data.patient, data.today, data.tasks);
   return (
-    <Section title="我的随访计划">
+    <><PatientService patientId={id} /><Section title="我的随访计划">
       {plan.length === 0 ? <p className="text-sm text-gray-500">暂无随访计划</p> : (
         <ul className="divide-y divide-gray-100">
           {plan.map((i, n) => (
@@ -22,6 +23,6 @@ export default function PlanPage() {
           ))}
         </ul>
       )}
-    </Section>
+    </Section></>
   );
 }

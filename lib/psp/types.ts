@@ -1,0 +1,54 @@
+import { z } from 'zod';
+const id = z.string().min(1), time = z.string().datetime(), version = z.number().int().positive(), seq = z.number().int().positive();
+export const PspRole = z.enum(['patient','case_manager','doctor','project_manager','data_reviewer','medical_reviewer','pharma_owner']);
+export type PspRole = z.infer<typeof PspRole>;
+export const CommandMeta = z.object({seedVersion:version,expectedVersion:version,clientRequestId:id,actorId:id,role:PspRole}).strict();
+export type CommandMeta = z.infer<typeof CommandMeta>;
+export const EnrollmentStatus = z.enum(['invited','active','paused','exited']);
+export const PspProject = z.object({id,title:id,sponsor:id,scope:id,population:id,startsAt:time,endsAt:time,period:id,cutoffAt:time,configVersion:version,status:z.literal('active'),contactTargets:z.object({high:z.number().positive(),medium:z.number().positive()}).strict()}).strict();
+export const PspEnrollment = z.object({id,projectId:id,patientId:id,status:EnrollmentStatus,version,eligibilityConfirmed:z.boolean(),eligibilityConfirmedAt:time.nullable(),eligibilityConfirmedBy:id.nullable()}).strict();
+const event = {id,enrollmentId:id,occurredAt:time,recordedAt:time,actorId:id,sequence:seq};
+export const PspMembershipEvent = z.object({...event,status:EnrollmentStatus,reason:id}).strict();
+export const PspPermissionEvent = z.object({...event,scope:z.enum(['service','aggregate']),action:z.enum(['grant','withdraw']),textVersion:id}).strict();
+export const PspAssignment = z.object({id,projectId:id,enrollmentId:id,kind:z.enum(['questionnaire','contact','education']),title:id,assignedAt:time,dueAt:time,ownerRole:PspRole,status:z.enum(['open','completed','paused','cancelled']),version,firstValidSubmittedAt:time.nullable(),latestValidResponseId:id.nullable(),source:z.literal('psp-v1')}).strict();
+export const PspServiceEvent = z.object({...event,projectId:id,assignmentId:id,kind:z.literal('contact'),interactionId:id,alertIds:z.array(id),outcome:z.enum(['reached','no_answer']),source:z.literal('psp-v1')}).strict();
+export const EducationContentVersion = z.object({id,version,title:id,body:id,scope:id,status:z.literal('approved'),approvedAt:time,approvedBy:id,sourceNote:id}).strict();
+export const EducationAssignmentResult = z.object({assignmentId:id,contentVersionId:id,sentAt:time,openedAt:time,feedbackAt:time,understood:z.boolean(),needsHelp:z.boolean(),actorId:id,sequence:seq}).strict();
+export const CommandReceipt = z.object({id,scopeKey:id,bodyDigest:id,result:z.unknown(),objectVersion:version,ledgerRevision:z.number().int().nonnegative()}).strict();
+export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt)}).strict();
+export type PspProject = z.infer<typeof PspProject>;
+export type PspEnrollment = z.infer<typeof PspEnrollment>;
+export type PspMembershipEvent = z.infer<typeof PspMembershipEvent>;
+export type PspPermissionEvent = z.infer<typeof PspPermissionEvent>;
+export type PspAssignment = z.infer<typeof PspAssignment>;
+export type PspServiceEvent = z.infer<typeof PspServiceEvent>;
+export type EducationContentVersion = z.infer<typeof EducationContentVersion>;
+export type EducationAssignmentResult = z.infer<typeof EducationAssignmentResult>;
+export type CommandReceipt = z.infer<typeof CommandReceipt>;
+export type PspState = z.infer<typeof PspState>;
+export function validatePspState(value:unknown):PspState {
+ const s=PspState.parse(value);
+ const unique=(values:string[],label:string)=>{if(new Set(values).size!==values.length)throw new Error(`Duplicate PSP ${label}`);};
+ for(const [label,items] of Object.entries({enrollments:s.enrollments,assignments:s.assignments,membership:s.membershipEvents,permissions:s.permissionEvents,services:s.serviceEvents,contents:s.educationContents,receipts:s.commandReceipts}))unique(items.map(x=>x.id),label);
+ unique(s.enrollments.map(e=>e.patientId),'patient');
+ const enrollments=new Set(s.enrollments.map(e=>e.id)), assignments=new Map(s.assignments.map(a=>[a.id,a])),contents=new Map(s.educationContents.map(c=>[c.id,c]));
+ const events=[...s.membershipEvents,...s.permissionEvents,...s.serviceEvents,...s.educationResults];
+ unique(events.map(e=>String(e.sequence)),'sequence');
+ if(events.some(e=>e.sequence>s.ledgerRevision))throw new Error('PSP revision behind ledger');
+ for(const e of s.enrollments)if(e.projectId!==s.project.id || e.eligibilityConfirmed!==Boolean(e.eligibilityConfirmedAt && e.eligibilityConfirmedBy))throw new Error('Invalid PSP enrollment');
+ // Persisted materialized state must describe the full ledger, including future-dated
+ // valid entries. Recovery cannot reinterpret data according to the host clock.
+ const latest=<T extends {occurredAt:string;sequence:number}>(items:T[]):T|undefined=>items.reduce<T|undefined>((current,item)=>!current||Date.parse(item.occurredAt)>Date.parse(current.occurredAt)||(Date.parse(item.occurredAt)===Date.parse(current.occurredAt)&&item.sequence>current.sequence)?item:current,undefined);
+ for(const enrollment of s.enrollments){
+  const membership=latest(s.membershipEvents.filter(e=>e.enrollmentId===enrollment.id));
+  if(!membership||membership.status!==enrollment.status)throw new Error('PSP enrollment status disagrees with membership ledger');
+  const service=latest(s.permissionEvents.filter(e=>e.enrollmentId===enrollment.id&&e.scope==='service'));
+  if(enrollment.status==='active'&&(!enrollment.eligibilityConfirmed||service?.action!=='grant'))throw new Error('Active PSP enrollment requires eligibility and service grant');
+ }
+ if(s.commandReceipts.some(r=>r.ledgerRevision>s.ledgerRevision))throw new Error('PSP receipt revision ahead of ledger');
+ for(const e of [...s.membershipEvents,...s.permissionEvents,...s.serviceEvents])if(!enrollments.has(e.enrollmentId) || Date.parse(e.recordedAt)<Date.parse(e.occurredAt))throw new Error('Invalid PSP event');
+ for(const a of s.assignments)if(!enrollments.has(a.enrollmentId)||a.projectId!==s.project.id||Date.parse(a.dueAt)<Date.parse(a.assignedAt))throw new Error('Invalid PSP assignment');
+ for(const e of s.serviceEvents){const a=assignments.get(e.assignmentId);if(!a||a.kind!=='contact'||a.enrollmentId!==e.enrollmentId||e.projectId!==s.project.id||Date.parse(e.occurredAt)<Date.parse(a.assignedAt))throw new Error('Invalid PSP contact reference or time');}
+ for(const e of s.educationResults){const a=assignments.get(e.assignmentId),c=contents.get(e.contentVersionId);if(!a||a.kind!=='education'||!c||Date.parse(e.sentAt)<Date.parse(a.assignedAt)||Date.parse(c.approvedAt)>Date.parse(e.sentAt)||Date.parse(e.sentAt)>Date.parse(e.openedAt)||Date.parse(e.openedAt)>Date.parse(e.feedbackAt))throw new Error('Invalid PSP education reference or time');}
+ return s;
+}

@@ -6,7 +6,7 @@ const VIEWS = [
   { href: "/patient", label: "患者端", prefix: "/patient" },
   { href: "/clinic/alerts", label: "医生工作台", prefix: "/clinic" },
   { href: "/governance", label: "数据治理", prefix: "/governance" },
-  { href: "/research", label: "药企研究", prefix: "/research" },
+  { href: "/pharma/projects", label: "药企项目", prefix: "/pharma" },
 ];
 
 export function ViewSwitcher() {
@@ -15,7 +15,7 @@ export function ViewSwitcher() {
     <nav aria-label="演示视角切换" className="flex flex-wrap items-center gap-2 text-sm">
       <Link href="/" className="font-semibold mr-2">演示视角切换</Link>
       {VIEWS.map(v => {
-        const active = pathname === v.prefix || pathname.startsWith(`${v.prefix}/`);
+        const active = pathname === v.prefix || pathname.startsWith(`${v.prefix}/`) || (v.prefix === "/pharma" && pathname.startsWith("/research"));
         return (
           <Link
             key={v.href}

@@ -18,3 +18,18 @@ it("loads the complete synthetic seed from bundled files without local filesyste
   expect(seed.anchors.find(p => p.id === "P-A")?.anchorKey).toBe("A");
   expect(seed.manifest.checksum).toBe(manifest.checksum);
 });
+
+it('loads PSP using the runtime bundle without filesystem access',async()=>{
+ const {loadPspSeed}=await import('@/lib/psp/seed');
+ const {default:psp}=await import('@/data/seed/psp.json');const {default:pspManifest}=await import('@/data/seed/psp-manifest.json');
+ const {default:cohort}=await import('@/data/seed/cohort.json');
+ runtime.__demoFiles={'data/seed/psp.json':JSON.stringify(psp),'data/seed/psp-manifest.json':JSON.stringify(pspManifest)};
+ const {Patient}=await import('@/lib/domain/types');const patients=Patient.array().parse([...anchors,...cohort]);
+ expect(loadPspSeed(new Map(patients.map(p=>[p.id,p]))).enrollments).toHaveLength(20);
+ delete runtime.__demoFiles['data/seed/psp.json'];expect(()=>loadPspSeed(new Map(patients.map(p=>[p.id,p])))).toThrow();
+});
+
+it('reports incomplete runtime bundles without trying the local filesystem',async()=>{
+ const {readDemoFile}=await import('@/lib/runtime/files');runtime.__demoFiles={};
+ expect(()=>readDemoFile('data/seed/psp.json')).toThrow('Missing bundled demo file: data/seed/psp.json');
+});

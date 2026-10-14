@@ -13,7 +13,7 @@ const TABS = [
 export function PhoneFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/patient";
   return (
-    <div className="flex h-[844px] w-[390px] shrink-0 flex-col overflow-hidden rounded-[44px] border-[10px] border-gray-900 bg-gray-50 shadow-xl">
+    <div className="flex h-[844px] w-full max-w-[390px] shrink-0 flex-col overflow-hidden rounded-[44px] border-[10px] border-gray-900 bg-gray-50 shadow-xl">
       <div className="flex items-center justify-between bg-white px-6 pt-2 pb-1 text-xs font-semibold text-gray-800" aria-hidden>
         <span>9:41</span>
         <span>5G ▮▮▮ 100%</span>
