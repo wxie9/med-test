@@ -1,3 +1,4 @@
+import {openPublicReportBody} from './helpers/pharmaReading';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { test, expect } from '@playwright/test';
@@ -69,7 +70,7 @@ test('owned Wrangler stop/restart preserves exact frozen facts, dual approval, d
   expect(await facts()).toEqual(before);
   await ssrReadOnly();
   await page.goto(`/pharma/projects/${PROJECT}/reports/${encodeURIComponent(report.id)}`);
-  await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();
+  await openPublicReportBody(page);await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();
   if ('contentDigest' in before.external) await expect(page.locator('body')).toContainText(before.external.contentDigest);
   expect((await api.read<{ seedVersion: number }>(publicUrl)).seedVersion).toBe(report.seedVersion);
   expect(await facts()).toEqual(before);

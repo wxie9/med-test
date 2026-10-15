@@ -1,3 +1,4 @@
+import {openPublicReportBody} from './helpers/pharmaReading';
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
@@ -37,7 +38,7 @@ async function customer(page:Page,id:string){
  const capture=async(route:import('@playwright/test').Route)=>{const response=await route.fetch(),body=await response.json();seen.push({url:route.request().url(),ids:body.reports?.map((r:{id:string})=>r.id)??[]});await route.fulfill({response,body:JSON.stringify(body)});};
  await page.route(`**${overview}`,capture);
  await page.goto(pharmaPath);const link=page.locator(`a[href="${pharmaPath}/reports/${encodeURIComponent(id)}"]`);await expect(link).toBeVisible();await link.click();await expect(page).toHaveURL(`${pharmaPath}/reports/${encodeURIComponent(id)}`);
- try{await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();}catch(error){const html=await (await page.request.get(page.url())).text();console.log('CUSTOMER_DIAGNOSTIC',JSON.stringify({url:page.url(),expectedId:id,seen,reportProps:html.match(/reportId.{0,140}/g)}));throw error;}
+ try{await openPublicReportBody(page);await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();}catch(error){const html=await (await page.request.get(page.url())).text();console.log('CUSTOMER_DIAGNOSTIC',JSON.stringify({url:page.url(),expectedId:id,seen,reportProps:html.match(/reportId.{0,140}/g)}));throw error;}
  await page.unroute(`**${overview}`,capture);
 }
 async function withdraw(request:APIRequestContext){const patient=await request.get('/api/psp/patients/P-A/projects?role=patient&actorId=P-A').then(json<PatientProjectsView>);const enrollment=patient.projects.find(p=>p.project.id===PROJECT)!.enrollment;await request.post(`/api/psp/enrollments/${encodeURIComponent(enrollment.id)}/permissions`,{data:{scope:'aggregate',action:'withdraw',meta:{...meta(patient.seedVersion,enrollment.version),role:'patient',actorId:'P-A'}}}).then(json);}
@@ -69,7 +70,7 @@ test('PM delivers, customer downloads protected fixed files and requests changes
  const signed=await detail(request,child);expect(signed.workflow.dataReview?.submissionId).toBe(signed.workflow.submission?.id);expect(signed.workflow.medicalReview?.submissionId).toBe(signed.workflow.submission?.id);
  await deliverUi(page,child.id);await customer(page,child.id);await page.getByLabel('客户意见').fill('已核对本次阶段交付范围');await page.getByRole('button',{name:'验收此版本',exact:true}).click();await expect(page.getByRole('heading',{name:/客户已验收/})).toBeVisible();await expect(page.getByRole('button',{name:'验收此版本',exact:true})).toBeDisabled();
  expect(available(await publicReport(request,report)).artifact).toEqual(original.artifact);expect((await detail(request,report)).report.status).toBe('client_changes_requested');
- for(const width of [390,640,755,800,1024,1280,1440,1920]){await page.setViewportSize({width,height:1100});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();if(width===390||width===1440)await page.screenshot({path:testInfo.outputPath(`psp-delivery-accepted-${width}.png`),fullPage:true});}
+ for(const width of [390,640,755,800,1024,1280,1440,1920]){await page.setViewportSize({width,height:1100});expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);await openPublicReportBody(page);await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();if(width===390||width===1440)await page.screenshot({path:testInfo.outputPath(`psp-delivery-accepted-${width}.png`),fullPage:true});}
 });
 
 test('committed PM delivery masked as 503 locks every report write and retries exact command into one artifact',async({page,request})=>{

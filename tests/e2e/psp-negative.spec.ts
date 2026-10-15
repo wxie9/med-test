@@ -1,3 +1,4 @@
+import {openPublicReportBody} from './helpers/pharmaReading';
 import { readFileSync } from 'node:fs';
 import { test, expect, type Request, type Route } from '@playwright/test';
 import type { ChatResponse } from '@/lib/agents/types';
@@ -17,7 +18,7 @@ test('independent clients reset a shared seed while an actual old POST and captu
     await proPage.goto('/patient/plan?patient=P-A');
     await proPage.getByRole('link', { name: '填写项目问卷', exact: true }).click();
     await reportPage.goto(`/pharma/projects/${PROJECT}/reports/${encodeURIComponent(report.id)}`);
-    await expect(reportPage.getByTestId('psp-pharma-report-content')).toBeVisible();
+    await openPublicReportBody(reportPage);await expect(reportPage.getByTestId('psp-pharma-report-content')).toBeVisible();
     let postCaptured!: () => void, getCaptured!: () => void, getFulfilled!: () => void;
     const getDelivered = new Promise<void>(resolve => { getFulfilled = resolve; });
     let heldGet = false, heldRequest: Request | undefined;

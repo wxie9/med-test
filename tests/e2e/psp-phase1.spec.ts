@@ -1,3 +1,4 @@
+import {openPublicReportBody} from './helpers/pharmaReading';
 import { test, expect, type APIRequestContext, type APIResponse } from "@playwright/test";
 import type { InternalProjectView, PatientProjectsView } from "@/lib/psp/views";
 import type { PharmaProjectView } from "@/lib/psp/pharmaView";
@@ -52,7 +53,7 @@ test('pharma project scope and the exact delivered entry remain usable at four w
   await expect(entry).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(`/pharma/projects/${projectId}/reports/${encodeURIComponent(report.id)}`);
-  await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();
+  await openPublicReportBody(page);await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();
  }
  expect(writes).toEqual([]);
  expect((await api.reports()).ledgerRevision).toBe(ledgerBefore);
