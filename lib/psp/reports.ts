@@ -1,3 +1,5 @@
+import {getReportActionGates} from './review';
+import {projectReport} from './reviewProjection';
 import {randomUUID} from 'node:crypto';
 import {getStore,replaceStore} from '@/lib/state/store';
 import {hydrateImmutableState} from '@/lib/state/persistence';
@@ -22,7 +24,7 @@ function assertParent(snapshotId:string,parentVersionId?:string){
  if(parentVersionId&&!parent)throw new PspError(404,'not_found','父报告版本不存在');
  if(parent&&(parent.batchId!==batchId||parent.seedVersion!==snapshot.seedVersion||parent.projectId!==snapshot.projectId))throw new PspError(400,'invalid_input','修订须属于相同项目、演示版本与报告期间');
  const latest=current.psp.reportVersions?.filter(r=>r.batchId===batchId).sort((a,b)=>b.revision-a.revision)[0];
- if(latest?.id!==parent?.id||parent&&parent.status!=='draft')throw new PspError(409,'stale_parent','报告批次已更新，请选择最新可修订版本');
+ if(latest?.id!==parent?.id||parent&&!['draft','changes_requested'].includes(parent.status))throw new PspError(409,'stale_parent','报告批次已更新，请选择最新可修订版本');
  return {parent,batchId};
 }
 export function getReportCreateGate(snapshotId:string,role:string|null,actorId:string|null,seedVersion:number,parentVersionId?:string):ReportCreateGate{
@@ -58,5 +60,5 @@ export function listInternalReports(projectId:string,role:string|null,actorId:st
 export function readInternalReport(versionId:string,role:string|null,actorId:string|null,seedVersion:number):PspReportDetail{
  requireIdentity(role,actorId,readers);const current=getStore();if(seedVersion!==current.seedVersion)throw new PspError(409,'stale_seed','演示已重置，请刷新后重新操作');
  const report=current.psp.reportVersions?.find(r=>r.id===versionId&&r.seedVersion===seedVersion&&r.projectId===current.psp.project.id);if(!report)throw new PspError(404,'not_found','报告版本不存在');
- return {report:clone(report),workflow:{status:'draft',label:'模板草稿，待人工审核',dataReview:null,medicalReview:null,delivery:null,acceptance:null},createGate:getReportCreateGate(report.snapshotId,role,actorId,seedVersion,report.id),warnings:report.nextActions.length?[]:['下一期服务安排尚未补充，待人工审核'],seedVersion,ledgerRevision:current.psp.ledgerRevision,serverNow:now()};
+ return {report:clone(report),workflow:clone(projectReport(report,(current.psp.reportActions??[]).filter(e=>e.reportVersionId===report.id)).workflow),actionGates:getReportActionGates(report.id,role,actorId,seedVersion),createGate:getReportCreateGate(report.snapshotId,role,actorId,seedVersion,report.id),warnings:report.nextActions.length?[]:['下一期服务安排尚未补充，待人工审核'],seedVersion,ledgerRevision:current.psp.ledgerRevision,serverNow:now()};
 }

@@ -1,0 +1,31 @@
+import {afterEach,beforeEach,expect,it} from 'vitest';
+import {buildPspTestStore,installPspTestStore,PSP_TEST_NOW} from '../helpers/psp';
+import {getStore,replaceStore,type DemoStore} from '@/lib/state/store';
+import {createDurableRequest} from '@/lib/state/durableRequest';
+import {decodeDemoStore,encodeDemoStore} from '@/lib/state/persistence';
+import {pspResponse} from '@/lib/psp/http';
+import {freezePspSnapshot} from '@/lib/psp/snapshot';
+import {createReportDraft,readInternalReport} from '@/lib/psp/reports';
+import {submitReport,reviewReport,reviseReport} from '@/lib/psp/review';
+import {recordPermission} from '@/lib/psp/permissions';
+import type {CommandMeta} from '@/lib/psp/types';
+const projectId='PSP-BC-ENDO-001',window={periodStart:'2026-10-01T00:00:00+08:00',periodEnd:'2026-11-01T00:00:00+08:00',cutoffAt:PSP_TEST_NOW};
+const meta=(id:string,version:number,kind?:'data'|'medical'):CommandMeta=>({role:kind?`${kind}_reviewer`:'project_manager',actorId:kind?`${kind}-reviewer-psp`:'project-manager-psp',seedVersion:getStore().seedVersion,expectedVersion:version,clientRequestId:id});
+beforeEach(()=>{process.env.DEMO_FIXED_NOW=PSP_TEST_NOW;installPspTestStore(buildPspTestStore());});afterEach(()=>{delete process.env.DEMO_FIXED_NOW;});
+it.each(['before','after'] as const)('recovers %s-put workflow writes, retains both signatures and replays every historical result after revision and withdrawal',async failure=>{
+ const snapshot=freezePspSnapshot(projectId,window,meta('freeze',getStore().psp.ledgerRevision)).data,creationMeta=meta('create',getStore().psp.ledgerRevision),created=createReportDraft(snapshot.id,{nextActions:[]},creationMeta),id=created.data.id;
+ let saved=await encodeDemoStore(getStore()),fails=false;
+ const coordinator=(operation:()=>unknown)=>createDurableRequest<DemoStore,[]>({read:async()=>saved,write:async value=>{if(fails&&failure==='before')throw new Error('definite save failure');saved=value;if(fails)throw new Error('uncertain persisted outcome');},getState:getStore,setState:value=>{if(value)replaceStore(value);},encode:encodeDemoStore,decode:decodeDemoStore,handle:()=>pspResponse(operation)});
+ const submitMeta=meta('submit',1),runSubmit=coordinator(()=>submitReport(id,submitMeta)),beforeSubmit=structuredClone(getStore());fails=true;expect((await runSubmit()).status).toBe(503);if(failure==='before')expect(getStore()).toEqual(beforeSubmit);else expect(getStore().psp.reportActions).toHaveLength(1);
+ fails=false;const submitResponse=await runSubmit();expect(submitResponse.status).toBe(200);const submitted=await submitResponse.json();expect(submitted.data).toMatchObject({status:'in_review',version:2});expect(getStore().psp.reportActions).toHaveLength(1);expect(await(await runSubmit()).json()).toEqual(submitted);
+ const dataMeta=meta('data',2,'data'),runData=coordinator(()=>reviewReport(id,{kind:'data',decision:'approve'},dataMeta)),beforeData=structuredClone(getStore());fails=true;expect((await runData()).status).toBe(503);if(failure==='before')expect(getStore()).toEqual(beforeData);else expect(getStore().psp.reportActions).toHaveLength(2);
+ fails=false;const dataResponse=await runData();expect(dataResponse.status).toBe(200);const firstApproval=await dataResponse.json();expect(firstApproval.data.status).toBe('in_review');expect(getStore().psp.reportActions).toHaveLength(2);expect(await(await runData()).json()).toEqual(firstApproval);
+ const runReturn=coordinator(()=>reviewReport(id,{kind:'medical',decision:'return',reason:'请补充下一期逾期事项的行动说明'},meta('return',3,'medical'))),returned=await(await runReturn()).json();expect(returned.data.status).toBe('changes_requested');
+ const revisionMeta=meta('revision',getStore().psp.ledgerRevision),nextActions=[{category:'overdue_followup' as const,responsibleRole:'case_manager' as const,dueAt:'2026-10-14T10:30:00+08:00',status:'planned' as const}],runRevision=coordinator(()=>reviseReport(id,nextActions,revisionMeta)),revised=await(await runRevision()).json(),nextId=revised.data.id;
+ expect(revised.data).toMatchObject({revision:2,status:'draft',version:1});expect(readInternalReport(nextId,'project_manager','project-manager-psp',getStore().seedVersion).workflow.dataReview).toBeNull();
+ for(const [request,kind,version] of [['resubmit',null,1],['medical-new','medical',2],['data-new','data',3]] as const){const run=coordinator(()=>kind?reviewReport(nextId,{kind,decision:'approve'},meta(request,version,kind)):submitReport(nextId,meta(request,version)));expect((await run()).status).toBe(200);}
+ const workflow=readInternalReport(nextId,'project_manager','project-manager-psp',getStore().seedVersion).workflow;expect(workflow.status).toBe('approved');expect(workflow.dataReview?.submissionId).toBe(workflow.medicalReview?.submissionId);expect(workflow.dataReview?.submittedVersion).toBe(2);
+ const e=getStore().psp.enrollments.find(e=>e.id==='ENR-01')!,runWithdrawal=coordinator(()=>recordPermission(e.id,'aggregate','withdraw',{role:'patient',actorId:'P-A',seedVersion:getStore().seedVersion,expectedVersion:e.version,clientRequestId:'withdraw'}));expect((await runWithdrawal()).status).toBe(200);
+ const beforeReplay=structuredClone(getStore()),runCreation=coordinator(()=>createReportDraft(snapshot.id,{nextActions:[]},creationMeta));expect(await(await runCreation()).json()).toEqual(created);expect(await(await runSubmit()).json()).toEqual(submitted);expect(await(await runData()).json()).toEqual(firstApproval);expect(await(await runReturn()).json()).toEqual(returned);expect(await(await runRevision()).json()).toEqual(revised);expect(getStore()).toEqual(beforeReplay);
+ const restored=await decodeDemoStore(saved);replaceStore(restored);expect(restored).toEqual(beforeReplay);expect(restored.psp.reportActions).toHaveLength(6);expect(restored.psp.reportVersions![0].content).toEqual(created.data.content);expect(restored.psp.reportVersions![0].contentDigest).toBe(created.data.contentDigest);expect(restored.psp.reportVersions![1].status).toBe('approved');expect(Object.isFrozen(restored.psp.reportActions![0])).toBe(true);expect(Object.isFrozen(restored.psp.reportVersions![1].content.chapters)).toBe(true);expect(readInternalReport(nextId,'project_manager','project-manager-psp',restored.seedVersion).createGate.canCreate).toBe(false);
+},30000);

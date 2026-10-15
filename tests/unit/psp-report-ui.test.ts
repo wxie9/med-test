@@ -12,7 +12,7 @@ const report={id:'R1',projectId:'PSP-1',seedVersion:1,batchId:'B1',revision:1,sn
 const summary={id:'R1',projectId:'PSP-1',batchId:'B1',revision:1,snapshotId:'S1',window,createdAt:project.cutoffAt,createdBy:'project-manager-psp',status:'draft',contentDigest:'body-digest'};
 const list={project,seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt,summaries:[summary]};
 const snapshots={project,seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt,authorizationVersion:2,summaries:[{id:'S1',projectId:'PSP-1',window,createdAt:project.cutoffAt,createdBy:'project-manager-psp',sourceLedgerRevision:11}]};
-const workflow:ReportWorkflowMetadata={status:'draft',label:'模板草稿，待人工审核',dataReview:null,medicalReview:null,delivery:null,acceptance:null};
+const workflow:ReportWorkflowMetadata={status:'draft',label:'模板草稿，待人工审核',submission:null,dataReview:null,medicalReview:null,returnReview:null,missingReviews:['data','medical'],history:[],delivery:null,acceptance:null};
 const detail={report,workflow,createGate:{canCreate:true,reason:null},warnings:['下一期服务安排尚未补充，待人工审核'],seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt};
 const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
@@ -29,7 +29,7 @@ it('arrangements use fixed roles and explicit Shanghai dates without free text o
  const bodies:string[]=[];vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return Promise.resolve(json({},503));}return Promise.resolve(json(response(url)));});await mount();fireEvent.click(await screen.findByRole('button',{name:'添加下一期安排'}));fireEvent.change(screen.getByLabelText('安排1：类别'),{target:{value:'medical_review'}});expect((screen.getByLabelText('安排1：负责角色') as HTMLSelectElement).value).toBe('doctor');expect(within(screen.getByLabelText('安排1：负责角色')).queryByRole('option',{name:'个案管理师'})).toBeNull();fireEvent.change(screen.getByLabelText('安排1：上海时间'),{target:{value:'2026-10-15T10:30'}});fireEvent.click(screen.getByRole('button',{name:'生成模板草稿'}));await waitFor(()=>expect(bodies).toHaveLength(1));const body=JSON.parse(bodies[0]);expect(body.nextActions).toEqual([{category:'medical_review',responsibleRole:'doctor',dueAt:'2026-10-15T02:30:00.000Z',status:'planned'}]);expect(screen.queryByRole('textbox')).toBeNull();expect(bodies[0]).not.toMatch(/patientId|name|internalNote/);
 });
 it('both staff reviewer roles read only and changing role drops an old unknown write response',async()=>{
- let resolve!:(value:Response)=>void;vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>options?.method==='POST'?new Promise<Response>(r=>{resolve=r;}):Promise.resolve(json(response(url))));await mount();fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));fireEvent.change(screen.getByLabelText('报告工作身份'),{target:{value:'data_reviewer'}});await screen.findByText('数据审核者 · 只读');await act(async()=>resolve(json({},503)));expect(screen.queryByRole('button',{name:'重试同一次操作'})).toBeNull();expect(screen.queryByRole('button',{name:'生成模板草稿'})).toBeNull();fireEvent.change(screen.getByLabelText('报告工作身份'),{target:{value:'medical_reviewer'}});await screen.findByText('医学审核者 · 只读');
+ let resolve!:(value:Response)=>void;vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>options?.method==='POST'?new Promise<Response>(r=>{resolve=r;}):Promise.resolve(json(response(url))));await mount();fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));fireEvent.change(screen.getByLabelText('报告工作身份'),{target:{value:'data_reviewer'}});await screen.findByText('数据审核者 · 草稿安排只读');await act(async()=>resolve(json({},503)));expect(screen.queryByRole('button',{name:'重试同一次操作'})).toBeNull();expect(screen.queryByRole('button',{name:'生成模板草稿'})).toBeNull();fireEvent.change(screen.getByLabelText('报告工作身份'),{target:{value:'medical_reviewer'}});await screen.findByText('医学审核者 · 草稿安排只读');
 });
 it('shows seven protected chapters with separate truthful workflow metadata and no hidden numbers',async()=>{
  const {ReportPreview}=await import('@/components/psp/ReportPreview');render(createElement(ReportPreview,{content,workflow}));const body=screen.getByTestId('psp-report-content');expect(within(body).getAllByRole('heading',{level:3}).map(node=>node.textContent)).toEqual(content.chapters.map(chapter=>chapter.title));expect(within(body).getByText('8 / 14')).toBeTruthy();const row=within(body).getByTestId('psp-report-fact-questionnaire_completion');expect(row.textContent).toContain('已保护');expect(row.textContent).not.toMatch(/999|1999|2999|3999/);expect(within(body).queryByText('未签署')).toBeNull();const metadata=screen.getByTestId('psp-report-workflow');expect(metadata.textContent).toContain('尚未签署');expect(metadata.textContent).toContain('尚未交付');expect(metadata.textContent).toContain('尚未验收');expect(screen.queryByRole('button',{name:/批准|交付|提交审核/})).toBeNull();
@@ -41,7 +41,7 @@ it('source withdrawal keeps old draft readable and explains why a new revision i
  vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(url.includes('/api/psp/reports/')?{...detail,createGate:{canCreate:false,reason:'该快照汇总来源已失效，请选择新的可用快照'}}:response(url))));await mount({initialReportId:'R1'});await screen.findByText('该快照汇总来源已失效，请选择新的可用快照');expect(screen.getByRole('button',{name:'以此版本创建修订'}).matches(':disabled')).toBe(true);expect(screen.getByTestId('psp-report-content').textContent).toContain('8 / 14');
 });
 it('a changed seed clears report selection and pending retry',async()=>{
- let seed=1;vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>Promise.resolve(options?.method==='POST'?json({},503):json({...response(url),seedVersion:seed,...(url.includes('/reports?')?{summaries:seed===1?[summary]:[]}:{})})));await mount();fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));await screen.findByRole('button',{name:'重试同一次操作'});seed=2;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await screen.findByRole('heading',{name:'已保存草稿（0）'});expect(screen.queryByRole('button',{name:'重试同一次操作'})).toBeNull();expect((screen.getByLabelText('选择报告版本') as HTMLSelectElement).value).toBe('');expect(screen.queryByTestId('psp-report-content')).toBeNull();
+ let seed=1;vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>Promise.resolve(options?.method==='POST'?json({},503):json({...response(url),seedVersion:seed,...(url.includes('/reports?')?{summaries:seed===1?[summary]:[]}:{})})));await mount();fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));await screen.findByRole('button',{name:'重试同一次操作'});seed=2;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await screen.findByRole('heading',{name:'已保存报告（0）'});expect(screen.getByText('尚无保存的报告。选择冻结快照后可生成第一版。')).not.toBeNull();expect(screen.queryByRole('button',{name:'重试同一次操作'})).toBeNull();expect((screen.getByLabelText('选择报告版本') as HTMLSelectElement).value).toBe('');expect(screen.queryByTestId('psp-report-content')).toBeNull();
 });
 it('switching selected reports discards a delayed old report response',async()=>{
  let resolve!:(value:Response)=>void;vi.stubGlobal('fetch',(url:string)=>url.includes('/api/psp/reports/R1?')?new Promise<Response>(r=>{resolve=r;}):Promise.resolve(json(url.includes('/api/psp/reports/R2?')?{...detail,report:{...report,id:'R2',revision:2,contentDigest:'new-digest'}}:url.includes('/reports?')?{...list,summaries:[summary,{...summary,id:'R2',revision:2}]}:response(url))));await mount();fireEvent.change(await screen.findByLabelText('选择报告版本'),{target:{value:'R1'}});fireEvent.change(screen.getByLabelText('选择报告版本'),{target:{value:'R2'}});await screen.findByText('正文摘要：new-digest');await act(async()=>resolve(json(detail)));expect(screen.queryByText('正文摘要：body-digest')).toBeNull();
@@ -58,4 +58,41 @@ it('revising without edits preserves seconds in an accepted action',async()=>{
  const bodies:string[]=[];const precise={category:'overdue_followup',responsibleRole:'case_manager',dueAt:'2026-10-14T01:00:45.123Z',status:'planned'};
  vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return Promise.resolve(json({},503));}return Promise.resolve(json(url.includes('/api/psp/reports/')?{...detail,report:{...report,nextActions:[precise]}}:response(url)));});
  await mount({initialReportId:'R1'});fireEvent.click(await screen.findByRole('button',{name:'以此版本创建修订'}));fireEvent.click(screen.getByRole('button',{name:'生成模板草稿'}));await waitFor(()=>expect(bodies).toHaveLength(1));expect(JSON.parse(bodies[0]).nextActions[0].dueAt).toBe(precise.dueAt);
+});
+
+it('project draft conflict stays locked after failed refresh and requires acknowledgement after manual recovery',async()=>{
+ let posted=false,recover=false;
+ vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{
+  if(options?.method==='POST'){posted=true;return Promise.resolve(json({},409));}
+  if(posted&&url.includes('/reports?')&&!recover)return Promise.resolve(json({},503));
+  return Promise.resolve(json(response(url)));
+ });
+ await mount({initialReportId:'R1'});fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));
+ await screen.findByText('加载失败（503），请重试。');
+ for(const label of ['用于报告的冻结快照','选择报告版本'])expect(screen.getByLabelText(label).matches(':disabled')).toBe(true);
+ expect(screen.getByRole('button',{name:'以此版本创建修订'}).matches(':disabled')).toBe(true);
+ const ack=screen.getByRole('button',{name:'已核对最新报告与项目账，继续'});expect(ack.matches(':disabled')).toBe(true);
+ recover=true;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));
+ await waitFor(()=>expect(ack.matches(':disabled')).toBe(false));
+ expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(true);
+ fireEvent.click(ack);expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(false);
+});
+it('project draft cannot acknowledge before conflict refresh and each new conflict requires acknowledgement',async()=>{
+ let posts=0;let resolve!:(value:Response)=>void;
+ vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{
+  if(options?.method==='POST'){posts++;return Promise.resolve(json({},409));}
+  if(posts&&url.includes('/reports?'))return new Promise<Response>(r=>{resolve=r;});
+  return Promise.resolve(json(response(url)));
+ });
+ await mount({initialReportId:'R1'});fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));
+ let ack=await screen.findByRole('button',{name:'已核对最新报告与项目账，继续'});
+ expect(ack.matches(':disabled')).toBe(true);fireEvent.click(ack);
+ await act(async()=>resolve(json({...list,ledgerRevision:13})));
+ expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(true);
+ fireEvent.click(ack);fireEvent.click(screen.getByRole('button',{name:'生成模板草稿'}));
+ await waitFor(()=>expect(posts).toBe(2));
+ ack=await screen.findByRole('button',{name:'已核对最新报告与项目账，继续'});expect(ack.matches(':disabled')).toBe(true);
+ await act(async()=>resolve(json({...list,ledgerRevision:14})));
+ expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(true);
+ fireEvent.click(ack);expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(false);
 });

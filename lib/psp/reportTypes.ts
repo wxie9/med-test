@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import type {ReportActionEvent,ReportSubmitEvent,ReportReviewEvent,ReportActionGates} from './reviewTypes';
 import type {PspProject} from './types';
 import {SnapshotWindowSchema} from './snapshotTypes';
 export const REPORT_ACTION_CATEGORIES=['overdue_followup','questionnaire_followup','contact_followup','medical_review','education_followup','data_quality','project_coordination'] as const;
@@ -13,10 +14,10 @@ export const ReportFactSchema=z.object({id,metricKey:id,label:id,definition:id,u
 export type ReportFact=z.infer<typeof ReportFactSchema>;
 export const ReportContentSchema=z.object({title:id,notice:id,chapters:z.array(z.object({id,title:id,paragraphs:z.array(z.string()),facts:z.array(ReportFactSchema)}).strict()).length(7)}).strict();
 export type ReportContent=z.infer<typeof ReportContentSchema>;
-export const PspReportVersionSchema=z.object({id,projectId:id,seedVersion:z.number().int().positive(),batchId:id,revision:z.number().int().positive(),parentVersionId:id.optional(),snapshotId:id,snapshotDigest:digest,window:SnapshotWindowSchema,templateVersion:z.literal('psp-report-template-v1'),algorithmVersion:z.literal('psp-metrics-v1'),protectionVersion:z.literal('psp-k5-v1'),content:ReportContentSchema,factIds:z.array(id),nextActions:z.array(NextActionSchema).max(12),contentDigest:digest,createdAt:z.string().datetime({offset:true}),createdBy:id,creationLedgerRevision:z.number().int().positive(),status:z.literal('draft'),version:z.literal(1)}).strict();
+export const PspReportVersionSchema=z.object({id,projectId:id,seedVersion:z.number().int().positive(),batchId:id,revision:z.number().int().positive(),parentVersionId:id.optional(),snapshotId:id,snapshotDigest:digest,window:SnapshotWindowSchema,templateVersion:z.literal('psp-report-template-v1'),algorithmVersion:z.literal('psp-metrics-v1'),protectionVersion:z.literal('psp-k5-v1'),content:ReportContentSchema,factIds:z.array(id),nextActions:z.array(NextActionSchema).max(12),contentDigest:digest,createdAt:z.string().datetime({offset:true}),createdBy:id,creationLedgerRevision:z.number().int().positive(),status:z.enum(['draft','in_review','approved','changes_requested']),version:z.number().int().positive()}).strict();
 export type PspReportVersion=z.infer<typeof PspReportVersionSchema>;
-export type ReportWorkflowMetadata={status:'draft';label:'模板草稿，待人工审核';dataReview:null;medicalReview:null;delivery:null;acceptance:null};
+export type ReportWorkflowMetadata={status:PspReportVersion['status'];label:string;submission:ReportSubmitEvent|null;dataReview:ReportReviewEvent|null;medicalReview:ReportReviewEvent|null;returnReview:ReportReviewEvent|null;missingReviews:('data'|'medical')[];history:ReportActionEvent[];delivery:null;acceptance:null};
 export type ReportCreateGate={canCreate:boolean;reason:string|null};
 export type PspReportSummary=Pick<PspReportVersion,'id'|'projectId'|'batchId'|'revision'|'parentVersionId'|'snapshotId'|'window'|'createdAt'|'createdBy'|'status'|'contentDigest'>;
 export type PspReportList={project:PspProject;seedVersion:number;ledgerRevision:number;serverNow:string;summaries:PspReportSummary[]};
-export type PspReportDetail={report:PspReportVersion;workflow:ReportWorkflowMetadata;createGate:ReportCreateGate;warnings:string[];seedVersion:number;ledgerRevision:number;serverNow:string};
+export type PspReportDetail={report:PspReportVersion;workflow:ReportWorkflowMetadata;actionGates:ReportActionGates;createGate:ReportCreateGate;warnings:string[];seedVersion:number;ledgerRevision:number;serverNow:string};

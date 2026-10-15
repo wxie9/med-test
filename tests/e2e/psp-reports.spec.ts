@@ -65,7 +65,7 @@ test('a frozen protected snapshot becomes a seven-chapter empty-arrangement draf
  await expect(desk).toBeVisible();
  await expect(desk.getByLabel('用于报告的冻结快照')).toHaveValue(frozen.id);
  await desk.getByRole('button',{name:'生成模板草稿',exact:true}).click();
- await expect(desk.getByRole('heading',{name:'已保存草稿（1）',exact:true})).toBeVisible();
+ await expect(desk.getByRole('heading',{name:'已保存报告（1）',exact:true})).toBeVisible();
  const saved=(await reports(request)).summaries[0];
  await desk.getByLabel('选择报告版本').selectOption(saved.id);
  const detail=desk.getByTestId('psp-report-detail'),content=detail.getByTestId('psp-report-content');
@@ -110,7 +110,7 @@ test('structured arrangements create a new revision while staff read frozen aggr
  await desk.getByLabel('安排2：负责角色').selectOption('project_manager');
  await desk.getByLabel('安排2：上海时间',{exact:true}).fill('2026-10-15T09:00');
  await desk.getByRole('button',{name:'生成模板草稿',exact:true}).click();
- await expect(desk.getByRole('heading',{name:'已保存草稿（2）',exact:true})).toBeVisible();
+ await expect(desk.getByRole('heading',{name:'已保存报告（2）',exact:true})).toBeVisible();
  const second=(await reports(request)).summaries.find(report=>report.id!==first.id)!;
  const revised=await readReport(request,second.id,snapshot.seedVersion);
  expect(revised.report).toMatchObject({revision:2,parentVersionId:first.id,batchId:first.batchId,snapshotId:snapshot.id});
@@ -132,7 +132,7 @@ test('structured arrangements create a new revision while staff read frozen aggr
  await expect(content.getByTestId('psp-metric-evidence')).toHaveCount(0);
  for(const [role,label] of [['data_reviewer','数据审核者'],['medical_reviewer','医学审核者']]){
   await desk.getByLabel('报告工作身份').selectOption(role);
-  await expect(desk.getByText(`${label} · 只读`,{exact:true})).toBeVisible();
+  await expect(desk.getByText(`${label} · 草稿安排只读`,{exact:true})).toBeVisible();
   await expect(desk.getByRole('button',{name:'生成模板草稿',exact:true})).toHaveCount(0);
   await desk.getByLabel('选择报告版本').selectOption(second.id);
   await expect(desk.getByTestId('psp-report-content')).toContainText('医学复核；负责角色：医生');
@@ -194,7 +194,7 @@ test('a real ledger conflict needs acknowledgement and reset discards a pending 
  await desk.getByRole('button',{name:'已核对最新报告与项目账，继续',exact:true}).click();
  await expect(desk.getByLabel('用于报告的冻结快照')).toBeEnabled();
  await desk.getByRole('button',{name:'生成模板草稿',exact:true}).click();
- await expect(desk.getByRole('heading',{name:'已保存草稿（1）',exact:true})).toBeVisible();
+ await expect(desk.getByRole('heading',{name:'已保存报告（1）',exact:true})).toBeVisible();
  expect(bodies).toHaveLength(2);
  expect(bodies[1].meta.clientRequestId).not.toBe(bodies[0].meta.clientRequestId);
  expect(bodies[1].meta.expectedVersion).toBeGreaterThan(bodies[0].meta.expectedVersion);
@@ -206,7 +206,7 @@ test('a real ledger conflict needs acknowledgement and reset discards a pending 
  await expect(desk.getByRole('button',{name:'重试同一次操作',exact:true})).toBeVisible();
  expect((await request.post('/api/reset')).ok()).toBe(true);
  await desk.getByRole('button',{name:'刷新报告状态',exact:true}).click();
- await expect(desk.getByRole('heading',{name:'已保存草稿（0）',exact:true})).toBeVisible();
+ await expect(desk.getByRole('heading',{name:'已保存报告（0）',exact:true})).toBeVisible();
  await expect(desk.getByRole('button',{name:'重试同一次操作',exact:true})).toHaveCount(0);
  await expect(desk.getByTestId('psp-report-detail')).toHaveCount(0);
  await expect(desk.getByLabel('选择报告版本')).toHaveValue('');

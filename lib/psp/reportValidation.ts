@@ -1,3 +1,5 @@
+import {initialReport} from './reviewProjection';
+import {validateReportActions} from './reviewValidation';
 import {createHash} from 'node:crypto';
 import type {PspState} from './types';
 import {PspReportVersionSchema,type PspReportVersion} from './reportTypes';
@@ -38,8 +40,9 @@ export function validatePspReports(state:PspState,seedVersion?:number):void {
   if(!Array.isArray(scope)||scope[2]!=='create_report')continue;
   const result=receipt.result as {data?:PspReportVersion;seedVersion?:number;objectVersion?:number;ledgerRevision?:number}|null;
   const report=result?.data?.id?byId.get(result.data.id):undefined;
-  if(!report||!same(result,{data:report,seedVersion:report.seedVersion,objectVersion:report.creationLedgerRevision,ledgerRevision:report.creationLedgerRevision})||scope.length!==5||scope[0]!==report.seedVersion||scope[1]!==report.projectId||scope[3]!==report.createdBy||typeof scope[4]!=='string'||!scope[4]||receipt.id!==`receipt:${receipt.scopeKey}`||receipt.ledgerRevision!==report.creationLedgerRevision||receipt.objectVersion!==report.creationLedgerRevision||receipt.bodyDigest!==reportDigest({snapshotId:report.snapshotId,parentVersionId:report.parentVersionId,nextActions:report.nextActions}))throw new Error('Invalid PSP report receipt');
+  if(!report||!same(result,{data:initialReport(report),seedVersion:report.seedVersion,objectVersion:report.creationLedgerRevision,ledgerRevision:report.creationLedgerRevision})||scope.length!==5||scope[0]!==report.seedVersion||scope[1]!==report.projectId||scope[3]!==report.createdBy||typeof scope[4]!=='string'||!scope[4]||receipt.id!==`receipt:${receipt.scopeKey}`||receipt.ledgerRevision!==report.creationLedgerRevision||receipt.objectVersion!==report.creationLedgerRevision||receipt.bodyDigest!==reportDigest({snapshotId:report.snapshotId,parentVersionId:report.parentVersionId,nextActions:report.nextActions}))throw new Error('Invalid PSP report receipt');
   receiptsByReport.set(report.id,(receiptsByReport.get(report.id)??0)+1);
  }
  for(const report of reports)if(receiptsByReport.get(report.id)!==1||state.commandReceipts.filter(r=>r.ledgerRevision===report.creationLedgerRevision).length!==1)throw new Error('PSP report creation receipt missing or duplicated');
+ validateReportActions(state);
 }
