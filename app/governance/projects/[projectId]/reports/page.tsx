@@ -1,0 +1,2 @@
+import {ReportDraftDesk} from '@/components/psp/ReportDraftDesk';
+export default async function Page({params,searchParams}:{params:Promise<{projectId:string}>;searchParams:Promise<{snapshotId?:string|string[]}>}){const {projectId}=await params;const query=await searchParams;return <ReportDraftDesk projectId={projectId} initialSnapshotId={typeof query.snapshotId==='string'?query.snapshotId:undefined}/>;}

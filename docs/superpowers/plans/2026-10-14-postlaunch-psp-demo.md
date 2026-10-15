@@ -364,12 +364,14 @@ expect(protectMetric({ key: "pro_completion", unit: "forms", sampleUnit: "forms"
 
 **Interfaces:** `createReportDraft(snapshotId, { parentVersionId?, nextActions }, meta): CommandResult<PspReportVersion>`；nextActions项为`{ category, responsibleRole, dueAt, status }`，不含patientId/姓名；`renderReportContent(snapshot, nextActions): ReportContent`固定正文与行动说明；`listInternalReports(projectId)`、`readInternalReport(versionId)`供列表/详情GET返回内部审核DTO。POST列表route创建草稿；详情不接受原地覆盖提交后的内容。
 
-- [ ] 草稿先由授权可用、受k保护的事实生成；保存snapshotId、revision/parent、contentDigest、模板版本psp-report-template-v1、采用factIDs和创建记录。
-- [ ] 七章节中审核/交付/验收区域为独立workflow metadata投影，后来的签署/回执不进入已提交正文digest。正文、snapshot和行动说明在提交时锁定；workflow metadata追加不能偷偷改正文。交付时另固定包含正文+两签+交付信息的下载artifact及artifactDigest，后续验收/意见只显示在动态元数据区，不改已交付下载字节。
-- [ ] 编辑形成新revision，旧版保留；内部备注可自由说明，但不可直接并入外部报告。外部行动说明使用结构化类别/角色/日期，不能填入病历或姓名。
-- [ ] 首版用确定性模板并标“模板草稿，待人工审核”，不调用临床chat provider、不新增在线报告能力。既有patient/doctor助手仍按原adapter运行；无key或在线助手失败不阻断报告。后续在线报告必须另有受控事实包/授权门控/输出验证后才开放，不能先挂通用chat。
-- [ ] 缺硬必填字段/来源/有效授权在提交前阻止；S8用“请补充下一期逾期事项的行动说明”做业务退回，不人为生成错误临床数字。
-- [ ] Run `npx vitest run tests/unit/psp-reports.test.ts tests/unit/agents.test.ts tests/unit/agent-provenance.test.ts`；报告无疗效、销售ROI、DOT提升或来源材料的宣传数字。
+- [x] 草稿先由授权可用、受k保护的事实生成；保存snapshotId、revision/parent、contentDigest、模板版本psp-report-template-v1、采用factIDs和创建记录。
+- [x] 七章节中审核/交付/验收区域为独立workflow metadata投影，后来的签署/回执不进入已提交正文digest。本阶段保存即固定正文、snapshot绑定和行动说明并生成摘要，workflow metadata追加不能偷偷改正文。提交锁定、双签和固定下载artifact/artifactDigest须由 Task 9–10 实现，当前没有签署或交付动作。
+- [x] 编辑形成新revision，旧版保留；本阶段不提供内部自由备注；后续若加入，不可直接并入外部报告。外部行动说明使用结构化类别/角色/日期，不能填入病历或姓名。
+- [x] 首版用确定性模板并标“模板草稿，待人工审核”，不调用临床chat provider、不新增在线报告能力。既有patient/doctor助手仍按原adapter运行；无key或在线助手失败不阻断报告。后续在线报告必须另有受控事实包/授权门控/输出验证后才开放，不能先挂通用chat。
+- [x] 创建时缺硬必填字段/来源/有效授权阻止；空安排可先保存草稿并提示待补充。S8的“请补充下一期逾期事项的行动说明”业务退回在 Task 9 实现，不人为生成错误临床数字。
+- [x] Run `npx vitest run tests/unit/psp-reports.test.ts tests/unit/agents.test.ts tests/unit/agent-provenance.test.ts`；报告无疗效、销售ROI、DOT提升或来源材料的宣传数字。
+
+实现及本轮门禁见 [Task 8 报告](../sdd-ledger/2026-10-15-psp-task8-report.md)。新增最小内部草稿页仅支持创建、查看、修订和独立来源核对；Task 11 的完整工作台、签署时间线和药企报告页仍未实现。
 
 ## Task 9：报告状态机与双签绑定
 
