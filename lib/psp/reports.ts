@@ -1,3 +1,5 @@
+import {reportAuthorizationGate} from './reportGates';
+import {reportBatchTimeline} from './reportWorkbenchView';
 import {getReportActionGates} from './review';
 import {projectReport} from './reviewProjection';
 import {randomUUID} from 'node:crypto';
@@ -54,11 +56,13 @@ export function createReportDraft(snapshotId:string,rawInput:ReportDraftInput,ra
 }
 export function listInternalReports(projectId:string,role:string|null,actorId:string|null):PspReportList{
  requireIdentity(role,actorId,readers);const current=getStore();if(projectId!==current.psp.project.id)throw new PspError(404,'not_found','项目不存在');
- const summaries:PspReportSummary[]=(current.psp.reportVersions??[]).map(({id,projectId,batchId,revision,parentVersionId,snapshotId,window,createdAt,createdBy,status,contentDigest})=>({id,projectId,batchId,revision,...(parentVersionId?{parentVersionId}:{}),snapshotId,window:clone(window),createdAt,createdBy,status,contentDigest}));
- return {project:clone(current.psp.project),seedVersion:current.seedVersion,ledgerRevision:current.psp.ledgerRevision,serverNow:now(),summaries};
+ const summaries:PspReportSummary[]=(current.psp.reportVersions??[]).map(report=>{const {id,projectId,batchId,revision,parentVersionId,snapshotId,window,createdAt,createdBy,status,contentDigest}=report;return {id,projectId,batchId,revision,...(parentVersionId?{parentVersionId}:{}),snapshotId,window:clone(window),createdAt,createdBy,status,contentDigest,workflow:clone(projectReport(report,(current.psp.reportActions??[]).filter(e=>e.reportVersionId===id)).workflow),actionGates:getReportActionGates(id,role,actorId,current.seedVersion),createGate:getReportCreateGate(snapshotId,role,actorId,current.seedVersion,id),authorizationGate:reportAuthorizationGate(report,current.psp,now())};});
+ const parents:(string|undefined)[]=[undefined,...(current.psp.reportVersions??[]).filter(report=>report.projectId===projectId&&report.seedVersion===current.seedVersion).map(report=>report.id)];
+ const draftGates=(current.psp.snapshots??[]).filter(snapshot=>snapshot.projectId===projectId&&snapshot.seedVersion===current.seedVersion).flatMap(snapshot=>parents.map(parentVersionId=>({snapshotId:snapshot.id,...(parentVersionId?{parentVersionId}:{}),...getReportCreateGate(snapshot.id,role,actorId,current.seedVersion,parentVersionId)})));
+ return {project:clone(current.psp.project),seedVersion:current.seedVersion,ledgerRevision:current.psp.ledgerRevision,serverNow:now(),draftGates,summaries};
 }
 export function readInternalReport(versionId:string,role:string|null,actorId:string|null,seedVersion:number):PspReportDetail{
  requireIdentity(role,actorId,readers);const current=getStore();if(seedVersion!==current.seedVersion)throw new PspError(409,'stale_seed','演示已重置，请刷新后重新操作');
  const report=current.psp.reportVersions?.find(r=>r.id===versionId&&r.seedVersion===seedVersion&&r.projectId===current.psp.project.id);if(!report)throw new PspError(404,'not_found','报告版本不存在');
- return {report:clone(report),workflow:clone(projectReport(report,(current.psp.reportActions??[]).filter(e=>e.reportVersionId===report.id)).workflow),actionGates:getReportActionGates(report.id,role,actorId,seedVersion),createGate:getReportCreateGate(report.snapshotId,role,actorId,seedVersion,report.id),warnings:report.nextActions.length?[]:['下一期服务安排尚未补充，待人工审核'],seedVersion,ledgerRevision:current.psp.ledgerRevision,serverNow:now()};
+ return {timeline:reportBatchTimeline(report,current.psp.reportVersions??[],current.psp.reportActions??[]),authorizationGate:reportAuthorizationGate(report,current.psp,now()),report:clone(report),workflow:clone(projectReport(report,(current.psp.reportActions??[]).filter(e=>e.reportVersionId===report.id)).workflow),actionGates:getReportActionGates(report.id,role,actorId,seedVersion),createGate:getReportCreateGate(report.snapshotId,role,actorId,seedVersion,report.id),warnings:report.nextActions.length?[]:['下一期服务安排尚未补充，待人工审核'],seedVersion,ledgerRevision:current.psp.ledgerRevision,serverNow:now()};
 }

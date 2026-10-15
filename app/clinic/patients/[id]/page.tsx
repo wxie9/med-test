@@ -24,7 +24,7 @@ export default function ClinicPatientPage() {
     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-4">
       <div className="min-w-0 space-y-4">
         <Card title="基本信息与同意状态"><div className="[&>div]:grid-cols-1 sm:[&>div]:grid-cols-2"><PatientSummary p={p} /></div></Card>
-        <ServiceWorkflow key={id} patientId={id} projectId="PSP-BC-ENDO-001" onProjectAlerts={onProjectAlerts} onChanged={refresh} />
+        <ServiceWorkflow key={id} patientId={id} projectId="PSP-BC-ENDO-001" onProjectAlerts={onProjectAlerts} onChanged={refresh} clinicalContext={{patientId:p.id,seedVersion:data.seedVersion,pro:p.pro,tasks:data.tasks}} />
         <Card title="病程时间轴"><div className="overflow-x-auto"><div className="min-w-[600px] sm:min-w-0"><Timeline patient={p} today={today} /></div></div></Card>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card title="PRO 症状趋势"><ProTrend pro={p.pro} /></Card>

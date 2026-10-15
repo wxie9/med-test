@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { Plans } from '@/components/psp/Common';
 import { PatientService } from '@/components/psp/PatientService';
@@ -43,4 +43,18 @@ it('does not infer unsent education when the caller has no education projection'
 it('shows unsent education when the caller supplies a known empty projection',()=>{
  render(createElement(Plans,{assignments:[{...assignment,status:'open',actionable:true}],education:[]}));
  expect(screen.getByText('待发送教育资料')).toBeTruthy();expect(screen.queryByText('待教育服务完成')).toBeNull();
+});
+
+it.each(['grant','withdraw'])('retains exact authorization %s retry through failed polling GET and recovers navigation only after current GET',async(action)=>{
+ const bodies:string[]=[];let failRead=false;let resolveRetry!:(r:Response)=>void;const retry=new Promise<Response>(resolve=>{resolveRetry=resolve;});
+ const dto={seedVersion:1,serverNow:project.cutoffAt,patientId:'P-A',displayName:'王女士',projects:[{project,enrollment:{id:'enrollment',status:'active',version:3},permissions:{service:action==='withdraw',aggregate:false},permissionHistory:[],assignments:[assignment],education:[{assignmentId:assignment.id,sentAt:project.cutoffAt}]}]};
+ vi.stubGlobal('fetch',(_url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return bodies.length===1?Promise.resolve(new Response('{}',{status:503})):retry;}return Promise.resolve(new Response(JSON.stringify(failRead?{}:dto),{status:failRead?403:200}));});
+ const polling=vi.spyOn(globalThis,'setInterval');render(createElement(PatientService,{patientId:'P-A'}));const poll=polling.mock.calls.find(call=>call[1]===10000)![0] as ()=>void;polling.mockRestore();await screen.findByRole('link',{name:'阅读教育资料'});
+ const assertLinks=()=>{expect(screen.getByRole('link',{name:'阅读教育资料'}).getAttribute('href')).toBe('/patient/education/education-a?patient=P-A');expect(screen.getByRole('link',{name:'查看项目服药自报'}).getAttribute('href')).toBe('/patient/adherence?enrollment=enrollment&patient=P-A');expect(document.getElementById('assignment-education-a')).toBeTruthy();};assertLinks();
+ fireEvent.click(screen.getAllByRole('button',{name:action==='grant'?'同意授权':'撤回授权'})[0]);await screen.findByRole('button',{name:'重试同一次操作'});
+ expect(JSON.parse(bodies[0])).toMatchObject({scope:'service',action,meta:{seedVersion:1,expectedVersion:3,role:'patient',actorId:'P-A',clientRequestId:expect.any(String)}});
+ failRead=true;await act(async()=>{poll();});
+ await screen.findByText('加载失败（403），请重试。');expect(screen.queryByRole('link')).toBeNull();expect(document.getElementById('assignment-education-a')).toBeNull();
+ failRead=false;fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(bodies[1]).toBe(bodies[0]);expect(screen.queryByRole('link')).toBeNull();expect(document.getElementById('assignment-education-a')).toBeNull();
+ resolveRetry(new Response('{}'));await screen.findByText('操作已保存。');await screen.findByRole('link',{name:'阅读教育资料'});assertLinks();
 });

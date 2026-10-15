@@ -86,3 +86,29 @@ it.each(['project','report'])('retires a parent barrier when switching the %s vi
  const {PharmaReport}=await import('@/components/psp/PharmaReport');view.rerender(createElement(PharmaReport,{projectId:next.projectId,reportId:next.id}));
  await screen.findByText('固定交付报告');expect(screen.getByRole('link',{name:'下载固定文本'}).getAttribute('href')).toContain(`/projects/${next.projectId}/reports/${next.id}/`);
 });
+it('public timeline uses only current revision public signatures and vanishes when revoked',async()=>{
+ let value:unknown={...report,history:[{reason:'PRIVATE_RETURN',actorId:'P-A'}]};
+ vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(url.includes('/reports/')?value:overview(value,value===revoked?3:2))));
+ await mount();const timeline=await screen.findByRole('region',{name:'本修订签署与交付时间线'});
+ expect(timeline.textContent).toContain('修订 1 · 签署通过 · 数据审核者');
+ expect(timeline.textContent).toContain('修订 1 · 交付报告 · 项目经理');
+ expect(timeline.textContent).not.toMatch(/PRIVATE_RETURN|P-A|创建模板|审核退回/);
+ value=revoked;fireEvent.click(screen.getByRole('button',{name:'刷新交付报告'}));
+ await screen.findByText('当前授权已停止此报告访问');
+ expect(screen.queryByRole('region',{name:'本修订签署与交付时间线'})).toBeNull();
+});
+
+it('public timeline orders signatures by time without mutating fixed artifact order and disclaims tie order',async()=>{
+ const {PublicReportTimeline}=await import('@/components/psp/ReportTimeline');
+ const value={...report,signatures:[{role:'data_reviewer',occurredAt:'2026-10-13T02:00:00.000Z'},{role:'medical_reviewer',occurredAt:'2026-10-13T01:00:00.000Z'}]};const before=JSON.stringify(value);
+ const view=render(createElement(PublicReportTimeline,{report:value as never}));
+ expect(screen.getAllByRole('listitem')[0].textContent).toContain('医学审核者');expect(JSON.stringify(value)).toBe(before);
+ view.rerender(createElement(PublicReportTimeline,{report:report as never}));expect(screen.getAllByRole('listitem').slice(0,2).map(item=>item.textContent)).toEqual([expect.stringContaining('数据审核者'),expect.stringContaining('医学审核者')]);expect(screen.getByText('相同时刻的公开记录不表示实际先后顺序。')).toBeTruthy();expect(screen.queryByText(/相同时刻按记录顺序/)).toBeNull();
+});
+
+it('available public report has body/timeline/feedback anchors and same-version internal simulated bridge, revoked has none',async()=>{
+ let blocked=false;vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(url.includes('/reports/')?report:blocked?overview(revoked,3):overview())));await mount();await screen.findByText('固定交付报告');
+ for(const [name,id] of [['固定正文','public-report-body'],['签署时间线','public-report-timeline'],['客户反馈','public-report-feedback']]){expect(screen.getByRole('link',{name}).getAttribute('href')).toBe(`#${id}`);expect(document.getElementById(id)).toBeTruthy();}
+ expect(screen.getByRole('link',{name:'切换到此版本院内演示'}).getAttribute('href')).toBe('/governance/projects/PSP-1/reports/R1');blocked=true;fireEvent.click(screen.getByRole('button',{name:'刷新交付报告'}));await screen.findByText('当前授权已停止此报告访问');expect(screen.queryByRole('navigation',{name:'交付报告章节导航'})).toBeNull();expect(screen.queryByRole('link',{name:'切换到此版本院内演示'})).toBeNull();
+});
+it.each([503,409])('public same-version bridge respects customer command retry/ack lock %s',async(status)=>{vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>Promise.resolve(options?.method==='POST'?json({},status):json(url.includes('/reports/')?report:overview())));await mount();await screen.findByText('固定交付报告');fireEvent.click(screen.getByRole('button',{name:'验收此版本'}));await screen.findByRole('button',{name:status===503?'重试同一次操作':'已核对最新交付状态，继续'});expect(screen.queryByRole('link',{name:'切换到此版本院内演示'})).toBeNull();expect(screen.getByRole('button',{name:'切换到此版本院内演示'}).matches(':disabled')).toBe(true);});

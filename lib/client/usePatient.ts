@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { Alert, FollowUpTask, Patient, PatientMessage } from "@/lib/domain/types";
-export type PatientView = { patient: Patient; alerts: Alert[]; tasks: FollowUpTask[]; messages: PatientMessage[]; today: string };
+export type PatientView = { seedVersion: number; patient: Patient; alerts: Alert[]; tasks: FollowUpTask[]; messages: PatientMessage[]; today: string };
 /** Polls one patient; retained mutation callbacks belong only to the visit that created them. */
 export function usePatient(id: string, pollMs = 3000) {
   const url = `/api/patients/${encodeURIComponent(id)}`;

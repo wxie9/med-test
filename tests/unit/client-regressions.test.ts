@@ -18,7 +18,7 @@ const deferred = <T,>() => {
   return { promise, resolve, reject };
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-const patient = (id: string): PatientView => ({ patient: { ...loadSeed().anchors[0], id }, alerts: [], tasks: [], messages: [], today: "2026-10-14" });
+const patient = (id: string): PatientView => ({ seedVersion: 1, patient: { ...loadSeed().anchors[0], id }, alerts: [], tasks: [], messages: [], today: "2026-10-14" });
 const overview = (n: number) => ({ n, events: { metastasis: 0, progression: 0, death: 0 }, followUpMonths: { median: 0, p25: 0, p75: 0 }, survivalEstimable: false, missing: { ish: 0, stopReason: 0, externalNoDate: 0 }, summary: { n, events: 0, followUpMedian: 0, cutoff: "2026-10-14" } });
 const researchState = (seedVersion: number, hasSnapshot = true): ResearchState => ({ seedVersion, snapshots: hasSnapshot ? [{ id: "SNAPv1", cohortId: "COHORT1", cutoff: "2026-10-14", createdAt: "2026-10-14T01:00:00Z", patientCount: 3, quality: {} }] : [], candidateRequests: [], cohorts: [], manifest: loadSeed().manifest, agentMode: "deterministic", serverNow: "2026-10-14T01:00:00Z" });
 const reply: ChatResponse = { text: "演示回复", mode: "deterministic", citations: [], toolCalls: [] };

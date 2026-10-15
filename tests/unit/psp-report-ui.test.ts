@@ -10,7 +10,7 @@ const hidden:ReportFact={...fact,id:'S1:aggregate:questionnaire_completion',metr
 const content:ReportContent={title:'项目服务阶段报告',notice:'模板草稿，待人工审核',chapters:['项目范围','数据说明','服务执行','患者反馈','质量与限制','下一期服务安排','审核与交付'].map((title,index)=>({id:`chapter-${index+1}`,title,paragraphs:[index===5?'下一期服务安排尚未补充，待人工审核':`固定第${index+1}章`],facts:index===2?[fact,hidden]:[]}))};
 const report={id:'R1',projectId:'PSP-1',seedVersion:1,batchId:'B1',revision:1,snapshotId:'S1',snapshotDigest:'snapshot-digest',window,templateVersion:'psp-report-template-v1',algorithmVersion:'psp-metrics-v1',protectionVersion:'psp-k5-v1',content,factIds:[fact.id,hidden.id],nextActions:[],contentDigest:'body-digest',createdAt:project.cutoffAt,createdBy:'project-manager-psp',creationLedgerRevision:12,status:'draft',version:1};
 const summary={id:'R1',projectId:'PSP-1',batchId:'B1',revision:1,snapshotId:'S1',window,createdAt:project.cutoffAt,createdBy:'project-manager-psp',status:'draft',contentDigest:'body-digest'};
-const list={project,seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt,summaries:[summary]};
+const list={project,seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt,draftGates:[{snapshotId:'S1',canCreate:true,reason:null},{snapshotId:'S1',parentVersionId:'R1',canCreate:true,reason:null}],summaries:[summary]};
 const snapshots={project,seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt,authorizationVersion:2,summaries:[{id:'S1',projectId:'PSP-1',window,createdAt:project.cutoffAt,createdBy:'project-manager-psp',sourceLedgerRevision:11}]};
 const workflow:ReportWorkflowMetadata={status:'draft',label:'模板草稿，待人工审核',submission:null,dataReview:null,medicalReview:null,returnReview:null,missingReviews:['data','medical'],history:[],delivery:null,acceptance:null,clientFeedback:null};
 const detail={report,workflow,createGate:{canCreate:true,reason:null},warnings:['下一期服务安排尚未补充，待人工审核'],seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt};
@@ -95,4 +95,69 @@ it('project draft cannot acknowledge before conflict refresh and each new confli
  await act(async()=>resolve(json({...list,ledgerRevision:14})));
  expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(true);
  fireEvent.click(ack);expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(false);
+});
+it('shows report window, frozen snapshot and next-step guidance before selecting detail',async()=>{
+ vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(response(url))));await mount();
+ expect(await screen.findByRole('heading',{name:'修订 1 · 模板草稿，待人工审核'})).toBeTruthy();
+ expect(screen.getByText('冻结快照：S1')).toBeTruthy();
+ expect(screen.getByRole('link',{name:'打开修订 1'}).getAttribute('href')).toContain('role=project_manager');
+});
+
+it('server tuple gate blocks draft button and forced submit and fails closed when missing',async()=>{
+ let gates=[{snapshotId:'S1',canCreate:false,reason:'请选最新父版本'}];let posts=0;
+ vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){posts++;return Promise.resolve(json({},503));}return Promise.resolve(json(url.includes('/reports?')?{...list,draftGates:gates}:response(url)));});
+ await mount();const button=await screen.findByRole('button',{name:'生成模板草稿'});
+ expect(button.matches(':disabled')).toBe(true);expect(screen.getByText('请选最新父版本')).toBeTruthy();fireEvent.submit(button.closest('form')!);expect(posts).toBe(0);
+ gates=[];fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await screen.findByText('当前快照与父版本组合尚无服务端条件，请刷新列表并重新选择。');expect(button.matches(':disabled')).toBe(true);
+});
+it.each([503,409])('report row navigation stays locked after %s and recovers only after retry or acknowledgement',async(status)=>{
+ let first=true;vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){const code=first?status:200;first=false;return Promise.resolve(json({},code));}return Promise.resolve(json(response(url)));});
+ await mount();fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));
+ const recovery=await screen.findByRole('button',{name:status===503?'重试同一次操作':'已核对最新报告与项目账，继续'});
+ expect(screen.queryByRole('link',{name:'打开修订 1'})).toBeNull();expect(screen.getByRole('button',{name:'打开修订 1'}).matches(':disabled')).toBe(true);expect(screen.getByText('当前操作待完成或核对，暂不能切换报告修订。')).toBeTruthy();
+ await waitFor(()=>expect(recovery.matches(':disabled')).toBe(false));fireEvent.click(recovery);await screen.findByRole('link',{name:'打开修订 1'});
+});
+it.each(['in_review'])('PM guidance for %s uses server delivery reason instead of reviewer-role rejection',async(status)=>{
+ const {ReportWorkbenchCards}=await import('@/components/psp/ReportWorkbenchCards');
+ render(createElement(ReportWorkbenchCards,{role:'project_manager',summaries:[{...summary,status,workflow:{...workflow,status,label:status},actionGates:{canSubmit:false,canApprove:false,canDeliver:false,reviewReason:'仅数据或医学审核人可审核',deliverReason:'等待服务端双签或客户处理',submitReason:'仅草稿可提交审核'},createGate:{canCreate:false,reason:'当前不可修订'}}] as never}));
+ expect(screen.getByText('下一步：等待服务端双签或客户处理')).toBeTruthy();expect(screen.queryByText(/下一步：仅数据或医学/)).toBeNull();
+});
+
+it('draft eligibility follows the exact selected snapshot and parent tuple',async()=>{
+ const bodies:string[]=[];vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return Promise.resolve(json({},503));}return Promise.resolve(json(url.includes('/reports?')?{...list,draftGates:[{snapshotId:'S1',canCreate:false,reason:'该期间已有版本，请选择父版本'},{snapshotId:'S1',parentVersionId:'R1',canCreate:true,reason:null}]}:response(url)));});
+ await mount();const button=await screen.findByRole('button',{name:'生成模板草稿'});expect(button.matches(':disabled')).toBe(true);
+ fireEvent.change(screen.getByLabelText('父版本（留空为初稿）'),{target:{value:'R1'}});expect(button.matches(':disabled')).toBe(false);expect(screen.queryByText('该期间已有版本，请选择父版本')).toBeNull();fireEvent.click(button);await waitFor(()=>expect(bodies).toHaveLength(1));expect(JSON.parse(bodies[0])).toMatchObject({snapshotId:'S1',parentVersionId:'R1'});
+});
+
+it('deep-linked report has role-preserving list/snapshot/service navigation and exact section targets',async()=>{
+ vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(response(url))));await mount({initialReportId:'R1',initialRole:'medical_reviewer'});await screen.findByTestId('psp-report-detail');
+ expect(screen.getByRole('link',{name:'返回月报列表'}).getAttribute('href')).toBe('/governance/projects/PSP-1/reports?role=medical_reviewer');
+ expect(screen.getByRole('link',{name:'返回服务快照与来源'}).getAttribute('href')).toBe('/governance/projects/PSP-1/snapshots?role=medical_reviewer&snapshotId=S1');
+ expect(screen.getByRole('link',{name:'返回院内服务台'}).getAttribute('href')).toBe('/clinic/projects/PSP-1/services');
+ for(const [name,id] of [['报告操作','report-actions'],['固定正文','report-body'],['签署时间线','report-timeline'],['内部来源','report-sources']]){expect(screen.getByRole('link',{name}).getAttribute('href')).toBe(`#${id}`);expect(document.getElementById(id)).toBeTruthy();}
+});
+it.each([503,409])('new context links cannot discard a pending/conflicted %s project command',async(status)=>{
+ vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>Promise.resolve(options?.method==='POST'?json({},status):json(response(url))));await mount({initialReportId:'R1'});fireEvent.click(await screen.findByRole('button',{name:'生成模板草稿'}));await screen.findByRole('button',{name:status===503?'重试同一次操作':'已核对最新报告与项目账，继续'});
+ for(const name of ['返回月报列表','返回服务快照与来源','返回院内服务台']){expect(screen.queryByRole('link',{name})).toBeNull();expect(screen.getByRole('button',{name}).matches(':disabled')).toBe(true);}
+ if(status===409){fireEvent.click(screen.getByRole('button',{name:'已核对最新报告与项目账，继续'}));expect(screen.getByRole('link',{name:'返回月报列表'}).getAttribute('href')).toBe('/governance/projects/PSP-1/reports?role=project_manager');}
+});
+it.each([503,409])('context navigation respects exact detail command %s lock as well as project commands',async(status)=>{vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>Promise.resolve(options?.method==='POST'?json({},status):json(url.includes('/api/psp/reports/')?{...detail,actionGates:{canSubmit:true,canDeliver:false,canApprove:false,canReturn:false}}:response(url))));await mount({initialReportId:'R1'});fireEvent.click(await screen.findByRole('button',{name:'提交报告审核'}));await screen.findByRole('button',{name:status===503?'重试同一次操作':'已核对最新审核状态，继续'});for(const name of ['返回月报列表','返回服务快照与来源','返回院内服务台']){expect(screen.queryByRole('link',{name})).toBeNull();expect(screen.getByRole('button',{name}).matches(':disabled')).toBe(true);}});
+
+
+it.each(['project_manager','data_reviewer','medical_reviewer'].flatMap(role=>[['delivered','等待客户验收，可查看固定交付'],['accepted','查看固定交付与客户验收记录']].map(([status,message])=>[role,status,message])))('terminal report cards give completed delivery guidance for %s / %s',async(role,status,message)=>{
+ const {ReportWorkbenchCards}=await import('@/components/psp/ReportWorkbenchCards');
+  const view=render(createElement(ReportWorkbenchCards,{role,summaries:[{...summary,status,workflow:{...workflow,status,label:status},actionGates:{canSubmit:false,canApprove:false,canDeliver:false,reviewReason:'仅数据或医学审核人可审核',deliverReason:'仅双签审核通过版本可交付'},createGate:{canCreate:false,reason:'当前不可修订'}}] as never}));
+  expect(screen.getByText(`下一步：${message}`)).toBeTruthy();
+  expect(screen.queryByText(/下一步：.*(交付双签版本|仅双签审核通过版本可交付|仅数据或医学审核人可审核)/)).toBeNull();
+  expect(screen.getByRole('link',{name:'打开修订 1'}).getAttribute('href')).toContain(`role=${role}`);
+  view.unmount();
+});
+it.each([
+ ['canSubmit','提交审核'],['canApprove','核对后签署或退回'],['canDeliver','交付双签版本'],['canCreate','可创建修订'],
+])('terminal status preserves true server %s guidance',async(gate,message)=>{
+ const {ReportWorkbenchCards}=await import('@/components/psp/ReportWorkbenchCards');
+ for(const status of ['delivered','accepted']){
+  const view=render(createElement(ReportWorkbenchCards,{role:'project_manager',summaries:[{...summary,status,actionGates:{canSubmit:gate==='canSubmit',canApprove:gate==='canApprove',canDeliver:gate==='canDeliver'},createGate:{canCreate:gate==='canCreate',reason:null}}] as never}));
+  expect(screen.getByText(`下一步：${message}`)).toBeTruthy();view.unmount();
+ }
 });

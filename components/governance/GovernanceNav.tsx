@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-const LINKS = [{ href: "/governance", label: "候选队列" }, { href: "/governance/snapshots", label: "研究快照" }, { href: "/governance/his", label: "HIS 接口" }];
+const LINKS = [{ href: "/governance", label: "候选队列" }, { href: "/governance/snapshots", label: "研究快照" }, { href: "/governance/his", label: "HIS 接口" }, { href: "/governance/projects/PSP-BC-ENDO-001/reports", label: "PSP 月报工作台" }];
 export function GovernanceNav() {
   const pathname = usePathname() ?? "";
   return (

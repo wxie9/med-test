@@ -23,6 +23,8 @@ export function usePspState<T extends PspVersion>(url: string, pollMs = 10000, c
   const activeToken = useRef(token); activeToken.current = token;
   const [snapshot, setSnapshot] = useState<{ key: string; token: symbol; data: T } | null>(null);
   const [notice, setNotice] = useState<{ key: string; token: symbol; text: string; kind?: "load" } | null>(null);
+  // Read availability is separate from notices: retrying a write must not revive stale content.
+  const [readFailure, setReadFailure] = useState<{ key: string; token: symbol } | null>(null);
   const observed = useRef<Observation | null>(null);
   const [invalidation, setInvalidation] = useState<Observation | null>(null);
   const [conflict, setConflict] = useState<Conflict | null>(null);
@@ -80,11 +82,13 @@ export function usePspState<T extends PspVersion>(url: string, pollMs = 10000, c
           conflictRef.current = refreshed; setConflict(refreshed);
         }
       }
+      setReadFailure(null);
       setInvalidation(null);
       setNotice(previous => previous?.kind === "load" && previous.key === key ? null : previous);
       latest.current = value; setSnapshot({ key, token, data: value });
     } catch (e) {
       if (isCurrent()) {
+        setReadFailure({ key, token });
         if (clearOnReadError) clearContent();
         setNotice({ key, token, kind: "load", text: e instanceof Error ? e.message : "加载失败，请重试。" });
       }
@@ -136,5 +140,5 @@ export function usePspState<T extends PspVersion>(url: string, pollMs = 10000, c
     pending.current = operation; void execute(operation);
   }, [url, token, renderedSeedVersion, renderedAuthorizationVersion, busyKey, execute]);
   const currentConflict = conflict?.key === url && conflict.token === token ? { id: conflict.id, refreshed: conflict.refreshed } : null;
-  return { data, invalidation: invalidation?.key === url && invalidation.token === token ? invalidation.version : null, conflict: currentConflict, notice: notice?.key === url && notice.token === token ? notice.text : null, busy: busyKey === url, refresh, installVersionBarrier, command, canRetry: !!pending.current && pending.current.key === url && busyKey !== url, retry: () => { if (pending.current?.key === url) void execute(pending.current); } };
+  return { data, readError: readFailure?.key === url && readFailure.token === token, invalidation: invalidation?.key === url && invalidation.token === token ? invalidation.version : null, conflict: currentConflict, notice: notice?.key === url && notice.token === token ? notice.text : null, busy: busyKey === url, refresh, installVersionBarrier, command, canRetry: !!pending.current && pending.current.key === url && busyKey !== url, retry: () => { if (pending.current?.key === url) void execute(pending.current); } };
 }

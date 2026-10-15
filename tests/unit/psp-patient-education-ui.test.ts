@@ -21,3 +21,17 @@ it('labels completed seed education as historical background and does not claim 
  const { PatientEducation } = await import('@/components/psp/PatientEducation'); vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(json({ ...view, background: true, assignment: { ...view.assignment, status: 'completed' }, result: { ...view.result, openedAt: view.result.sentAt, feedbackAt: view.result.sentAt, understood: true, needsHelp: true }, canOpen: false, canFeedback: false }))));
  render(createElement(PatientEducation, { assignmentId: 'education', patientId: 'P-A' })); await screen.findByText('合成教育内容'); expect(screen.getByText(/合成背景教育记录/)).toBeTruthy(); expect(screen.queryByText(/已建立未来联系计划/)).toBeNull();
 });
+
+it.each(['open','feedback'])('preserves exact education %s retry across failed GET without reviving stale navigation',async(action)=>{
+ const {PatientEducation}=await import('@/components/psp/PatientEducation');const bodies:string[]=[];let failRead=false;let resolveRetry!:(r:Response)=>void;const retry=new Promise<Response>(resolve=>{resolveRetry=resolve;});
+ const current={...view,canOpen:action==='open',canFeedback:action==='feedback'};
+ vi.stubGlobal('fetch',(_url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return bodies.length===1?Promise.resolve(new Response('{}',{status:503})):retry;}return Promise.resolve(failRead?new Response('{}',{status:404}):json(current));});
+ render(createElement(PatientEducation,{assignmentId:'education',patientId:'P-A'}));await screen.findByText('合成教育内容');
+ const assertLinks=()=>{expect(screen.getByRole('link',{name:'返回固定计划'}).getAttribute('href')).toBe('/patient/plan?patient=P-A#assignment-education');expect(screen.getByRole('link',{name:'返回服务消息'}).getAttribute('href')).toBe('/patient/messages?patient=P-A#education-education');};assertLinks();
+ if(action==='feedback'){fireEvent.click(screen.getByLabelText('我已理解'));fireEvent.click(screen.getByLabelText('仍需服务团队帮助'));}
+ fireEvent.click(screen.getByRole('button',{name:action==='open'?'我已阅读':'提交阅读反馈'}));await screen.findByRole('button',{name:'重试同一次操作'});
+ expect(JSON.parse(bodies[0])).toMatchObject({action,...(action==='feedback'?{understood:true,needsHelp:true}:{}),meta:{expectedVersion:2,seedVersion:1,actorId:'P-A',role:'patient',clientRequestId:expect.any(String)}});
+ failRead=true;fireEvent.click(screen.getByRole('button',{name:'刷新教育资料'}));await screen.findByText('加载失败（404），请重试。');expect(screen.queryByRole('link')).toBeNull();expect(screen.queryByText('合成教育内容')).toBeNull();
+ failRead=false;fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(bodies[1]).toBe(bodies[0]);expect(screen.queryByRole('link')).toBeNull();expect(screen.queryByText('合成教育内容')).toBeNull();
+ resolveRetry(json({}));await screen.findByText('操作已保存。');await screen.findByText('合成教育内容');assertLinks();
+});

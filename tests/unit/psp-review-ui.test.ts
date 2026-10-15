@@ -9,7 +9,7 @@ const report={id:'R1',projectId:project.id,seedVersion:1,batchId:'B1',revision:1
 const workflow={status:'draft',label:'模板草稿，待人工审核',submission:null,dataReview:null,medicalReview:null,returnReview:null,missingReviews:['data','medical'],history:[],delivery:null,acceptance:null};
 const gates={canSubmit:true,canApprove:false,canReturn:false,canRevise:true,reviewKind:null,submitReason:null,reviewReason:'请先提交报告',reviseReason:null};
 const detail={report,workflow,actionGates:gates,createGate:{canCreate:true,reason:null},warnings:[],seedVersion:1,ledgerRevision:20,serverNow:project.cutoffAt};
-const list={project,seedVersion:1,ledgerRevision:20,serverNow:project.cutoffAt,summaries:[report]};
+const list={project,seedVersion:1,ledgerRevision:20,serverNow:project.cutoffAt,draftGates:[{snapshotId:'S1',canCreate:true,reason:null},{snapshotId:'S1',parentVersionId:'R1',canCreate:true,reason:null}],summaries:[report]};
 const snapshots={...list,summaries:[{id:'S1',projectId:project.id,window,createdAt:project.cutoffAt,createdBy:'project-manager-psp',sourceLedgerRevision:11}],authorizationVersion:2};
 const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status});
 const read=(url:string,value:unknown=detail)=>url.includes('/snapshots?')?snapshots:url.includes('/api/psp/reports/')?value:list;
@@ -97,4 +97,11 @@ it('cannot acknowledge the stale report while the mandatory 409 refresh is pendi
  await act(async()=>resolve(json(value(3))));
  expect(screen.getByLabelText('选择报告版本').matches(':disabled')).toBe(true);
  expect(screen.queryByRole('button',{name:'已核对最新审核状态，继续'})).not.toBeNull();
+});
+
+it.each([503,409])('detail action %s locks report row navigation until recovery',async(status)=>{
+ let first=true;vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){const code=first?status:200;first=false;return Promise.resolve(json({},code));}return Promise.resolve(json(read(url)));});
+ await mount();fireEvent.click(screen.getByRole('button',{name:'提交报告审核'}));const recovery=await screen.findByRole('button',{name:status===503?'重试同一次操作':'已核对最新审核状态，继续'});
+ expect(screen.queryByRole('link',{name:'打开修订 1'})).toBeNull();expect(screen.getByRole('button',{name:'打开修订 1'}).matches(':disabled')).toBe(true);
+ await waitFor(()=>expect(recovery.matches(':disabled')).toBe(false));fireEvent.click(recovery);await screen.findByRole('link',{name:'打开修订 1'});
 });

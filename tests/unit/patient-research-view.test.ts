@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams()
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const opportunity = "张医生认为 XX-ADC-301 可能适合您，请到门诊进一步了解。";
 const patient = (id: string, withOpportunity = false): PatientView => ({
+  seedVersion: 1,
   patient: loadSeed().anchors.find(p => p.id === id)!, alerts: [], tasks: [], today: "2026-10-14",
   messages: withOpportunity ? [{ id: `${id}-opportunity`, patientId: id, kind: "research_opportunity", text: opportunity, at: "2026-10-14T01:00:00Z" }] : [],
 });

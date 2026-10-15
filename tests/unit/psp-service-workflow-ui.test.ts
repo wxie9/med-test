@@ -84,3 +84,14 @@ it('passes sent education projection into internal service plan wording',async()
  render(createElement(ServiceWorkflow,{patientId:'P-A',projectId:'project'}));
  await screen.findByText('当前患者：王女士 · P-A');expect(screen.getByText('待阅读反馈')).toBeTruthy();expect(screen.queryByText('待发送教育资料')).toBeNull();
 });
+
+it('retains exact POST retry when a subsequent GET fails and hides old service evidence until recovery',async()=>{
+ const {ServiceWorkflow}=await import('@/components/psp/ServiceWorkflow');const bodies:string[]=[];let failRead=false;let finishRetry!:(response:Response)=>void;const retryResponse=new Promise<Response>(resolve=>{finishRetry=resolve;});
+ vi.stubGlobal('fetch',vi.fn((_url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return bodies.length===1?Promise.resolve(json({},503)):retryResponse;}return Promise.resolve(failRead?json({},404):json(service));}));
+ render(createElement(ServiceWorkflow,{patientId:'P-A',projectId:'project'}));await screen.findByText('当前患者：王女士 · P-A');
+ fireEvent.click(screen.getByLabelText('联系覆盖：症状 · 模拟规则0'));fireEvent.change(screen.getByLabelText('联系结果'),{target:{value:'no_answer'}});fireEvent.click(screen.getByRole('button',{name:'记录本次联系'}));
+ await screen.findByRole('button',{name:'重试同一次操作'});failRead=true;fireEvent.click(screen.getByRole('button',{name:'刷新服务状态'}));await screen.findByText('加载失败（404），请重试。');
+ expect(screen.queryByText('当前患者：王女士 · P-A')).toBeNull();expect(document.getElementById('assignment-contact-plan')).toBeNull();
+ failRead=false;fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(screen.queryByText('当前患者：王女士 · P-A')).toBeNull();expect(document.getElementById('assignment-contact-plan')).toBeNull();finishRetry(json({}));await screen.findByText('操作已保存。');await screen.findByText('当前患者：王女士 · P-A');
+ expect(bodies).toHaveLength(2);expect(bodies[1]).toBe(bodies[0]);expect(document.getElementById('assignment-contact-plan')).toBeTruthy();
+});

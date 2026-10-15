@@ -2,7 +2,7 @@
 
 一个可本地一条命令启动、可反复演示的 Web 原型，展示"患者 → 医生 → 数据治理 → 药企研究 → 试验机会回到患者"的闭环。全部数据为合成数据，仅用于演示。
 
-已增加上市后患者支持项目（PSP）的项目入口、独立授权、成员与固定计划、项目问卷提交/修订、联系记录、医生复核和教育阅读反馈，以及项目今日服药自报、不可变证据副本和联系补录核验。Task 5 已通过独立复审、完整测试与实际重启验收。Task 6 的纯计算指标与历史资格层已通过独立复审和最终集成验收：644 项单测、Next/Workers 各 27 项 E2E、安全构建/dry-run，以及实际重启后的来源、四组指标和 35 份原回执一致性检查。Task 7 的 k=5 联动保护、独立服务快照与内部来源追溯已验收：694 项单测、Next/Workers 各 31 项 E2E、安全构建/dry-run，以及实际重启后两个快照、冻结来源和 37 份原回执一致；独立复审 PASS / PASS。Task 8 已新增内部固定报告草稿与结构化下一期安排，验收记录见 [Task 8 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task8-report.md)。Task 9 已接通内部提交、数据/医学双签、退回修订，见 [Task 9 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task9-report.md)。Task 10 已实现双签交付、药企报告读取/固定文件下载、客户反馈/验收及当前授权门控，最终集成门禁与复核状态见 [Task 10 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task10-report.md)。当前 Task 0–10 已实现，Task 11–12 的完整工作台、时间线与整链验收仍为后续；上述数字是对应任务当时的验收记录。
+已增加上市后患者支持项目（PSP）的项目入口、独立授权、成员与固定计划、项目问卷提交/修订、联系记录、医生复核和教育阅读反馈，以及项目今日服药自报、不可变证据副本和联系补录核验。Task 5 已通过独立复审、完整测试与实际重启验收。Task 6 的纯计算指标与历史资格层已通过独立复审和最终集成验收：644 项单测、Next/Workers 各 27 项 E2E、安全构建/dry-run，以及实际重启后的来源、四组指标和 35 份原回执一致性检查。Task 7 的 k=5 联动保护、独立服务快照与内部来源追溯已验收：694 项单测、Next/Workers 各 31 项 E2E、安全构建/dry-run，以及实际重启后两个快照、冻结来源和 37 份原回执一致；独立复审 PASS / PASS。Task 8 已新增内部固定报告草稿与结构化下一期安排，验收记录见 [Task 8 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task8-report.md)。Task 9 已接通内部提交、数据/医学双签、退回修订，见 [Task 9 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task9-report.md)。Task 10 已实现双签交付、药企报告读取/固定文件下载、客户反馈/验收及当前授权门控，最终集成门禁与复核状态见 [Task 10 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task10-report.md)。当前 Task 0–11 已完成；Task 11 月报工作台、全线导航与签署时间线最终验收见 [Task 11 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task11-report.md)；Task 12 未完成；上述数字是对应任务当时的验收记录。
 
 技术栈：Next.js 15（App Router）、React 19、TypeScript、Tailwind CSS 4、Recharts；单元测试 Vitest，端到端测试 Playwright。
 
@@ -88,7 +88,7 @@ docs/                演示脚本、数据生成说明、设计规格与方案
 
 首页与顶栏的“药企项目”入口现在指向 `/pharma/projects`，研究演示仍可从药企导航进入 `/research`。
 
-## PSP 演示（Task 0–10 已实现，Task 10 最终门禁见报告）
+## PSP 演示（Task 0–11 已完成，Task 12 未完成）
 
 1. 打开 `/pharma/projects`，进入 `PSP-BC-ENDO-001`。药企看到虚构项目范围、保护后的当前允许汇总人数和曾交付报告列表；初始无交付时显示暂无报告。每个已交付版本按当前授权显示可读或停止访问状态，内部草稿/审核候选不出现。此人数是当前授权概况，不是月报指标；小于 5 人时隐藏精确人数。
 2. 打开 `/patient?patient=P-A`，在支持项目卡分别操作“接受支持服务”和“允许项目汇总”。撤回汇总授权不会停止服务；撤回服务授权会同时暂停项目成员。授权历史及既有固定计划保留。
@@ -111,7 +111,11 @@ Task 8 内部入口为 `/governance/projects/PSP-BC-ENDO-001/reports`，可从�
 
 报告详情新增内部审核操作：项目经理提交后，两类审核顺序任意；一签保持审核中，双签通过仍为尚未交付。任一审核者可带理由退回，项目经理补充安排形成新 revision 并重新双审，不继承前版签署。提交/审核核对报告操作版本，创建修订核对项目账版本；503原请求重试、每次409重新核对，身份/reset切换隔离迟到响应。固定正文与摘要保留，签署/理由/状态在独立工作流区展示；原创建、提交和审核回执保持当时结果。
 
-Task 10 交付从内部报告详情的“交付此报告版本”发起：只允许项目经理交付当前来源可用且双签 approved 的最新版本；交付后才可从药企项目列表进入 `/pharma/projects/PSP-BC-ENDO-001/reports/<报告ID>`。药企可预览、下载固定文本/HTML、填写意见后验收，或填写必需理由请求修改。客户修改请求形成 `client_changes_requested`，项目经理再创建新 draft、重新双审并交付；交付与验收分别记录，验收不代表所有指标达标。完整工作台和签署时间线仍属 Task 11。
+Task 10 交付从内部报告详情的“交付此报告版本”发起：只允许项目经理交付当前来源可用且双签 approved 的最新版本；交付后才可从药企项目列表进入 `/pharma/projects/PSP-BC-ENDO-001/reports/<报告ID>`。药企可预览、下载固定文本/HTML、填写意见后验收，或填写必需理由请求修改。客户修改请求形成 `client_changes_requested`，项目经理再创建新 draft、重新双审并交付；交付与验收分别记录，验收不代表所有指标达标。Task 11 工作台与签署时间线已完成，范围与本轮最终验收见下文及 [Task 11 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task11-report.md)。
+
+Task 11 月报工作台、全线导航与签署时间线已完成，最终验收见 [Task 11 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task11-report.md)及[Task 11 代码复审](docs/superpowers/sdd-ledger/2026-10-15-psp-task11-code-review.md)。内部列表只读 summary 展示阶段窗口、快照、修订/状态、两类签署及当前 gate；草稿创建使用服务端精确 snapshot/parent 组合的只读 `draftGates`，动作与导航沿用忙碌、重试及冲突未确认锁。内部时间线按同项目/seed/批次的账本 sequence 合并展示跨修订事件；药企时间线只呈现当前可读版本的白名单角色与时间，按时间稳定排序，同刻不宣称实际先后，blocked/revoked 时隐藏正文及时间线。内部报告路由执行一次解码并拒绝畸形参数。终态工作台明确提示查看固定交付与客户验收记录，不再以交付限制理由描述已交付或已验收版本；修订和交付资格仍以服务端 gate 为准。
+
+患者计划、消息与教育入口已保持同一获授权 patient/assignment 往返；冒号等 assignment ID 的编码 fragment 对应实际 DOM 锚点；当前患者数据就绪后只定位并聚焦一次，轮询不反复抢焦点。医生详情仅在 patient/seed 匹配时呈现同一 PRO、alert、联系记录/interaction 和未来任务引用，缺引用显示“引用不可用”，不猜测最新 PRO；未来临床与教育帮助任务仍按实际未完成状态展示。临床 patient DTO 仅增加只读 `seedVersion` 元数据，无持久化扩展。`readError` 使失败 scope 的上下文和导航不可用；同 scope 的 PRO 提交 owner、已编辑答案及原序列化请求保持挂载，503 可精确重试原请求，待接受的新读取后才恢复结果链接；身份/seed 等原 key 变化仍退休旧 owner。role/project 导航保留模拟身份且研究入口仍为独立支线。真实 UI S1–S11 与八宽度 390/640/755/800/1024/1280/1440/1920px 的布局/控制项断言、390/1440px代表截图及trace 及最终全量门禁以 [Task 11 报告](docs/superpowers/sdd-ledger/2026-10-15-psp-task11-report.md) 的本轮证据为准。本轮最终925项单测、Next/Worker各53项E2E、lint/TypeScript、安全构建/dry-run、真实重启/62份原回执及原始DO核验、独立Spec/Quality复核均通过；实际DO gzip557933字节。 Task 0–11 已完成，Task 12 未完成；Task 0–10 的数字保留为各任务当时的历史记录。本轮不新增业务规则、持久化字段/schema/key、种子、provider 或依赖；报告采用确定性模板，身份仍模拟，数据仍合成，未真实发送、未推送或部署。
 
 来源 `authorizationGate`（eligible/blocked/revoked）与读取 `gate`（available/blocked/revoked）独立：未交付但来源合法的报告仍不可外读。撤回实际汇总贡献的授权后，未交付版 blocked，曾交付版 revoked；业务状态、内部正文及固定文件保留，新的外部响应不含旧正文、窗口、摘要、签署或文件。服务-only 撤回或未贡献汇总来源的成员不误撤报告。重新授权不恢复旧来源；新快照采用 `aggregateAuthorizationPolicy: current_grants_v1`，仅对 aggregate 范围排除冻结前已撤回的 grant，内部合法历史和原始来源不变，新 grant 不追溯授权旧事实。旧无标记快照保持原语义，不迁移或回填。
 

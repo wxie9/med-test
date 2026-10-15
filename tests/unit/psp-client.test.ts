@@ -216,3 +216,24 @@ it('installs a stable monotonic barrier that clears pending retries and rejects 
  rerender({url:'A'});await waitFor(()=>expect(result.current.data).not.toBeNull());act(()=>{retired({seedVersion:99,authorizationVersion:99});});expect(result.current.data?.content).toBe('new seed');expect(result.current.invalidation).toBeNull();
  const unmounted=result.current.installVersionBarrier;unmount();expect(unmounted({seedVersion:100,authorizationVersion:100})).toBeNull();
 });
+
+it('scopes read failure to the current visit and clears it only on accepted GET, preserving exact retry',async()=>{
+ let mode:'ok'|'fail'|'old'|'defer'='ok';const delayed=defer(),retry=defer();const bodies:string[]=[];
+ vi.stubGlobal('fetch',(_url:string,options?:RequestInit)=>{
+  if(options?.method==='POST'){bodies.push(options.body as string);return bodies.length===1?Promise.resolve(json({},503)):retry.promise;}
+  return mode==='defer'?delayed.promise:Promise.resolve(mode==='fail'?json({},500):json({seedVersion:mode==='old'?1:2}));
+ });
+ const {result,rerender}=renderHook(({url})=>usePspState(url),{initialProps:{url:'A'}});await waitFor(()=>expect(result.current.data?.seedVersion).toBe(2));
+ expect(result.current.readError).toBe(false);
+ act(()=>result.current.command('/actions',{action:'save'},identity,7));await waitFor(()=>expect(result.current.canRetry).toBe(true));
+ mode='fail';await act(async()=>{await result.current.refresh();});expect(result.current.readError).toBe(true);expect(result.current.data?.seedVersion).toBe(2);
+ act(()=>result.current.retry());expect(result.current.readError).toBe(true);expect(result.current.notice).toBeNull();expect(bodies[1]).toBe(bodies[0]);
+ mode='old';await act(async()=>retry.resolve(json({})));expect(result.current.readError).toBe(true);expect(result.current.data?.seedVersion).toBe(2);
+ mode='ok';await act(async()=>{await result.current.refresh();});expect(result.current.readError).toBe(false);
+ mode='defer';act(()=>{void result.current.refresh();});mode='ok';rerender({url:'B'});await waitFor(()=>expect(result.current.data?.seedVersion).toBe(2));
+ rerender({url:'A'});await waitFor(()=>expect(result.current.data?.seedVersion).toBe(2));await act(async()=>delayed.resolve(json({},403)));expect(result.current.readError).toBe(false);
+ // A retired successful response must not clear a current visit's failure.
+ const oldSuccess=defer();vi.stubGlobal('fetch',()=>oldSuccess.promise);act(()=>{void result.current.refresh();});
+ vi.stubGlobal('fetch',()=>Promise.resolve(json({},404)));rerender({url:'B'});await waitFor(()=>expect(result.current.readError).toBe(true));
+ await act(async()=>oldSuccess.resolve(json({seedVersion:99})));expect(result.current.readError).toBe(true);expect(result.current.data).toBeNull();
+});

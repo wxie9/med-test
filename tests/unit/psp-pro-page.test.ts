@@ -80,3 +80,22 @@ it('shows a clinical prefill read failure and allows explicit retry to load that
  clinicalPro = [{ id: 'PRO-1', scaleId: 'endocrine_monthly_v1', submittedAt: '2026-10-13T02:00:00Z', items: { '关节痛': 2, '潮热': 1, '情绪': 1, '睡眠': 1 }, flags: { missedDoses14d: 4, stopIntent: true } }]; clinicalReady = true; clinicalError = null; rerender(createElement(ProPage));
  await waitFor(() => expect((screen.getByLabelText('关节痛') as HTMLInputElement).value).toBe('2')); expect((screen.getByTestId('missed-doses') as HTMLInputElement).value).toBe('4'); expect(screen.queryByRole('alert')).toBeNull();
 });
+
+const savedResult={data:{proId:'PRO-1',feedback:'已收到',emergency:false,offHours:false,alertIds:[],assignmentId:'assignment-A',firstValidSubmittedAt:'2026-10-13T02:00:00Z',latestValidResponseId:'PRO-1',dueAt:assignment.dueAt,onTime:false},objectVersion:2,ledgerRevision:1,seedVersion:1};
+it('keeps the submission owner through failed parent reads while hiding stale input and links until accepted GET',async()=>{
+ const bodies:string[]=[];let failRead=false;let finishRetry!:(response:Response)=>void;const retry=new Promise<Response>(resolve=>{finishRetry=resolve;});
+ vi.stubGlobal('fetch',(_url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return bodies.length===1?Promise.resolve(new Response('{}',{status:503})):retry;}return Promise.resolve(new Response(JSON.stringify(failRead?{}:view()),{status:failRead?404:200}));});
+ render(createElement(ProPage));await screen.findByTestId('submit-project-pro');fireEvent.change(screen.getByLabelText('关节痛'),{target:{value:'3'}});fireEvent.click(screen.getByTestId('submit-project-pro'));await screen.findByRole('button',{name:'重试同一次提交'});
+ failRead=true;fireEvent.click(screen.getByRole('button',{name:'刷新计划'}));await screen.findByText('加载失败（404），请重试。');
+ expect(screen.queryByRole('link')).toBeNull();expect(screen.queryByLabelText('关节痛')).toBeNull();expect(screen.queryByText(/演示患者甲/)).toBeNull();expect(screen.queryByTestId('submit-project-pro')).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'重试同一次提交'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(bodies[1]).toBe(bodies[0]);expect(JSON.parse(bodies[0])).toMatchObject({items:{关节痛:3},meta:{seedVersion:1,expectedVersion:1,clientRequestId:expect.any(String)}});
+ expect(screen.queryByRole('link')).toBeNull();expect(screen.queryByLabelText('关节痛')).toBeNull();
+ await act(async()=>finishRetry(new Response(JSON.stringify(savedResult))));await screen.findByText('加载失败（404），请重试。');expect(screen.queryByTestId('project-pro-feedback')).toBeNull();expect(screen.queryByRole('link')).toBeNull();
+ failRead=false;fireEvent.click(screen.getByRole('button',{name:'重新加载项目计划'}));await screen.findByTestId('project-pro-feedback');expect((screen.getByLabelText('关节痛') as HTMLInputElement).value).toBe('3');expect(screen.getAllByRole('link',{name:'返回固定计划'}).every(link=>link.getAttribute('href')==='/patient/plan?patient=P-A#assignment-assignment-A')).toBe(true);
+});
+it('all real successful submission return links preserve the same encoded assignment and patient',async()=>{
+ const exact={...assignment,id:'PSP:PRO:1'};query=new URLSearchParams({assignment:exact.id});
+ vi.stubGlobal('fetch',(_url:string,options?:RequestInit)=>Promise.resolve(new Response(JSON.stringify(options?.method==='POST'?savedResult:view([exact])))));
+ render(createElement(ProPage));fireEvent.click(await screen.findByTestId('submit-project-pro'));await screen.findByTestId('project-pro-feedback');
+ const links=screen.getAllByRole('link',{name:'返回固定计划'});expect(links).toHaveLength(2);for(const link of links)expect(link.getAttribute('href')).toBe('/patient/plan?patient=P-A#assignment-PSP%3APRO%3A1');expect(screen.getByRole('link',{name:'查看消息'}).getAttribute('href')).toBe('/patient/messages?patient=P-A');
+});
