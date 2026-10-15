@@ -71,7 +71,10 @@ test('owned Wrangler stop/restart preserves exact frozen facts, dual approval, d
   await ssrReadOnly();
   await page.goto(`/pharma/projects/${PROJECT}/reports/${encodeURIComponent(report.id)}`);
   await openPublicReportBody(page);await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();
-  if ('contentDigest' in before.external) await expect(page.locator('body')).toContainText(before.external.contentDigest);
+  if ('contentDigest' in before.external) {
+    await page.getByRole('button', { name: '核对资料', exact: true }).click();
+    await expect(page.locator('body')).toContainText(before.external.contentDigest);
+  }
   expect((await api.read<{ seedVersion: number }>(publicUrl)).seedVersion).toBe(report.seedVersion);
   expect(await facts()).toEqual(before);
   await page.screenshot({ path: info.outputPath('worker-restarted-delivered.png'), fullPage: true });

@@ -84,6 +84,7 @@ test('independent clients reset a shared seed while an actual old POST and captu
     await reportPage.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     await expect(proPage.getByRole('button', { name: '重试同一次操作', exact: true })).toHaveCount(0);
     await expect(reportPage.getByTestId('psp-pharma-report-content')).toHaveCount(0);
+    for(const id of ['psp-pharma-reading-summary','psp-pharma-next-actions','psp-pharma-delivery-checklist','psp-pharma-reading-evidence'])await expect(reportPage.getByTestId(id)).toHaveCount(0);
     await expect(reportPage.getByRole('link', { name: /下载固定/ })).toHaveCount(0);
     await expect(reportPage.getByRole('button', { name: '重试同一次操作', exact: true })).toHaveCount(0);
     expect({ state: await b.state(), services: await b.services(), reports: await b.reports(), pharma: await b.pharma() }).toEqual(before);

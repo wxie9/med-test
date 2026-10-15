@@ -81,3 +81,8 @@ it('keeps each disclosure aria-controls target present even while protected cont
  fireEvent.click(screen.getByRole('button',{name:'收起章节：服务执行'}));
  for(const button of screen.getAllByRole('button')){const id=button.getAttribute('aria-controls');if(id)expect(document.getElementById(id)).not.toBeNull();}
 });
+it.each(['suppressed','unknown','no_applicable'] as const)('handles an entirely %s summary without numbers or false success',status=>{
+ const report=publicReportFixture();for(const chapter of report.content.chapters)chapter.facts=chapter.facts.map(fact=>({...fact,status,value:999,numerator:999,denominator:999,sampleN:999}));
+ render(createElement(PharmaReportReadingHeader,{report,onRefresh:vi.fn()}));const summary=screen.getByTestId('psp-pharma-reading-summary');
+ expect(within(summary).getAllByRole('listitem')).toHaveLength(4);expect(summary.outerHTML).not.toMatch(/999|已达标|0%/);
+});
