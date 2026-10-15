@@ -12,7 +12,7 @@ const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status}
 const defer=()=>{let resolve!:(r:Response)=>void;const promise=new Promise<Response>(r=>resolve=r);return {promise,resolve};};
 function openBody(){const toggle=screen.getByRole('button',{name:/^(展开|收起)完整报告$/});if(toggle.getAttribute('aria-expanded')==='false')fireEvent.click(toggle);}
 async function mount(){const {PharmaReport}=await import('@/components/psp/PharmaReport');return render(createElement(PharmaReport,{projectId:project.id,reportId:report.id}));}
-afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();globalThis.window.history.replaceState(null,'','/');});
 it('binds the external read/download to seed, project, report, period and authorization, and retries the exact customer acceptance',async()=>{
  const requests:string[]=[],reads:string[]=[];vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){requests.push(options.body as string);return Promise.resolve(json({},503));}reads.push(url);return Promise.resolve(json(url.includes('/reports/')?report:overview()));});await mount();await screen.findByText('固定交付报告');openBody();
  const detail=reads.find(url=>url.includes('/reports/'))!,query=new URL(detail,'http://example.test').searchParams;
@@ -109,7 +109,44 @@ it('public timeline orders signatures by time without mutating fixed artifact or
 
 it('available public report has body/timeline/feedback anchors and same-version internal simulated bridge, revoked has none',async()=>{
  let blocked=false;vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(url.includes('/reports/')?report:blocked?overview(revoked,3):overview())));await mount();await screen.findByText('固定交付报告');openBody();
- for(const [name,id] of [['固定正文','public-report-body'],['签署时间线','public-report-timeline'],['客户反馈','public-report-feedback']]){expect(screen.getByRole('link',{name}).getAttribute('href')).toBe(`#${id}`);expect(document.getElementById(id)).toBeTruthy();}
+ for(const [name,id] of [['固定正文','public-report-body'],['签署时间线','public-report-timeline'],['核对本次交付','public-report-feedback']]){expect(screen.getByRole('link',{name}).getAttribute('href')).toBe(`#${id}`);expect(document.getElementById(id)).toBeTruthy();}
  expect(screen.getByRole('link',{name:'切换到此版本院内演示'}).getAttribute('href')).toBe('/governance/projects/PSP-1/reports/R1');blocked=true;fireEvent.click(screen.getByRole('button',{name:'刷新交付报告'}));await screen.findByText('当前授权已停止此报告访问');expect(screen.queryByRole('navigation',{name:'交付报告章节导航'})).toBeNull();expect(screen.queryByRole('link',{name:'切换到此版本院内演示'})).toBeNull();
 });
 it.each([503,409])('public same-version bridge respects customer command retry/ack lock %s',async(status)=>{vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>Promise.resolve(options?.method==='POST'?json({},status):json(url.includes('/reports/')?report:overview())));await mount();await screen.findByText('固定交付报告');openBody();fireEvent.click(screen.getByRole('button',{name:'验收此版本'}));await screen.findByRole('button',{name:status===503?'重试同一次操作':'已核对最新交付状态，继续'});expect(screen.queryByRole('link',{name:'切换到此版本院内演示'})).toBeNull();expect(screen.getByRole('button',{name:'切换到此版本院内演示'}).matches(':disabled')).toBe(true);});
+it('offers three read-only delivery check links without creating customer reading records',async()=>{
+ const posts:string[]=[];vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST')posts.push(options.body as string);return Promise.resolve(json(url.includes('/reports/')?report:overview()));});await mount();await screen.findByText('固定交付报告');
+ const checklist=screen.getByTestId('psp-pharma-delivery-checklist');
+ expect(within(checklist).getAllByRole('link').map(link=>[link.textContent,link.getAttribute('href')])).toEqual([
+  ['范围与阶段','#public-report-body'],['本版签署与固定文件','#public-report-timeline'],['服务记录限制及下一期安排','#public-report-next-actions']
+ ]);
+ expect(within(checklist).queryByRole('checkbox')).toBeNull();expect(checklist.textContent).not.toMatch(/已阅读|全部正确|已达标/);
+ fireEvent.click(within(checklist).getByRole('link',{name:'范围与阶段'}));expect(posts).toEqual([]);
+});
+it.each([['delivered','核对本次交付'],['accepted','查看验收记录'],['client_changes_requested','查看修改请求']] as const)('gives %s its own feedback navigation and permitted actions',async(status,label)=>{
+ const value={...report,status};vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(url.includes('/reports/')?value:overview(value))));await mount();await screen.findByText('固定交付报告');
+ expect(screen.getByRole('link',{name:label}).getAttribute('href')).toBe('#public-report-feedback');
+ expect(screen.getByRole('button',{name:'验收此版本'}).matches(':disabled')).toBe(status!=='delivered');
+ if(status==='accepted')expect(screen.getByText('本版本已验收。下期安排继续按实际进度执行，验收不代表安排已完成。')).toBeTruthy();
+});
+it.each(['overview','detail'])('a failed %s read removes every new controlled reading area and restores only on current success',async(source)=>{
+ let failed=false;vi.stubGlobal('fetch',(url:string)=>Promise.resolve(failed&&(source==='detail'?url.includes('/reports/'):!url.includes('/reports/'))?json({},503):json(url.includes('/reports/')?report:overview())));await mount();await screen.findByText('固定交付报告');openBody();
+ failed=true;fireEvent.click(screen.getByRole('button',{name:source==='detail'?'刷新当前报告内容':'刷新交付报告'}));await screen.findByText('加载失败（503），请重试。');
+ for(const id of ['psp-pharma-reading-summary','psp-pharma-next-actions','psp-pharma-delivery-checklist','psp-pharma-reading-evidence','psp-pharma-report-content'])expect(screen.queryByTestId(id)).toBeNull();
+ expect(screen.queryByRole('link',{name:'下载固定文本'})).toBeNull();
+ failed=false;fireEvent.click(screen.getByRole('button',{name:source==='detail'?'刷新当前报告内容':'刷新交付报告'}));await screen.findByTestId('psp-pharma-delivery-checklist');
+});
+it('retains the exact 503 acceptance and edited comment across all read-only disclosures',async()=>{
+ const posts:string[]=[];vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){posts.push(options.body as string);return Promise.resolve(json({},503));}return Promise.resolve(json(url.includes('/reports/')?report:overview()));});await mount();await screen.findByText('固定交付报告');
+ fireEvent.change(screen.getByLabelText('客户意见'),{target:{value:' 原意见 '}});fireEvent.click(screen.getByRole('button',{name:'验收此版本'}));await screen.findByRole('button',{name:'重试同一次操作'});
+ fireEvent.click(screen.getByRole('button',{name:'展开完整报告'}));fireEvent.click(screen.getByRole('button',{name:'原文生成记录'}));fireEvent.click(screen.getByRole('button',{name:'核对资料'}));
+ expect((screen.getByLabelText('客户意见') as HTMLTextAreaElement).value).toBe(' 原意见 ');expect(screen.getByLabelText('客户意见').matches(':disabled')).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(posts).toHaveLength(2));expect(posts[1]).toBe(posts[0]);
+});
+it('requires the refreshed 409 state and a fresh manual acknowledgement for each conflict',async()=>{
+ const latest=defer();let posts=0,detailReads=0;
+ vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){posts++;return Promise.resolve(json({},409));}if(url.includes('/reports/'))return ++detailReads===2?latest.promise:Promise.resolve(json(report));return Promise.resolve(json(overview()));});await mount();await screen.findByText('固定交付报告');
+ fireEvent.click(screen.getByRole('button',{name:'验收此版本'}));let ack=await screen.findByRole('button',{name:'已核对最新交付状态，继续'});expect(ack.matches(':disabled')).toBe(true);
+ fireEvent.click(ack);expect(screen.getByRole('button',{name:'验收此版本'}).matches(':disabled')).toBe(true);
+ await act(async()=>latest.resolve(json(report)));await waitFor(()=>expect(ack.matches(':disabled')).toBe(false));fireEvent.click(ack);expect(screen.getByRole('button',{name:'验收此版本'}).matches(':disabled')).toBe(false);
+ fireEvent.click(screen.getByRole('button',{name:'验收此版本'}));await waitFor(()=>expect(posts).toBe(2));ack=screen.getByRole('button',{name:'已核对最新交付状态，继续'});expect(screen.getByRole('button',{name:'验收此版本'}).matches(':disabled')).toBe(true);await waitFor(()=>expect(ack.matches(':disabled')).toBe(false));fireEvent.click(ack);expect(screen.getByRole('button',{name:'验收此版本'}).matches(':disabled')).toBe(false);
+});
