@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { DemoStore } from './store';
 import { Patient, Alert, FollowUpTask, Cohort, ResearchSnapshot, CandidateRequest, DataGapTask, PatientMessage } from '@/lib/domain/types';
 import { PspState, validatePspState, validatePspClinicalLinks } from '@/lib/psp/types';
+import {validatePspSnapshots} from '@/lib/psp/snapshotValidation';
 /** Reject unknown fields throughout persisted clinical objects rather than silently dropping them. */
 function strict(schema:z.ZodTypeAny):z.ZodTypeAny {
  if(schema instanceof z.ZodObject)return z.object(Object.fromEntries(Object.entries(schema.shape).map(([k,v])=>[k,strict(v as z.ZodTypeAny)]))).strict();
@@ -18,10 +19,11 @@ const payload=z.object({version:z.literal(2),store:z.object({
  manifest:z.object({seed:z.number(),version:z.string(),cutoff:z.string(),checksum:z.string(),counts:z.record(z.number()),violations:z.number().int().nonnegative()}).strict(),agentMode:z.enum(['deterministic','claude','openai']),seedVersion:z.number().int().positive(),psp:PspState,
 }).strict()}).strict();
 function freezeDeep(value:unknown):void { if(value && typeof value==='object'){for(const v of Object.values(value))freezeDeep(v);Object.freeze(value);} }
-export function hydrateImmutableState(store:DemoStore):DemoStore { for(const snapshot of store.snapshots)freezeDeep(snapshot);for(const content of store.psp.educationContents)freezeDeep(content);for(const source of store.psp.selfReportRevisions??[])freezeDeep(source);for(const correction of store.psp.corrections??[])freezeDeep(correction);for(const evidence of store.psp.questionnaireEvidence??[])freezeDeep(evidence);for(const cancellation of store.psp.assignmentCancellations??[])freezeDeep(cancellation);return store; }
+export function hydrateImmutableState(store:DemoStore):DemoStore { for(const snapshot of store.snapshots)freezeDeep(snapshot);for(const snapshot of store.psp.snapshots??[])freezeDeep(snapshot);for(const content of store.psp.educationContents)freezeDeep(content);for(const source of store.psp.selfReportRevisions??[])freezeDeep(source);for(const correction of store.psp.corrections??[])freezeDeep(correction);for(const evidence of store.psp.questionnaireEvidence??[])freezeDeep(evidence);for(const cancellation of store.psp.assignmentCancellations??[])freezeDeep(cancellation);return store; }
 export async function encodeDemoStore(store:DemoStore):Promise<Uint8Array> {
  const value=payload.parse({version:2,store:{...store,patients:[...store.patients.values()]}});
  validatePspState(value.store.psp);
+ validatePspSnapshots(value.store.psp,value.store.seedVersion);
  validatePspClinicalLinks(value.store.psp,value.store.patients as import('@/lib/domain/types').Patient[]);
  validatePspServiceLinks({...value.store,patients:new Map((value.store.patients as import('@/lib/domain/types').Patient[]).map(p=>[p.id,p]))} as DemoStore);
  validatePspEvidenceLinks({...value.store,patients:new Map((value.store.patients as import('@/lib/domain/types').Patient[]).map(p=>[p.id,p]))} as DemoStore);
@@ -34,6 +36,7 @@ export async function decodeDemoStore(encoded:Uint8Array):Promise<DemoStore> {
  const saved=payload.parse(JSON.parse(await new Response(stream).text()));
  const store={...saved.store,patients:new Map(saved.store.patients.map(p=>[p.id,p]))} as DemoStore;
  validatePspState(store.psp);
+ validatePspSnapshots(store.psp,store.seedVersion);
  validatePspClinicalLinks(store.psp,store.patients.values());
  validatePspServiceLinks(store);validatePspEvidenceLinks(store);validatePspMetricEvidenceLinks(store);
  if(store.patients.size!==saved.store.patients.length)throw new Error('Duplicate persisted patient');

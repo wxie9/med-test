@@ -1,5 +1,6 @@
 import {validatePspEvidenceLinks} from './evidenceValidation';
 import {validatePspMetricEvidenceLinks} from './metricEvidenceValidation';
+import {validatePspSnapshots} from './snapshotValidation';
 import {validatePspServiceLinks} from '@/lib/psp/serviceValidation';
 import { createHash } from 'node:crypto';
 import { getStore, replaceStore, type DemoStore } from '@/lib/state/store';
@@ -46,6 +47,7 @@ export function transact<T>(enrollmentId:string, body:unknown, rawMeta:CommandMe
   const result={data,objectVersion:target.version,ledgerRevision:draft.psp.ledgerRevision,seedVersion:draft.seedVersion};
   draft.psp.commandReceipts.push({id:`receipt:${scopeKey}`,scopeKey,bodyDigest,result:structuredClone(result),objectVersion:target.version,ledgerRevision:draft.psp.ledgerRevision});
   validatePspState(draft.psp);
+  validatePspSnapshots(draft.psp,draft.seedVersion);
   validatePspClinicalLinks(draft.psp,draft.patients.values());
   validatePspServiceLinks(draft);validatePspEvidenceLinks(draft);validatePspMetricEvidenceLinks(draft);
   replaceStore(hydrateImmutableState(draft));
@@ -77,6 +79,7 @@ export function transactAssignment<T>(assignmentId:string, patientId:string, bod
   const result={data,objectVersion:target.version,ledgerRevision:draft.psp.ledgerRevision,seedVersion:draft.seedVersion};
   draft.psp.commandReceipts.push({id:`receipt:${scopeKey}`,scopeKey,bodyDigest,result:structuredClone(result),objectVersion:target.version,ledgerRevision:draft.psp.ledgerRevision});
   validatePspState(draft.psp);
+  validatePspSnapshots(draft.psp,draft.seedVersion);
   validatePspClinicalLinks(draft.psp,draft.patients.values());
   validatePspServiceLinks(draft);validatePspEvidenceLinks(draft);validatePspMetricEvidenceLinks(draft);
   replaceStore(hydrateImmutableState(draft));
@@ -113,7 +116,7 @@ export function runServiceCommand<T>(target:ServiceTarget,rawMeta:CommandMeta,no
  draft.psp.ledgerRevision++;
  const result={data,objectVersion:updated.version??1,ledgerRevision:draft.psp.ledgerRevision,seedVersion:draft.seedVersion};
  draft.psp.commandReceipts.push({id:`receipt:${scopeKey}`,scopeKey,bodyDigest,result:structuredClone(result),objectVersion:result.objectVersion,ledgerRevision:result.ledgerRevision});
- validatePspState(draft.psp);validatePspClinicalLinks(draft.psp,draft.patients.values());
+ validatePspState(draft.psp);validatePspSnapshots(draft.psp,draft.seedVersion);validatePspClinicalLinks(draft.psp,draft.patients.values());
  validatePspServiceLinks(draft);validatePspEvidenceLinks(draft);validatePspMetricEvidenceLinks(draft);
   replaceStore(hydrateImmutableState(draft));return structuredClone(result);
 }

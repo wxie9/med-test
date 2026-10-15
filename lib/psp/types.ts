@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {PspSelfReportRevision,PspCorrection} from './evidenceTypes';
 import {PspQuestionnaireEvidence,PspAssignmentCancellation} from './metricEvidenceTypes';
+import {PspServiceSnapshotSchema} from './snapshotTypes';
+import {validatePspSnapshots} from './snapshotValidation';
 export {PspQuestionnaireEvidence,PspAssignmentCancellation} from './metricEvidenceTypes';
 export {PspSelfReportRevision,PspCorrection} from './evidenceTypes';
 import { ProBody } from '@/lib/pro/validation';
@@ -25,7 +27,7 @@ export const PspEducationEvent = z.object({...event,projectId:id,assignmentId:id
 export type PspAlertActionEvent = z.infer<typeof PspAlertActionEvent>;
 export type PspEducationEvent = z.infer<typeof PspEducationEvent>;
 export const CommandReceipt = z.object({id,scopeKey:id,bodyDigest:id,result:z.unknown(),objectVersion:version,ledgerRevision:z.number().int().nonnegative()}).strict();
-export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt),alertActions:z.array(PspAlertActionEvent).optional(),educationEvents:z.array(PspEducationEvent).optional(),selfReportRevisions:z.array(PspSelfReportRevision).optional(),corrections:z.array(PspCorrection).optional(),questionnaireEvidence:z.array(PspQuestionnaireEvidence).optional(),assignmentCancellations:z.array(PspAssignmentCancellation).optional()}).strict();
+export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt),alertActions:z.array(PspAlertActionEvent).optional(),educationEvents:z.array(PspEducationEvent).optional(),selfReportRevisions:z.array(PspSelfReportRevision).optional(),corrections:z.array(PspCorrection).optional(),questionnaireEvidence:z.array(PspQuestionnaireEvidence).optional(),assignmentCancellations:z.array(PspAssignmentCancellation).optional(),snapshots:z.array(PspServiceSnapshotSchema).optional()}).strict();
 export type PspProject = z.infer<typeof PspProject>;
 export type PspEnrollment = z.infer<typeof PspEnrollment>;
 export type PspMembershipEvent = z.infer<typeof PspMembershipEvent>;
@@ -61,6 +63,7 @@ export function validatePspState(value:unknown):PspState {
  for(const a of s.assignments.filter(a=>a.kind==='questionnaire'))if(Boolean(a.firstValidSubmittedAt)!==Boolean(a.latestValidResponseId)||(a.status==='completed'&&!a.firstValidSubmittedAt)||(a.status==='open'&&a.firstValidSubmittedAt))throw new Error('Invalid PSP questionnaire completion fields');
  for(const e of s.serviceEvents){const a=e.assignmentId?assignments.get(e.assignmentId):undefined;if((e.assignmentId&&(!a||a.kind!=='contact'||a.enrollmentId!==e.enrollmentId||Date.parse(e.occurredAt)<Date.parse(a.assignedAt)))||e.projectId!==s.project.id||(!e.assignmentId&&!e.channel))throw new Error('Invalid PSP contact reference or time');}
  for(const e of s.educationResults){const a=assignments.get(e.assignmentId),c=contents.get(e.contentVersionId);if(!a||a.kind!=='education'||!c||Date.parse(e.sentAt)<Date.parse(a.assignedAt)||Date.parse(c.approvedAt)>Date.parse(e.sentAt)||(e.openedAt!==null&&Date.parse(e.sentAt)>Date.parse(e.openedAt))||(e.feedbackAt!==null&&(!e.openedAt||Date.parse(e.openedAt)>Date.parse(e.feedbackAt)))||(e.feedbackAt===null&&(e.understood!==null||e.needsHelp!==null))||(e.feedbackAt!==null&&(e.understood===null||e.needsHelp===null)))throw new Error('Invalid PSP education reference or time');}
+ validatePspSnapshots(s);
  return s;
 }
 

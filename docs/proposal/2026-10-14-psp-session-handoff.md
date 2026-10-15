@@ -5,7 +5,7 @@
 初版交付：商业分析、详细改造方案与交接，文档已提交；没有开始 PSP 编码。
 初版代码基线：`f231161`；续审基线：`main` / `48b519f`，已同步 origin/main。2026-10-14 用户明确本轮“继续评审现状并完善实施计划，暂不编码”。新增计划及评审文件仍是文档，不代表功能完成。
 
-**最新状态：** 用户随后授权编码。安全构建与 lint 修复已提交 `9f8364a`；PSP Task 1–5 已分段实现并验收，记录见[第一阶段报告](../superpowers/sdd-ledger/2026-10-14-psp-phase1-report.md)、[Task 3 报告](../superpowers/sdd-ledger/2026-10-14-psp-task3-report.md)、[Task 4 报告](../superpowers/sdd-ledger/2026-10-15-psp-task4-report.md)与[Task 5 报告](../superpowers/sdd-ledger/2026-10-15-psp-task5-report.md)。Task 5 的 586 项单测、Next/Workers 各 27 项 E2E、安全构建/dry-run 及真实重启/15 份回执回放属当时验收记录。Task 6 的纯计算指标、历史资格与最小证据扩展已实现并完成验收：644 项单测、Next/Workers 各 27 项 E2E、安全构建/dry-run、实际重启后四组指标及 35 份原回执一致，独立复审 Approved；实施记录见[Task 6 报告](../superpowers/sdd-ledger/2026-10-15-psp-task6-report.md)。Task 7–12 尚未执行，不要重复实施已完成内容。
+**最新状态：** 用户随后授权编码。安全构建与 lint 修复已提交 `9f8364a`；PSP Task 1–5 已分段实现并验收，记录见[第一阶段报告](../superpowers/sdd-ledger/2026-10-14-psp-phase1-report.md)、[Task 3 报告](../superpowers/sdd-ledger/2026-10-14-psp-task3-report.md)、[Task 4 报告](../superpowers/sdd-ledger/2026-10-15-psp-task4-report.md)与[Task 5 报告](../superpowers/sdd-ledger/2026-10-15-psp-task5-report.md)。Task 5 的 586 项单测、Next/Workers 各 27 项 E2E、安全构建/dry-run 及真实重启/15 份回执回放属当时验收记录。Task 6 的纯计算指标、历史资格与最小证据扩展已实现并完成验收：644 项单测、Next/Workers 各 27 项 E2E、安全构建/dry-run、实际重启后四组指标及 35 份原回执一致，独立复审 Approved；实施记录见[Task 6 报告](../superpowers/sdd-ledger/2026-10-15-psp-task6-report.md)。Task 7 的保护、服务快照、内部来源 API 与 staff 页面已通过独立复审及最终门禁：694 项单测、Next/Workers 各 31 项 E2E、安全构建/dry-run、实际重启后两个快照/来源/保护投影及 37 份原回执一致，见[Task 7 报告](../superpowers/sdd-ledger/2026-10-15-psp-task7-report.md)。Task 8–12 尚未实施。
 
 ## 1 阅读顺序与文档优先级
 
@@ -17,7 +17,7 @@
 
 [早期参考分析](2026-10-14-reference-analysis-demo-upgrades.md)保留历史正文。它的P0归因方法、文章效果数字和销售叙事不作为本轮实施优先级。遇到同主题矛盾时，本轮PSP设计决定当前方向；原设计仍定义未改动的研究支线。
 
-完整设计仍包含后续草案；已实现范围与最终验收状态以最新实施报告及计划中的状态说明为准。Task 6 只提供内部纯计算结果，不新增页面或药企月报数字；保护、冻结快照及报告消费仍属 Task 7 起的后续任务。后续工作按用户新指令推进，交接文件本身不授权上线或发送报告。
+完整设计仍包含后续草案；已实现范围与最终验收状态以最新实施报告及计划中的状态说明为准。Task 6 提供纯计算结果；Task 7 将保护、冻结快照及精确来源接到 staff 内部入口 `/governance/projects/PSP-BC-ENDO-001/snapshots`。受保护汇总只作为内部预览，不构成已交付药企报告或药企候选入口；报告消费、审核、交付与验收仍属 Task 8 起的后续任务。后续工作按用户新指令推进，交接文件本身不授权上线或发送报告。
 
 ## 2 已明确方向
 
@@ -56,20 +56,20 @@
 ## 4 当前代码中的重要限制
 
 - `lib/domain/types.ts` 的临床Consent仍有三个布尔值与一个signedAt；PSP授权范围及撤回历史已独立放在 `lib/psp`，不能混用。
-- `lib/plan/followup.ts` 的旧展示计划仍动态计算；新PSP计划已有稳定ID和dueAt。Task 6 已在 `lib/psp/metrics.ts` 实现独立分母与历史窗口计算并通过最终验收；页面尚未消费该结果。
+- `lib/plan/followup.ts` 的旧展示计划仍动态计算；新PSP计划已有稳定ID和dueAt。Task 6 已在 `lib/psp/metrics.ts` 实现独立分母与历史窗口计算并通过最终验收；Task 7 staff 快照页现消费冻结后的内部精确指标与受保护汇总预览，药企页尚不消费。
 - `lib/clinic/actions.ts` 的任务done没有completedAt或结果；原关闭预警/生成任务消息流程应保留。
 - `lib/compute/alertMetrics.ts` 的首响应是triggered→accepted，不是成功联系。
 - `lib/compute/adherence.ts` 是历史自报日志/问卷描述；Task 6 已在独立 `lib/psp/metrics.ts` 按项目窗口计算，不修改研究页既有含义。
 - `lib/adherence/checkin.ts` 的通用当日记录仍可覆盖；Task 5 已在项目自报命令中原子保存临床今日行和独立不可变 PSP 版本/值副本。项目入口为 `/patient/adherence?enrollment=ENR-01&patient=P-A`，只允许上海今天及显式最新来源修订。
-- `lib/governance/snapshot.ts` 冻结的是临床研究Patient数据，不含服务执行与教育；原不可变研究快照继续有效。
-- `lib/governance/gapTasks.ts` 当前只是状态done；Task 5 的联系补录已实现 CM 提议/DR 核验，原联系、计划、医生/临床任务保持原事实。内部入口为 `/governance/projects/PSP-BC-ENDO-001/corrections`；项目服药与补录 GET 都只读，不自动导入或核验。Task 6 的 PSP 质量指标只在纯计算层返回，尚无外部投影。
+- `lib/governance/snapshot.ts` 冻结的是临床研究Patient数据，不含服务执行与教育；PSP Task 7 使用独立 `lib/psp/snapshot.ts` 冻结服务指标及必要来源值，原不可变研究快照继续有效。
+- `lib/governance/gapTasks.ts` 当前只是状态done；Task 5 的联系补录已实现 CM 提议/DR 核验，原联系、计划、医生/临床任务保持原事实。内部入口为 `/governance/projects/PSP-BC-ENDO-001/corrections`；项目服药与补录 GET 都只读，不自动导入或核验。Task 6 的 PSP 质量指标已供 Task 7 内部快照消费，尚无药企外部投影。
 - 现有模拟角色和通用状态/临床API不构成生产访问控制；新药企DTO必须在服务端白名单投影，不在前端隐藏大对象。
 
 ## 5 下一 session 推荐工作方式
 
-Task 0–6 已实现并完成对应验收。下一步进入 Task 7 的 k=5 保护、独立服务快照与内部来源追溯；不重复修 OpenNext/lint、项目基础或已完成的服务证据流程。Task 6 的 `Metric` 契约由 `lib/psp/metricTypes.ts` 定义：统计单位与样本单位分离，覆盖日数使用 `days` 而样本单位仍为 `people`。已知零分母为 `null/no_applicable`；证据不足为 `null/unknown`，cohort 未知时 `sampleN:null`，未知分子、分母、互补格不输出。Task 7 外部保护须先处理 unknown 且不外发精确值。现场自报发生/入账时间由服务端生成，历史日期副本不伪造精确发生时间；联系补录的入账/核验时间不能倒写。
+Task 0–7 已实现并完成对应验收。下一步进入 Task 8 的固定报告草稿与结构化下一期安排，不重复修 OpenNext/lint、项目基础或已完成的服务证据流程。Task 6 的 `Metric` 契约由 `lib/psp/metricTypes.ts` 定义：统计单位与样本单位分离，覆盖日数使用 `days` 而样本单位仍为 `people`。已知零分母为 `null/no_applicable`；证据不足为 `null/unknown`，cohort 未知时 `sampleN:null`，未知分子、分母、互补格不输出。Task 7 的 `protectMetricGroups` 先处理 unknown，再对可判定指标应用 k=5、互补小格、类别表、同族和可反推合计保护；无值状态不带精确样本/分子/分母/来源。现场自报发生/入账时间由服务端生成，历史日期副本不伪造精确发生时间；联系补录的入账/核验时间不能倒写。
 
-Task 6 已按显式周期、cutoff、scope 和 ledgerRevision 计算指标与来源引用。到期计划/本期预警的周期由 dueAt/triggeredAt 锚定，关联完成证明可以跨月，但须在 cutoff/账版本内可见且发生时仍满足历史授权；事件次数、日志仍按实际发生期计。新增可选项目 PRO/预警证据、动态计划创建序号及合法取消事件，schema v2/种子保持原状。旧 PRO 修订前缀缺失时，不从临床、回执或新生产者回填，不根据根答卷推断中间修订；已知到期 cohort 可凭 scope 合法 typed 答卷证明完成及最新标记，按时或首次所属期若缺证明则为 unknown，不能将其写成 0 或 no_applicable。后续顺序：保护与独立快照→报告版本与双审核→交付验收→整链和原研究回归。药企现仅有配置/保护后的授权概况和暂无报告提示，不能把该实时概况替代月报。
+Task 6 已按显式周期、cutoff、scope 和 ledgerRevision 计算指标与来源引用。到期计划/本期预警的周期由 dueAt/triggeredAt 锚定，关联完成证明可以跨月，但须在 cutoff/账版本内可见且发生时仍满足历史授权；事件次数、日志仍按实际发生期计。新增可选项目 PRO/预警证据、动态计划创建序号及合法取消事件，schema v2/种子保持原状。旧 PRO 修订前缀缺失时，不从临床、回执或新生产者回填，不根据根答卷推断中间修订；已知到期 cohort 可凭 scope 合法 typed 答卷证明完成及最新标记，按时或首次所属期若缺证明则为 unknown，不能将其写成 0 或 no_applicable。Task 7 新增可选 `psp.snapshots`，仍用 schema v2/storage key 和原种子；冻结一次从同一暂存状态计算内部与允许汇总两个 scope，保存源账版本 `sourceLedgerRevision`、冻结时授权版本、算法/保护版本及来源引用闭包。冻结命令另使项目账版本前进，并把幂等 `commandReceipt` 留在原回执账中；不能把回执账序号当成被统计的源账版本。旧快照不随现场更正或 hydrate 改值。内部页可选 PM/DR/MR，PM/DR 冻结、MR 只读；503 同请求重试，409 刷新账头确认后再操作，reset/身份/快照切换清除迟到读响应。后续顺序：Task 8 固定报告版本→双审核→交付验收→整链和原研究回归。药企现仅有配置/保护后的授权概况和暂无报告提示，不能把该实时概况替代月报。
 
 新增PSP fixture需独立版本/校验值，保持gen-v4核心患者事实和原五组筛选数字。可加入明确合成的常规联系与教育运营背景，但不能伪造既有10月临床PRO完成。临床A现场提交后，药企可能因样本不足不显示该问卷统计；这应按规则表现，不为演示效果绕过。
 

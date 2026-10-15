@@ -4,6 +4,7 @@ import {selectSelfReportSourcesAsOf} from './evidenceWindow';
 import {permissionAt} from './permissions';
 import {createMetricWindow} from './metricWindow';
 import {PSP_METRIC_ALGORITHM_VERSION,type Metric,type MetricOptions} from './metricTypes';
+import type {SnapshotCohortQualification} from './snapshotTypes';
 
 type RefFact={refs:string[]};
 type Contact=PspServiceEvent&{refs:string[]};
@@ -15,7 +16,7 @@ const nearestRank=(values:number[],percentile:number):number|null=>values.length
 const firstByTime=<T extends {occurredAt:string;sequence:number}>(values:T[]):T|undefined=>values.slice().sort((a,b)=>epoch(a.occurredAt)-epoch(b.occurredAt)||a.sequence-b.sequence)[0];
 
 /** Compute only from the supplied, immutable PSP ledger view. */
-export function computePspMetrics(state:PspState,rawOptions:MetricOptions):Metric[] {
+export function computePspMetrics(state:PspState,rawOptions:MetricOptions,captureCohort?:(metricKey:string,sourceRefs:string[],qualifications?:SnapshotCohortQualification[])=>void):Metric[] {
  const w=createMetricWindow(state,rawOptions),options=w.options;
  const baseRefs=(id:string)=>w.scopeSourceRefs(id);
  const assignments=state.assignments.filter(a=>a.projectId===options.projectId&&w.assignmentKnown(a));
@@ -48,21 +49,24 @@ export function computePspMetrics(state:PspState,rawOptions:MetricOptions):Metri
  const proProof=(a:PspAssignment)=>{
   const typed=evidenceByPlan.get(a.id)??[],firstTyped=firstTypedByPlan.get(a.id);
   const missingPrefix=!!a.firstValidSubmittedAt&&!!a.latestValidResponseId&&(!firstTyped||!!firstTyped.revisionOf);
-  const gapPossible=(from:string,to:string)=>{
-   if(!missingPrefix||!a.firstValidSubmittedAt)return false;
+  const gapWitness=(from:string,to:string):{at:string;sequence:number}|undefined=>{
+   if(!missingPrefix||!a.firstValidSubmittedAt)return undefined;
    const left=Math.max(epoch(a.firstValidSubmittedAt),epoch(a.assignedAt),epoch(state.project.startsAt),epoch(from));
    const right=Math.min(firstTyped?epoch(firstTyped.occurredAt):Infinity,epoch(state.project.endsAt),epoch(options.cutoffAt),epoch(to));
-   if(left>right)return false;
+   if(left>right)return undefined;
    const transitions=[...state.membershipEvents,...state.permissionEvents].filter(e=>e.enrollmentId===a.enrollmentId&&e.sequence<=options.ledgerRevision&&Math.max(epoch(e.occurredAt),epoch(e.recordedAt))>=left&&Math.max(epoch(e.occurredAt),epoch(e.recordedAt))<=right);
    const times=unique([new Date(left).toISOString(),new Date(right).toISOString(),...transitions.map(e=>new Date(Math.max(epoch(e.occurredAt),epoch(e.recordedAt))).toISOString())]);
-   return times.some(at=>{
+   for(const at of times){
     const same=transitions.filter(e=>Math.max(epoch(e.occurredAt),epoch(e.recordedAt))===epoch(at)).map(e=>e.sequence);
     const revisions=[options.ledgerRevision,...same,...(same.length?[Math.min(...same)-1]:[])];
-    return revisions.some(revision=>revision>=0&&w.qualifiedAt(a.enrollmentId,at,revision));
-   });
+    const sequence=revisions.find(revision=>revision>=0&&w.qualifiedAt(a.enrollmentId,at,revision));
+    if(sequence!==undefined)return {at,sequence};
+   }
+   return undefined;
   };
+  const gapPossible=(from:string,to:string)=>!!gapWitness(from,to);
   const first=typed[0]&&(!missingPrefix||!gapPossible(a.firstValidSubmittedAt!,typed[0].occurredAt))?typed[0]:undefined;
-  return {typed,first,latest:typed.at(-1),missingPrefix,gapPossible};
+  return {typed,first,latest:typed.at(-1),missingPrefix,gapPossible,gapWitness};
  };
  const proProofs=new Map(assignments.filter(a=>a.kind==='questionnaire').map(a=>[a.id,proProof(a)]));
  const proof=(a:PspAssignment)=>proProofs.get(a.id)!;
@@ -125,6 +129,16 @@ export function computePspMetrics(state:PspState,rawOptions:MetricOptions):Metri
  for(const [kind,key,label] of [['questionnaire','questionnaire_early_completed','未到期问卷提前完成'],['contact','contact_early_completed','未到期联系提前完成'],['education','education_early_completed','未到期教育提前完成']] as const){
   const future=assignments.filter(a=>a.kind===kind&&epoch(a.dueAt)>epoch(options.cutoffAt)&&w.qualifiedAt(a.enrollmentId,a.assignedAt,a.assignedSequence??options.ledgerRevision,'internal')&&(options.scope==='internal'||w.qualifiedAt(a.enrollmentId,options.cutoffAt,options.ledgerRevision,'aggregate')||!!assignmentResult(a)||(a.kind==='questionnaire'&&proof(a).gapPossible(a.firstValidSubmittedAt??a.assignedAt,options.cutoffAt))));
   const firstCompletedInPeriod=future.filter(a=>{const fact=assignmentResult(a);return fact&&w.inWindow(fact.occurredAt);});
+  const qualifications:SnapshotCohortQualification[]=options.scope==='aggregate'?future.map(a=>{
+   if(w.qualifiedAt(a.enrollmentId,options.cutoffAt,options.ledgerRevision,'aggregate'))return {ref:a.id,basis:'cutoff_grant'};
+   const fact=assignmentResult(a);
+   if(fact)return {ref:a.id,basis:'historical_result',sourceRef:'refs' in fact?fact.refs.at(-1)!:fact.id};
+   const witness=a.kind==='questionnaire'?proof(a).gapWitness(a.firstValidSubmittedAt??a.assignedAt,options.cutoffAt):undefined;
+   const firstTyped=firstTypedByPlan.get(a.id);
+   if(witness&&a.firstValidSubmittedAt)return {ref:a.id,basis:'legacy_gap',firstValidSubmittedAt:a.firstValidSubmittedAt,witnessAt:witness.at,witnessSequence:witness.sequence,...(firstTyped&&w.known(firstTyped.recordedAt,firstTyped.sequence)?{firstTypedSourceRef:firstTyped.id}:{})};
+   throw new Error('PSP aggregate early cohort qualification missing');
+  }):[];
+  captureCohort?.(key,unique(future.map(a=>a.id)),qualifications.sort((a,b)=>a.ref.localeCompare(b.ref)));
   const unit=kind==='questionnaire'?'forms':'assignments';
   const early=count(key,label,unit,unit,firstCompletedInPeriod.length,future.length,planRefs(firstCompletedInPeriod));
   const uncertain=kind==='questionnaire'?future.filter(firstCohortUnknown):[];
@@ -148,8 +162,10 @@ export function computePspMetrics(state:PspState,rawOptions:MetricOptions):Metri
  const alertRefs=(alerts:Alert[])=>alerts.flatMap(a=>[...a.refs,...baseRefs(a.enrollmentId),...(alertContact(a)?.refs??[]),...(action(a,'accept')?[action(a,'accept')!.id]:[]),...(action(a,'close')?[action(a,'close')!.id]:[])]);
  results.push(ratio('alert_contact_coverage','本期预警成功联系覆盖率','alerts','alerts',relevantBirths.filter(a=>alertContact(a)).length,relevantBirths.length,alertRefs(relevantBirths)));
  results.push(ratio('alert_contact_on_time','到期预警按时成功联系率','alerts','alerts',mature.filter(a=>{const c=alertContact(a);return c&&epoch(c.occurredAt)<=deadline(a);}).length,mature.length,alertRefs(mature)));
+ captureCohort?.('alert_pending',unique(relevantBirths.map(a=>a.id)));
  results.push(count('alert_pending','尚未成熟联系期限预警','alerts','alerts',pending.length,relevantBirths.length,alertRefs(pending)));
  const dueUncontacted=mature.filter(a=>!alertContact(a));
+ captureCohort?.('alert_due_uncontacted',unique(relevantBirths.map(a=>a.id)));
  results.push(count('alert_due_uncontacted','到期未成功联系预警','alerts','alerts',dueUncontacted.length,relevantBirths.length,alertRefs(dueUncontacted)));
  const accepted=relevantBirths.flatMap(a=>{const x=action(a,'accept');return x?[{a,x,hours:(epoch(x.occurredAt)-epoch(a.triggeredAt))/3_600_000}]:[];});
  const contacted=relevantBirths.flatMap(a=>{const x=alertContact(a);return x?[{a,x,hours:(epoch(x.occurredAt)-epoch(a.triggeredAt))/3_600_000}]:[];});
