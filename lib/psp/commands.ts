@@ -28,6 +28,8 @@ export function submitProjectPro(rawInput:ProjectProInput,meta:CommandMeta):Proj
     }
     if(input.revisionOf && (a.status!=='completed'||input.revisionOf!==a.latestValidResponseId))throw new PspError(409,'invalid_revision','修订须引用本计划最新有效问卷');
     const clinical=submitProToStore(input,{store:s,at,idFactory:newId,contactTargets:project.contactTargets});
+    const sequence=++s.psp.ledgerRevision;
+    (s.psp.questionnaireEvidence??=[]).push({id:newId('psp-questionnaire-evidence'),projectId:project.id,enrollmentId:a.enrollmentId,assignmentId:a.id,responseId:clinical.proId,scaleId:'endocrine_monthly_v1',occurredAt:at,recordedAt:at,actorId:meta.actorId,sequence,...(input.revisionOf?{revisionOf:input.revisionOf}:{}),stopIntent:input.flags.stopIntent??null,alerts:clinical.alerts.map(alert=>({id:alert.id,kind:alert.kind,level:alert.level,triggeredAt:alert.timestamps.triggered}))});
     a.status='completed';a.firstValidSubmittedAt??=at;a.latestValidResponseId=clinical.proId;
     return {data:{proId:clinical.proId,alertIds:clinical.alerts.map(alert=>alert.id),feedback:clinical.feedback,offHours:clinical.offHours,emergency:clinical.emergency,assignmentId:a.id,firstValidSubmittedAt:a.firstValidSubmittedAt,latestValidResponseId:a.latestValidResponseId,dueAt:a.dueAt,onTime:Date.parse(a.firstValidSubmittedAt)<=Date.parse(a.dueAt)},changed:true};
   });

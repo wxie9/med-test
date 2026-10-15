@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 计划最初在代码基线 `48b519f` 制定。用户随后授权修复 Task 0（已提交 `9f8364a`）并实施 PSP 第一阶段 Task 1–2、Task 3 项目问卷绑定及 Task 4 联系/复核/教育闭环。Task 5 的项目今日自报不可变副本/显式修订、CM 显式历史导入与联系补录、DR 核验现已实现，独立复审与最终全量验收已通过；Task 6–12 尚未执行。第一阶段记录见[报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)，后续见[Task 3 报告](../sdd-ledger/2026-10-14-psp-task3-report.md)、[Task 4 报告](../sdd-ledger/2026-10-15-psp-task4-report.md)、[Task 5 报告](../sdd-ledger/2026-10-15-psp-task5-report.md)。
+- 计划最初在代码基线 `48b519f` 制定。Task 0–6 已实施并分段验收；Task 6 的纯计算指标、历史资格与最小证据扩展已通过独立复审和最终集成 gate（644 项单测、Next/Workers 各 27 E2E、安全构建/dry-run、实际重启及 35 原回执/四组指标一致性）。Task 7–12 尚未执行。记录见[第一阶段报告](../sdd-ledger/2026-10-14-psp-phase1-report.md)、[Task 3 报告](../sdd-ledger/2026-10-14-psp-task3-report.md)、[Task 4 报告](../sdd-ledger/2026-10-15-psp-task4-report.md)、[Task 5 报告](../sdd-ledger/2026-10-15-psp-task5-report.md)及[Task 6 报告](../sdd-ledger/2026-10-15-psp-task6-report.md)。
 - 详细需求以[PSP设计](../specs/2026-10-14-postlaunch-psp-demo-design.md)为准；[现状评审](../sdd-ledger/2026-10-14-psp-current-state-review.md)定义新增依赖。
 - 项目`PSP-BC-ENDO-001`，虚构药企A，治疗类别支持；周期2026-10-01至2026-12-31。
 - 固定时钟`2026-10-13T10:00:00+08:00`；阶段报告窗口为10月1日至该时点，不能称整月完成业绩。
@@ -41,7 +41,7 @@
 
 ## 2 文件边界
 
-下表保留完整规划；Task 0–5 的基础、问卷、服务、证据副本及补录文件已实现，Task 5 最终验收已通过。Task 6–12 的指标、快照、报告、审核与交付文件仍是后续计划，不能把未实现路径当成可用接口。
+下表保留完整规划；Task 0–6 已实现并验收。Task 7–12 的保护、快照、报告、审核与交付文件仍是后续计划，不能把未实现路径当成可用接口。
 
 | 文件/目录 | 职责 |
 |---|---|
@@ -53,7 +53,9 @@
 | `lib/psp/views.ts`、`pharmaView.ts` | 内部/患者/药企三个白名单投影，外部仅汇总 |
 | `lib/psp/contact.ts`、`education.ts`、`selfReport.ts`、`corrections.ts` | 独立联系事实、医学批准教育版本、不可变服药副本、补录核验 |
 | `lib/psp/evidenceTypes.ts`、`evidenceValidation.ts`、`evidenceWindow.ts`、`evidenceView.ts` | 已实现证据 schema/恢复校验、历史整日与精确来源资格、内部/患者只读 DTO；尚不计算月报指标 |
-| `lib/psp/metrics.ts`、`protection.ts`、`snapshot.ts` | 唯一计算、k策略、独立服务快照与内部来源追溯 |
+| `lib/psp/metricTypes.ts`、`metricWindow.ts`、`metrics.ts` | 已实现并验收唯一纯计算入口、历史窗口/资格、可证明数值或 `unknown` 的 `Metric` 与来源引用 |
+| `lib/psp/metricEvidenceTypes.ts`、`metricEvidenceValidation.ts`、`assignmentCancellation.ts` | 已实现可选项目问卷/预警副本、创建序号校验及内部合法取消证据；schema v2/seed不变 |
+| `lib/psp/protection.ts`、`snapshot.ts` | Task 7 规划：k策略、独立服务快照与内部来源追溯 |
 | `lib/psp/reports.ts`、`review.ts`、`delivery.ts` | 草稿/版本、双审核、交付验收与独立授权门控 |
 | `lib/psp/reportTemplate.ts` | 固定章节、受控事实句和结构化下一步；不接临床聊天或整份store |
 | `lib/client/usePspState.ts` | 项目/患者/报告绑定请求、授权/重置版本、迟到响应丢弃 |
@@ -65,7 +67,7 @@
 
 ## 3 跨任务接口与版本
 
-这些签名保留完整实施契约，Task 1–5 已创建当前业务需要的类型，Metric、ProtectedMetric 与报告类型仍属后续规划。数组/普通对象保存到PSP状态，避免额外Map的JSON还原陷阱。
+这些签名保留完整实施契约。Task 6 的 `Metric` 已在 `lib/psp/metricTypes.ts` 实现；`ProtectedMetric` 与报告类型仍属后续规划。数组/普通对象保存到PSP状态，避免额外Map的JSON还原陷阱。
 
 ```ts
 type PspRole = "patient" | "case_manager" | "doctor" | "project_manager"
@@ -81,22 +83,25 @@ type PspErrorCode = "INVALID_INPUT" | "NOT_FOUND" | "FORBIDDEN_ACTION"
   | "STALE_SEED" | "VERSION_CONFLICT" | "CONSENT_REQUIRED"
   | "AUTHORIZATION_BLOCKED" | "INVALID_TRANSITION" | "PERSISTENCE_FAILED";
 type CommandResult<T> = { data: T; objectVersion: number; ledgerRevision: number; seedVersion: number }; // 已实现：相同请求返回完全相同回执
+type MetricOptions = { projectId: string; periodStart: string; periodEnd: string; cutoffAt: string; scope: "internal" | "aggregate"; ledgerRevision: number };
 type Metric = {
-  key: string; unit: "people" | "forms" | "assignments" | "alerts" | "interactions" | "doses" | "hours" | "records";
+  key: string; label: string;
+  unit: "people" | "forms" | "assignments" | "alerts" | "interactions" | "doses" | "hours" | "days" | "records";
   sampleUnit: "people" | "forms" | "assignments" | "alerts" | "interactions" | "records";
-  sampleN: number; numerator?: number; denominator?: number;
-  value: number | null; sourceRefs: string[];
+  sampleN: number | null; numerator?: number; denominator?: number;
+  value: number | null; status: "available" | "no_applicable" | "unknown"; sourceRefs: string[];
+  window: MetricOptions; applicability: string; algorithmVersion: "psp-metrics-v1";
   complementCells?: number[]; // 完成/未完成等保护所需的互补格
 };
 type ProtectedMetric =
   | { key: string; unit: Metric["unit"]; sampleUnit: Metric["sampleUnit"]; status: "available"; sampleN: number; numerator?: number; denominator?: number; value: number }
-  | { key: string; unit: Metric["unit"]; status: "suppressed" | "no_applicable"; reason: string };
+  | { key: string; unit: Metric["unit"]; status: "suppressed" | "no_applicable" | "unknown"; reason: string }; // Task 7 规划；unknown 不带精确值
 type ReportStatus = "draft" | "in_review" | "changes_requested" | "approved"
   | "delivered" | "accepted" | "client_changes_requested";
 type ReportGate = { authorizationGate: "eligible" | "blocked" | "revoked"; authorizationVersion: number };
 ```
 
-`PspState`目前保存project、enrollments、membershipEvents、permissionEvents、assignments、serviceEvents、educationContents、educationResults、commandReceipts及fixtureVersion/checksum/ledgerRevision/authorizationVersion。Task 5 已实现可选 `selfReportRevisions` / `corrections` 数组，无默认值，不预填证据或修改 fixture；继续沿用 schema v2/storage key。snapshots/reportVersions/reviewActions/deliveryReceipts 仍为后续任务规划，尚未实现。实体字段按规格§13落实，每个可修改聚合有`version`，事件有唯一ID、occurredAt、recordedAt和账序号；date-only 来源保留日期精度且 occurredAt 为 null。去重回执保存请求作用域、规范化body摘要与结果引用；同ID换body返回400，不静默复用不同操作。
+`PspState`目前保存project、enrollments、membershipEvents、permissionEvents、assignments、serviceEvents、educationContents、educationResults、commandReceipts及fixtureVersion/checksum/ledgerRevision/authorizationVersion。Task 5 已实现可选 `selfReportRevisions` / `corrections`；Task 6 增加可选 `questionnaireEvidence` / `assignmentCancellations` 及动态计划的 `assignedRecordedAt` / `assignedSequence`。字段无默认值，不预填旧问卷或修改 fixture；继续沿用 schema v2/storage key。`stopIntent` 缺失保留为 null。旧 PRO 修订链缺前缀时，既不凭回执或临床回读恢复，也不从后来 typed 修订反推中间修订的时间、序号或授权；证据不足的纯计算结果为 `unknown`，与已知零分母的 `no_applicable` 分开。snapshots/reportVersions/reviewActions/deliveryReceipts 仍为后续规划。实体字段按规格§13落实，每个可修改聚合有`version`，事件有唯一ID、occurredAt、recordedAt和账序号；date-only 来源保留日期精度且 occurredAt 为 null。去重回执保存请求作用域、规范化body摘要与结果引用；同ID换body返回400，不静默复用不同操作。
 
 精确时间统一存UTC ISO（沿用now().toISOString），比较用epoch；显示与自然日/月份边界用Asia/Shanghai。第4节+08:00写法是人可读时点，不能用字符串字面相等代替时间相等。日期级历史值保留DateOnly及精度标记。
 
@@ -105,9 +110,9 @@ type ReportGate = { authorizationGate: "eligible" | "blocked" | "revoked"; autho
 | 角色 | 预置actorId | 允许动作 |
 |---|---|---|
 | patient | 当前patientId | 自己的授权、问卷/打卡、教育打开/反馈和自己项目GET |
-| case_manager | case-manager-chen | 本项目纳入/暂停/退出、接单、联系、开始处置/提交复核、发送批准教育与服务跟进、显式导入历史服药副本及提议联系补录 |
+| case_manager | case-manager-chen | 本项目纳入/暂停/退出、接单、联系、开始处置/提交复核、发送批准教育与服务跟进、显式导入历史服药副本及提议联系补录；Task 6 内部命令可为已失去服务资格的未完成计划记录合法取消 |
 | doctor | doctor-zhang | 服务适用性确认、临床复核/关闭/未来复评 |
-| project_manager | project-manager-psp | 内部运营读取、非临床成员管理、冻结、草稿/修订、提交和双审版交付 |
+| project_manager | project-manager-psp | 内部运营读取、非临床成员管理、Task 6 内部合法取消命令；冻结、草稿/修订、提交和双审版交付为后续任务 |
 | data_reviewer | data-reviewer-psp | 内部来源读取、冻结/补录核验、数据签署或退回 |
 | medical_reviewer | medical-reviewer-psp | 必要内部来源/医学措辞读取、医学签署或退回 |
 | pharma_owner | pharma-owner-a | 受保护项目/报告读取下载、客户修改请求/验收 |
@@ -287,7 +292,7 @@ type ProjectAlertAction =
 
 首版现场打卡只支持上海今天、due=1、taken=0|1，与旧recordAdherence兼容；occurredAt/recordedAt由服务器now生成，拒绝客户端伪造。logDate若保留在body必须等于serverToday，不开放任意日临床剂次编辑；同日显式修订仍记新证据版本。历史 date-only 副本通过 CM 显式 POST `action=import_legacy` 导入，两个新 GET 仅查询 DTO，不导入或写入；corrections route POST action=propose/verify，补录历史服务的occurredAt可提供，但recordedAt只能服务端生成，已冻结副本不覆盖。
 
-**当前实现状态：** 来源与补录保持不可变原值；日初用最终已知状态，严格日内按有效时间和 sequence 逐个检查中断，同刻撤回/暂停后恢复仍排除当天，晚入账及账版本限制保持。CM 联系提议为待核验，DR 核验后仅供未来新快照取源，不覆盖原联系/计划/医生事实。已核验记录的 fresh 请求仍检查当前/历史服务及来源，旧相同请求从原 receipt 重放。最终 586 项单测、lint/类型、Next/Workers 各 27 E2E、安全构建/dry-run、真实重启/15 原回执回放均通过；Task 6–12 尚未实现。详见 [Task 5 报告](../sdd-ledger/2026-10-15-psp-task5-report.md)。
+**Task 5 验收时状态：** 来源与补录保持不可变原值；日初用最终已知状态，严格日内按有效时间和 sequence 逐个检查中断，同刻撤回/暂停后恢复仍排除当天，晚入账及账版本限制保持。CM 联系提议为待核验，DR 核验后仅供未来新快照取源，不覆盖原联系/计划/医生事实。已核验记录的 fresh 请求仍检查当前/历史服务及来源，旧相同请求从原 receipt 重放。当时 586 项单测、lint/类型、Next/Workers 各 27 E2E、安全构建/dry-run、真实重启/15 原回执回放均通过；Task 6 的后续状态见下节。详见 [Task 5 报告](../sdd-ledger/2026-10-15-psp-task5-report.md)。
 
 - [x] 先测taken不能超due、项目/授权不适用拒绝、临床打卡与PSP证据同成同败；再次修改同日创建revision而不改旧值。
 - [x] 只纳入完整落在授权/服务/报告窗口内的历史日期；cutoff当日及跨时刻授权边界日排除，界面说明精度不足。精确新打卡按occurredAt/recordedAt处理。
@@ -297,17 +302,20 @@ type ProjectAlertAction =
 
 ## Task 6：唯一指标计算与历史区间规则
 
-**Files:** Create `lib/psp/metrics.ts`；Test `tests/unit/psp-metrics.test.ts`。旧`lib/compute/adherence.ts`与alertMetrics研究含义不改。
+**Files:** 实际创建 `lib/psp/{metrics,metricTypes,metricWindow,metricEvidenceTypes,metricEvidenceValidation,assignmentCancellation}.ts`，修改 PSP 命令、权限、服务计划、事务、类型与 `lib/state/persistence.ts`；测试为 `tests/unit/psp-{metrics,metric-window,metric-evidence,metrics-durable}.test.ts`。旧`lib/compute/adherence.ts`与alertMetrics研究含义不改。
 
-**Interfaces:** `computePspMetrics(state: PspState, { projectId, periodStart, periodEnd, cutoffAt, scope: "internal" | "aggregate", ledgerRevision }): Metric[]`。返回精确内部结果与sourceRefs，保护另在Task 7做。
+**Interfaces:** `computePspMetrics(state: PspState, { projectId, periodStart, periodEnd, cutoffAt, scope: "internal" | "aggregate", ledgerRevision }): Metric[]`。返回有证据可证明的内部数值或明确的 `unknown`，均带适用说明与 sourceRefs；保护另在Task 7做。
 
-- [ ] 用第4节独立手算表先写失败测试；18/14必须来自区间+授权过滤，而非硬编码常量或snapshot806。
-- [ ] 事件须occurredAt在窗口、recordedAt≤cutoff、账序号≤冻结revision；历史有效区间逐事件/计划判断，active截至人数另算。
-- [ ] 到期分母dueAt≤cutoff，取消仅在当时不适用且有合法取消证据时排除；逾期后退出/取消不删除已到期责任。迟交完成但不按时，修订不改firstValidSubmittedAt。
-- [ ] 到期服务任务首版明确为contact+education计划，不含问卷，标签说明范围；禁止把问卷完成数加进一个未受关联保护的总完成数。样本单位按下表，统计单位与k样本单位分开返回。
-- [ ] contact计划与预警联系分开；distinct interaction/alert/enrollment分别算次数/件数/人数。按时预警分母仅成熟deadline，未成熟pending单列；P50/P90用nearest-rank，零样本null并no_applicable。
-- [ ] 教育有效反馈计完成，打开不计；自报比为taken总剂次/due总剂次，stopIntent每计划最新有效答卷一次，不称客观服药率/实际停药。
-- [ ] Run `npx vitest run tests/unit/psp-metrics.test.ts`；覆盖跨月、cutoff等时、同刻账序号、迟到、退出、暂停、取消、日期精度、修订、零分母及一通电话两预警。
+**当前实现状态：** `metricTypes.ts`、`metricWindow.ts`、`metrics.ts` 与聚焦测试已编写，最小 PRO/预警证据、动态计划创建序号、取消事件及持久化校验已接入；最终集成 gate 与独立复审均已通过，详见 Task 6 报告及代码复审记录。纯计算结果未接页面或药企外部指标。`Metric.unit` 的 `days` 仅用于有效日志覆盖日数，`sampleUnit` 保持 `people`；已知零分母返回 `null/no_applicable`，缺证返回 `null/unknown`。未知 cohort 的 `sampleN:null`，未知分子、分母和互补格省略。Task 7 才实施 k=5 保护、快照及其投影，Task 8 起才处理报告。
+
+- [x] 用第4节独立手算表先写失败测试；18/14必须来自区间+授权过滤，而非硬编码常量或snapshot806。
+- [x] 指标 cohort 按对应锚点归属窗口：到期计划用 dueAt，本期新预警用 triggeredAt，联系次数/日志等发生量用各自 occurredAt；关联结果可跨月，但发生时须有历史资格、发生不晚于 cutoff、recordedAt≤cutoff、账序号≤冻结revision。提前完成按首次有效结果发生期单列；active截至人数另算。
+- [x] 到期分母dueAt≤cutoff，取消仅在当时不适用且有合法取消证据时排除；逾期后退出/取消不删除已到期责任。迟交完成但不按时，修订不改firstValidSubmittedAt。
+- [x] 到期服务任务首版明确为contact+education计划，不含问卷，标签说明范围；禁止把问卷完成数加进一个未受关联保护的总完成数。样本单位按下表，统计单位与k样本单位分开返回。
+- [x] contact计划与预警联系分开；distinct interaction/alert/enrollment分别算次数/件数/人数。按时预警分母仅成熟deadline，未成熟pending单列；P50/P90用nearest-rank，零样本null并no_applicable。
+- [x] 教育有效反馈计完成，打开不计；自报比为taken总剂次/due总剂次，stopIntent每计划最新有效答卷一次，不称客观服药率/实际停药。
+- [x] 所有 PRO 指标共用每计划证据判定：旧链缺 typed 前缀时不猜中间修订；根答卷当时没有汇总授权，也不能证明后来获授权的缺失前缀内没有合法修订。已知到期 cohort 内可凭 scope 合法 typed 提交证明截至完成1及最新有效标记，按时若缺口可能含到期前合法提交则 `unknown`；首次完成归期、提前完成与 stopIntent cohort 不可证明时也为 `unknown`，不得把未知转为确定0或0/0。
+- [x] Run `npx vitest run tests/unit/psp-metrics.test.ts`；覆盖跨月、cutoff等时、同刻账序号、迟到、退出、暂停、取消、日期精度、修订、零分母及一通电话两预警。
 
 | 指标族 | sampleN / sampleUnit | 互补格/保护关系 |
 |---|---|---|
@@ -320,15 +328,17 @@ type ProjectAlertAction =
 | 停药念头 | 每计划最新有效答卷数 / forms | 有/无念头整项保护 |
 | 缺失字段 | 应提供该字段的记录数 / records | 缺失/非缺失，字段细分整表保护 |
 
+`unknown` 可在已知 due cohort 中保留可证明的 `sampleN`/denominator；cohort 本身未知时 `sampleN:null`，未知 numerator/denominator/complementCells 均不输出。旧链缺口也须进入数据质量来源说明；缺口可能包含合法旧答卷时，不把“当前可见答卷数”冒充实际完成数或把未见预警解释为已证明没有预警。
+
 ## Task 7：k保护、独立服务快照与来源追溯
 
 **Files:** Create `lib/psp/{protection,snapshot}.ts`、`app/api/psp/projects/[projectId]/snapshots/route.ts`、`app/api/psp/snapshots/[snapshotId]/metrics/[metricKey]/sources/route.ts`、`components/psp/MetricEvidence.tsx`；Test `tests/unit/psp-protection.test.ts`、`psp-snapshot.test.ts`。
 
 **Interfaces:** `protectMetric(metric: Metric, k=5): ProtectedMetric`只做单项检查；`protectMetricGroups(metrics: Metric[], relations: MetricRelation[], k=5): ProtectedMetric[]`用于所有外部输出；`MetricRelation = { totalKey: string; componentKeys: string[] }`声明可由合计反推的关系。`freezePspSnapshot(projectId, window, meta): CommandResult<PspServiceSnapshot>`；`getMetricEvidence(snapshotId, metricKey)`仅内部使用。快照保存必要服务来源值及版本，不复制整个临床病历/store。
 
-- [ ] 先测sampleN4 suppressed、sampleN5可用、1/14完成整项suppressed、0/14可用、0/0 no_applicable、时长2件suppressed、细分类别小格整表抑制。
+- [ ] 先测 `unknown` 不输出精确值且不能伪装为0/0；再测sampleN4 suppressed、sampleN5可用、1/14完成整项suppressed、0/14可用、已知0/0 no_applicable、时长2件suppressed、细分类别小格整表抑制。
 - [ ] 同族多个敏感结果使用一致保护：完成1被抑制时按时0也不单独返回精确同族n/分母；多个比例、样本数、表格、解释句及导出共用组结果，不能从旁边另一指标读到本来隐藏的适用规模。
-- [ ] 保护原则执行顺序：无适用→样本<k→任一互补非零格<k→细分表整体检查→允许字段投影。suppressed对象没有精确n/分子/分母/value/时长/sourceRefs键，不能仅置null并把精确值藏在其它字段。
+- [ ] 保护原则先处理 `unknown`，不外发精确值或推定零；对可判定结果再按无适用→样本<k→任一互补非零格<k→细分表整体检查→允许字段投影。suppressed对象没有精确n/分子/分母/value/时长/sourceRefs键，不能仅置null并把精确值藏在其它字段。
 - [ ] 任何被抑制component使能反推它的total整项抑制，递归传播到上级合计；细分表与相关合计同一组处理。独立测试“PRO1+contact9+education9=总19”时PRO及总项均不外发，报告文字、图表和下载也不写19/42。首版服务总项只有contact+education，但组保护不能靠当前UI偶然未显示总项来成立。
 - [ ] 固定窗口/config/账版本/历史授权/计划/结果/教育/自报副本/算法psp-metrics-v1/保护psp-k5-v1；同一次冻结使用同一个暂存状态，不分多个GET拼接。
 - [ ] 内部显示精确数与来源；外部只能用快照的protected投影。冻结后修改现场源值不改变快照，hydrate后也不可变。
@@ -393,7 +403,7 @@ PM交付使用既有内部`POST /api/psp/reports/[reportVersionId]/actions`的`a
 - [ ] 内部列表展示阶段窗口、snapshot、revision、status、两类签署、gate；操作随合法状态给出下一步，disabled有明确理由。
 - [ ] 工作台可冻结→草稿→提交→医学退回→修订→双签→交付；药企页能看已交付版、反馈/验收和固定文本下载。时间线不出现患者身份。
 - [ ] 患者计划/消息可回到同一assignment；医生详情能核对同一PRO/alert/service引用；研究入口保留为独立支线。
-- [ ] S1–S11浏览器脚本真实填表和点击，不用测试直接注入report approved；页面报错、冲突后刷新、empty/suppressed/no_applicable都有文字。
+- [ ] S1–S11浏览器脚本真实填表和点击，不用测试直接注入report approved；页面报错、冲突后刷新、empty/suppressed/no_applicable/unknown都有文字。
 - [ ] Run `npx playwright test tests/e2e/psp-story.spec.ts tests/e2e/psp-ux.spec.ts`（固定时钟且独立本地服务）；按8种宽度检查页面横向溢出/按钮/签署/来源区域，保存截图与trace。
 
 ## Task 12：Workers恢复/冲突与原功能完整回归
@@ -433,6 +443,6 @@ PM交付使用既有内部`POST /api/psp/reports/[reportVersionId]/actions`的`a
 
 ## 6 当前交接状态
 
-Task 0–4 已实现并有分阶段记录；最新 Task 5 的项目今日自报/显式修订副本、CM 显式历史导入、联系补录 CM 提议/DR 核验及只读 GET 已实现，独立复审与对应最终全量验收通过。Task 6–12 尚未执行。获得后续用户授权后，从 Task 6 指标计算与历史区间规则继续，不重复已实现流程，不直接跳到报告 UI。
+Task 0–6 已实现并有分阶段验收记录。Task 6 的唯一纯计算指标、历史资格与可选证据扩展已通过完整门禁及独立复审；本计划 Task 6 checkbox 已勾选。Task 7–12 尚未实施。下一步为 Task 7 的保护与冻结快照。药企页面目前不显示 Task 6 的精确月报指标。
 
 商业输入仍沿用虚构参数：真实采购/验收部门、SOW、专家内容、服务覆盖时段和授权文本没有被本计划认定已确认。它们不阻碍合成演示实施，但不能替换标签或用作实际项目承诺。

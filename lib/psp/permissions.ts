@@ -44,7 +44,7 @@ function assignFixedPlans(s:PspState,enrollmentId:string,at:string) {
       if(Date.parse(dueAt)<Date.parse(at)||Date.parse(dueAt)>Date.parse(s.project.endsAt)) continue;
       const id=`${s.project.id}:${enrollmentId}:${template.key}:2026-${month}`;
       if(!s.assignments.some(a=>a.id===id)) {
-        const assignment:PspAssignment={id,projectId:s.project.id,enrollmentId,kind:template.kind,title:template.title,assignedAt:at,dueAt,ownerRole:template.ownerRole,status:'open',version:1,firstValidSubmittedAt:null,latestValidResponseId:null,source:'psp-v1'};
+        const assignment:PspAssignment={id,projectId:s.project.id,enrollmentId,kind:template.kind,title:template.title,assignedAt:at,assignedRecordedAt:at,assignedSequence:++s.ledgerRevision,dueAt,ownerRole:template.ownerRole,status:'open',version:1,firstValidSubmittedAt:null,latestValidResponseId:null,source:'psp-v1'};
         s.assignments.push(assignment);
       }
       break;
@@ -66,11 +66,11 @@ export function recordEnrollmentState(enrollmentId:string,rawAction:EnrollmentAc
     if(action.state==='active') {
       if(!permissionAt(s.psp,enrollmentId,'service',at)||!e.eligibilityConfirmed) throw new PspError(403,'consent_required','激活前须完成服务授权和医生适用性确认');
       if(Date.parse(at)<Date.parse(s.psp.project.startsAt)||Date.parse(at)>Date.parse(s.psp.project.endsAt)) throw new PspError(409,'outside_project','当前不在项目服务期内');
-      if(e.status==='invited') assignFixedPlans(s.psp,enrollmentId,at);
     }
     e.status=action.state;
     const sequence=++s.psp.ledgerRevision;
     s.psp.membershipEvents.push({id:`membership:${sequence}`,enrollmentId,status:action.state,reason:action.reason,occurredAt:at,recordedAt:at,actorId:m.actorId,sequence});
+    if(action.state==='active'&&s.psp.membershipEvents.filter(event=>event.enrollmentId===enrollmentId&&event.status==='active').length===1) assignFixedPlans(s.psp,enrollmentId,at);
     return {enrollmentId};
   });
 }

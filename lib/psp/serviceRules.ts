@@ -14,6 +14,6 @@ export function requireService(s:DemoStore,enrollmentId:string,at:string):void {
 export function addContactPlan(s:DemoStore,enrollmentId:string,id:string,title:string,at:string,dueAt:string) {
  if(Date.parse(dueAt)<=Date.parse(at)||Date.parse(dueAt)>Date.parse(s.psp.project.endsAt))throw new PspError(409,'invalid_followup','跟进时间须为项目期内未来时间');
  if(s.psp.assignments.some(a=>a.id===id))throw new PspError(409,'invalid_followup','跟进计划已存在');
- s.psp.assignments.push({id,projectId:s.psp.project.id,enrollmentId,kind:'contact',title,assignedAt:at,dueAt,ownerRole:'case_manager',status:'open',version:1,firstValidSubmittedAt:null,latestValidResponseId:null,source:'psp-v1'});
+ s.psp.assignments.push({id,projectId:s.psp.project.id,enrollmentId,kind:'contact',title,assignedAt:at,assignedRecordedAt:at,assignedSequence:++s.psp.ledgerRevision,dueAt,ownerRole:'case_manager',status:'open',version:1,firstValidSubmittedAt:null,latestValidResponseId:null,source:'psp-v1'});
  return id;
 }
