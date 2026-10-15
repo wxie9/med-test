@@ -20,7 +20,8 @@ it('routes return/revise and enforces distinct ledger CAS',async()=>{
 });
 it('rejects malformed unions/JSON/query and wrong actor/seed/state without mutations',async()=>{
  const r=setup(),before=getStore().psp.ledgerRevision;
- for(const body of [{action:'deliver',meta:meta('x',1)},{action:'submit',status:'approved',meta:meta('x',1)},{action:'review',kind:'data',decision:'return',reason:'  ',meta:meta('x',1,'data')},{action:'review',kind:'data',decision:'approve',reason:'extra',meta:meta('x',1,'data')},{action:'revise',nextActions:[],parentVersionId:'fake',meta:meta('x',before)}]){const response=await call(r.id,body);expect(response.status).toBe(400);expect(response.headers.get('Cache-Control')).toBe('no-store');}
+ for(const body of [{action:'submit',status:'approved',meta:meta('x',1)},{action:'review',kind:'data',decision:'return',reason:'  ',meta:meta('x',1,'data')},{action:'review',kind:'data',decision:'approve',reason:'extra',meta:meta('x',1,'data')},{action:'revise',nextActions:[],parentVersionId:'fake',meta:meta('x',before)}]){const response=await call(r.id,body);expect(response.status).toBe(400);expect(response.headers.get('Cache-Control')).toBe('no-store');}
+ expect((await call(r.id,{action:'deliver',meta:meta('deliver-draft',1)})).status).toBe(409);
  expect((await call(r.id,{action:'submit',meta:meta('x',1)},'?x=1')).status).toBe(400);
  expect((await call(r.id,{action:'submit',meta:meta('x',1,'data')})).status).toBe(403);
  expect((await call(r.id,{action:'submit',meta:{...meta('x',1),seedVersion:getStore().seedVersion+1}})).status).toBe(409);

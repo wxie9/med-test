@@ -1,5 +1,6 @@
 import type {PspState,PspPermissionEvent} from './types';
 import type {PspServiceSnapshot,SnapshotSource} from './snapshotTypes';
+import {resolveAggregateGrantProjection} from './aggregateGrantProjection';
 export type SnapshotAggregateUsability={usable:boolean;reason:string|null};
 const unusable:SnapshotAggregateUsability={usable:false,reason:'快照汇总来源的授权已不可用于新草稿，请选择授权可用的新快照或统计范围'};
 const epoch=(value:unknown)=>Date.parse(String(value));
@@ -7,8 +8,9 @@ const epoch=(value:unknown)=>Date.parse(String(value));
 export function snapshotAggregateUsability(snapshot:PspServiceSnapshot,state:PspState,now:string):SnapshotAggregateUsability {
  if(snapshot.projectId!==state.project.id||snapshot.sourceLedgerRevision>state.ledgerRevision)return unusable;
  const byRef=new Map(snapshot.sources.map(s=>[s.ref,s])),revision=snapshot.sourceLedgerRevision,cutoff=epoch(snapshot.window.cutoffAt);
+ const selected=snapshot.aggregateAuthorizationPolicy==='current_grants_v1'?new Set(resolveAggregateGrantProjection(state,{asOf:snapshot.createdAt,maxSequence:revision}).permissionEvents.filter(e=>e.scope==='aggregate'&&e.action==='grant').map(e=>e.id)):null;
  const used=new Map<string,PspPermissionEvent>();let missing=false;
- const history=(id:string)=>snapshot.sources.filter(s=>(s.kind==='permission'||s.kind==='membership')&&s.value.enrollmentId===id);
+ const history=(id:string)=>snapshot.sources.filter(s=>(s.kind==='permission'||s.kind==='membership')&&s.value.enrollmentId===id&&(!selected||s.kind!=='permission'||s.value.scope!=='aggregate'||s.value.action!=='grant'||selected.has(s.ref)));
  const latest=(id:string,kind:'permission'|'membership',at:number,sequence:number,scope?:string,visible?:SnapshotSource[]) =>(visible??history(id)).filter(s=>s.kind===kind&&(scope===undefined||s.value.scope===scope)&&Number(s.value.sequence)<=sequence&&epoch(s.value.occurredAt)<=at&&epoch(s.value.recordedAt)<=at).sort((a,b)=>epoch(b.value.occurredAt)-epoch(a.value.occurredAt)||Number(b.value.sequence)-Number(a.value.sequence))[0]?.value;
  const qualified=(id:string,at:number,sequence:number,visible?:SnapshotSource[])=>latest(id,'membership',at,sequence,undefined,visible)?.status==='active'&&latest(id,'permission',at,sequence,'service',visible)?.action==='grant'&&latest(id,'permission',at,sequence,'aggregate',visible)?.action==='grant';
  const recordGrant=(id:string,at:number,sequence=revision,requireService=true,visible?:SnapshotSource[])=>{

@@ -42,23 +42,26 @@ it('supports a new window entirely after regrant, despite earlier revoked suppor
 it('blocks a withdrawn due denominator even when its questionnaire completion is zero',()=>{
  const s=freeze();expect(s.aggregateMetrics.find(m=>m.key==='questionnaire_completion')).toMatchObject({numerator:0,denominator:14});permission('withdraw');expect(usable(family(s,'questionnaire_completion'))).toBe(false);
 });
-it('uses early historical_result exact same-clock sequence rather than current regrant',()=>{
+it('excludes an early withdrawn interval at freeze and permits a new draft after regrant',()=>{
  process.env.DEMO_FIXED_NOW='2026-10-02T02:00:00.000Z';const a=getStore().psp.assignments.find(a=>a.id===`${projectId}:ENR-01:CONTACT:2026-10`)!;
  const result=recordInteraction({enrollmentId:a.enrollmentId,assignmentId:a.id,channel:'phone',outcome:'reached',alertIds:[]},meta('call',{role:'case_manager',actorId:'case-manager-chen',expectedVersion:a.version})).data;
- permission('withdraw');const s=freeze();expect(family(s,'contact_early_completed').evidence[0].cohortQualifications.find(q=>q.ref===a.id)).toEqual({ref:a.id,basis:'historical_result',sourceRef:result.id});
- permission('grant');expect(usable(family(s,'contact_early_completed'))).toBe(false);expect(()=>createReportDraft(s.id,{nextActions:[]},meta('blocked'))).toThrow();
+ permission('withdraw');const s=freeze();expect(family(s,'contact_early_completed').evidence[0].cohortQualifications.find(q=>q.ref===a.id)).toBeUndefined();
+ expect(s.internalMetrics.find(m=>m.key==='contact_early_completed')!.sourceRefs).toContain(result.id);
+ permission('grant');expect(usable(family(s,'contact_early_completed'))).toBe(true);expect(createReportDraft(s.id,{nextActions:[]},meta('new-draft')).data.status).toBe('draft');
 });
-it.each([false,true])('preserves unknown legacy-gap witness, with withdrawal=%s',(withdraw)=>{
+it.each([false,true])('preserves internal legacy uncertainty and excludes a terminated aggregate interval, withdrawal=%s',(withdraw)=>{
  process.env.DEMO_FIXED_NOW='2026-10-02T02:00:00.000Z';const assignmentId=`${projectId}:ENR-01:PRO:2026-10`;
  submitProjectPro({assignmentId,patientId:'P-A',scaleId:'endocrine_monthly_v1',items:Object.fromEntries(SCALE_SYMPTOMS.endocrine_monthly_v1.map(s=>[s,1])),flags:{stopIntent:false}},meta('pro',{role:'patient',actorId:'P-A',expectedVersion:1}));
  if(withdraw)permission('withdraw');const old=structuredClone(getStore());delete old.psp.questionnaireEvidence;installPspTestStore(old);const s=freeze();
- expect(s.aggregateMetrics.find(m=>m.key==='questionnaire_early_completed')?.status).toBe('unknown');expect(family(s,'questionnaire_early_completed').evidence[0].cohortQualifications.some(q=>q.basis===(withdraw?'legacy_gap':'cutoff_grant'))).toBe(true);
- expect(usable(family(s,'questionnaire_early_completed'))).toBe(!withdraw);if(!withdraw)expect(createReportDraft(s.id,{nextActions:[]},meta('unknown')).data.content.chapters.flatMap(c=>c.facts).some(f=>f.status==='unknown')).toBe(true);
+ expect(s.internalMetrics.find(m=>m.key==='questionnaire_early_completed')?.status).toBe('unknown');
+ expect(s.aggregateMetrics.find(m=>m.key==='questionnaire_early_completed')).toMatchObject({status:withdraw?'available':'unknown',sampleN:withdraw?13:null});
+ expect(family(s,'questionnaire_early_completed').evidence[0].cohortRefs.includes(assignmentId)).toBe(!withdraw);
+ expect(usable(family(s,'questionnaire_early_completed'))).toBe(true);if(!withdraw)expect(createReportDraft(s.id,{nextActions:[]},meta('unknown')).data.content.chapters.flatMap(c=>c.facts).some(f=>f.status==='unknown')).toBe(true);
 });
 it('date-only self-report checks the historical Shanghai day, not a later import grant',()=>{
  process.env.DEMO_FIXED_NOW='2026-10-05T02:00:00.000Z';permission('withdraw');permission('grant');process.env.DEMO_FIXED_NOW=PSP_TEST_NOW;
  const e=getStore().psp.enrollments.find(e=>e.id==='ENR-01')!;importLegacySelfReports(e.id,meta('import',{role:'case_manager',actorId:'case-manager-chen',expectedVersion:e.version}));const s=freeze();
- const roots=family(s,'self_report_ratio').evidence[0].sourceRefs.map(ref=>s.sources.find(source=>source.ref===ref)!).filter(s=>s.kind==='selfReport');expect(roots.some(s=>s.value.precision==='date_only'&&String(s.value.logDate)<'2026-10-05')).toBe(true);expect(usable(family(s,'self_report_ratio'))).toBe(false);
+ const roots=family(s,'self_report_ratio').evidence[0].sourceRefs.map(ref=>s.sources.find(source=>source.ref===ref)!).filter(s=>s.kind==='selfReport');expect(roots.some(s=>s.value.precision==='date_only'&&String(s.value.logDate)<='2026-10-05')).toBe(false);expect(roots.some(s=>s.value.precision==='date_only'&&String(s.value.logDate)>'2026-10-05')).toBe(true);expect(usable(family(s,'self_report_ratio'))).toBe(true);
 });
 it('midnight withdrawal/regrant belongs to the new date-only interval without poisoning its support',()=>{
  process.env.DEMO_FIXED_NOW='2026-10-04T16:00:00.000Z';permission('withdraw');permission('grant');process.env.DEMO_FIXED_NOW=PSP_TEST_NOW;
@@ -68,7 +71,7 @@ it('midnight withdrawal/regrant belongs to the new date-only interval without po
 it('instant self-report revision only uses selected new grant; old revision is support',()=>{
  const e=getStore().psp.enrollments.find(e=>e.id==='ENR-01')!;const first=submitProjectAdherence({enrollmentId:e.id,due:1,taken:0},meta('first',{role:'patient',actorId:e.patientId,expectedVersion:e.version})).data;
  permission('withdraw');permission('grant');submitProjectAdherence({enrollmentId:e.id,due:1,taken:1,revisionOf:first.sourceId},meta('revised',{role:'patient',actorId:e.patientId,expectedVersion:getStore().psp.enrollments.find(x=>x.id===e.id)!.version}));const s=freeze();
- expect(family(s,'self_report_ratio').evidence[0].sourceRefs).not.toContain(first.sourceId);expect(family(s,'self_report_ratio').evidence[0].supportingRefs).toContain(first.sourceId);expect(usable(family(s,'self_report_ratio'))).toBe(true);expect(usable(s)).toBe(false);
+ expect(family(s,'self_report_ratio').evidence[0].sourceRefs).not.toContain(first.sourceId);expect(family(s,'self_report_ratio').evidence[0].supportingRefs).toContain(first.sourceId);expect(usable(family(s,'self_report_ratio'))).toBe(true);expect(usable(s)).toBe(true);
 });
 it('ignores future withdrawals until both occurrence and recording are visible',()=>{
  const s=freeze();process.env.DEMO_FIXED_NOW='2026-10-14T02:00:00.000Z';permission('withdraw');process.env.DEMO_FIXED_NOW=PSP_TEST_NOW;expect(usable(s)).toBe(true);process.env.DEMO_FIXED_NOW='2026-10-14T02:00:00.000Z';expect(usable(s)).toBe(false);
@@ -82,7 +85,7 @@ it('effective correction uses its fact sequence; original contact is only suppor
  process.env.DEMO_FIXED_NOW='2026-10-02T02:00:00.000Z';const a=getStore().psp.assignments.find(a=>a.id===`${projectId}:ENR-01:CONTACT:2026-10`)!;
  const call=recordInteraction({enrollmentId:a.enrollmentId,assignmentId:a.id,channel:'phone',outcome:'no_answer',alertIds:[]},meta('call',{role:'case_manager',actorId:'case-manager-chen',expectedVersion:a.version})).data;
  permission('withdraw');permission('grant');const correction=proposeCorrection({sourceRef:{kind:'contact',id:call.id},correctedValue:{kind:'contact',channel:'phone',outcome:'reached'},reason:'核验结果',occurredAt:process.env.DEMO_FIXED_NOW!},meta('correction',{role:'case_manager',actorId:'case-manager-chen',expectedVersion:getStore().psp.enrollments.find(e=>e.id===a.enrollmentId)!.version})).data;
- verifyCorrection(correction.id,meta('verify',{role:'data_reviewer',actorId:'data-reviewer-psp',expectedVersion:correction.version}));const s=freeze();expect(family(s,'interaction_successes').evidence[0].sourceRefs).toEqual(expect.arrayContaining([call.id,correction.id]));expect(usable(family(s,'interaction_successes'))).toBe(true);expect(usable(s)).toBe(false);
+ verifyCorrection(correction.id,meta('verify',{role:'data_reviewer',actorId:'data-reviewer-psp',expectedVersion:correction.version}));const s=freeze();expect(family(s,'interaction_successes').evidence[0].sourceRefs).toEqual(expect.arrayContaining([call.id,correction.id]));expect(usable(family(s,'interaction_successes'))).toBe(true);expect(usable(s)).toBe(true);
 });
 it('alert denominator cohort is checked even when the numerator has no direct source',()=>{
  submitProjectPro({assignmentId:`${projectId}:ENR-01:PRO:2026-10`,patientId:'P-A',scaleId:'endocrine_monthly_v1',items:Object.fromEntries(SCALE_SYMPTOMS.endocrine_monthly_v1.map((s,i)=>[s,i===0?3:1])),flags:{stopIntent:true,missedDoses14d:4}},meta('pro',{role:'patient',actorId:'P-A',expectedVersion:1}));const s=freeze(),e=family(s,'alert_due_uncontacted').evidence[0];expect(e.sourceRefs).toEqual([]);expect(e.cohortRefs.length).toBeGreaterThan(0);permission('withdraw');expect(usable(family(s,'alert_due_uncontacted'))).toBe(false);

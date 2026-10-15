@@ -24,7 +24,7 @@ function assertParent(snapshotId:string,parentVersionId?:string){
  if(parentVersionId&&!parent)throw new PspError(404,'not_found','父报告版本不存在');
  if(parent&&(parent.batchId!==batchId||parent.seedVersion!==snapshot.seedVersion||parent.projectId!==snapshot.projectId))throw new PspError(400,'invalid_input','修订须属于相同项目、演示版本与报告期间');
  const latest=current.psp.reportVersions?.filter(r=>r.batchId===batchId).sort((a,b)=>b.revision-a.revision)[0];
- if(latest?.id!==parent?.id||parent&&!['draft','changes_requested'].includes(parent.status))throw new PspError(409,'stale_parent','报告批次已更新，请选择最新可修订版本');
+ if(latest?.id!==parent?.id||parent&&!['draft','changes_requested','client_changes_requested'].includes(parent.status)&&!(['approved','delivered','accepted'].includes(parent.status)&&!snapshotAggregateUsability(current.psp.snapshots!.find(s=>s.id===parent.snapshotId)!,current.psp,now()).usable))throw new PspError(409,'stale_parent','报告批次已更新，请选择最新可修订版本');
  return {parent,batchId};
 }
 export function getReportCreateGate(snapshotId:string,role:string|null,actorId:string|null,seedVersion:number,parentVersionId?:string):ReportCreateGate{

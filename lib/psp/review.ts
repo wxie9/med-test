@@ -1,3 +1,4 @@
+import {getReportDeliveryGate} from './delivery';
 import {randomUUID} from 'node:crypto';
 import {getStore,replaceStore} from '@/lib/state/store';
 import {hydrateImmutableState} from '@/lib/state/persistence';
@@ -27,7 +28,8 @@ export function getReportActionGates(id:string,role:string|null,actorId:string|n
  const reviewReason=!reviewKind?'仅数据或医学审核人可审核':!latest?'请操作批次最新报告版本':report.status!=='in_review'?'仅审核中的报告可签署或退回':null;
  const duplicate=reviewKind==='data'?!!workflow.dataReview:reviewKind==='medical'?!!workflow.medicalReview:false;
  const create=getReportCreateGate(report.snapshotId,role,actorId,seedVersion,report.id);
- return {canSubmit:submitReason===null,canApprove:reviewReason===null&&!duplicate,canReturn:reviewReason===null,canRevise:create.canCreate,reviewKind,submitReason,reviewReason:reviewReason??(duplicate?'本角色已签署，可由另一审核人继续审核或退回修订':null),reviseReason:create.reason};
+ const delivery=getReportDeliveryGate(id,role,actorId,seedVersion);
+ return {canDeliver:delivery.canDeliver,deliverReason:delivery.reason,canSubmit:submitReason===null,canApprove:reviewReason===null&&!duplicate,canReturn:reviewReason===null,canRevise:create.canCreate,reviewKind,submitReason,reviewReason:reviewReason??(duplicate?'本角色已签署，可由另一审核人继续审核或退回修订':null),reviseReason:create.reason};
 }
 function run(id:string,input:{action:'submit'}|({action:'review'}&ReportReviewInput),rawMeta:Meta):CommandResult<PspReportVersion>{
  const meta=CommandMeta.parse(rawMeta),{current,report}=target(id,meta.seedVersion);

@@ -232,27 +232,28 @@ it('rejects a rehashed aggregate early cohort swapped for a real service-only me
  expect(await encodeDemoStore(altered).then(()=>false,()=>true)).toBe(true);
 });
 
-it('retains an aggregate early plan through its real result before same-clock authorization withdrawal',async()=>{
+it('excludes an early old-interval aggregate result after same-clock withdrawal and retains internal evidence',async()=>{
  process.env.DEMO_FIXED_NOW='2026-10-02T02:00:00.000Z';
  const assignment=getStore().psp.assignments.find(a=>a.id===`${projectId}:ENR-01:CONTACT:2026-10`)!;
  const result=recordInteraction({enrollmentId:'ENR-01',assignmentId:assignment.id,channel:'phone',outcome:'reached',alertIds:[]},{seedVersion:getStore().seedVersion,expectedVersion:assignment.version,clientRequestId:'result-before-withdraw',role:'case_manager',actorId:'case-manager-chen'}).data;
  recordPermission('ENR-01','aggregate','withdraw',{seedVersion:getStore().seedVersion,expectedVersion:1,clientRequestId:'withdraw-after-result',role:'patient',actorId:'P-A'});
  const snap=freezePspSnapshot(projectId,{...window,cutoffAt:'2026-10-02T10:00:00+08:00'},meta('historical-result-freeze')).data;
  const evidence=getMetricEvidence(snap.id,'contact_early_completed','aggregate','project_manager','project-manager-psp',getStore().seedVersion);
- expect(evidence.cohortRefs).toContain(assignment.id);
- expect(evidence.cohortQualifications.find(q=>q.ref===assignment.id)).toEqual({ref:assignment.id,basis:'historical_result',sourceRef:result.id});
- expect(evidence.sources.map(s=>s.ref)).toContain(result.id);
+ expect(evidence.cohortRefs).not.toContain(assignment.id);
+ expect(evidence.cohortQualifications.find(q=>q.ref===assignment.id)).toBeUndefined();
+ expect(evidence.metric).toMatchObject({sampleN:13,value:0});
+ const internal=getMetricEvidence(snap.id,'contact_early_completed','internal','project_manager','project-manager-psp',getStore().seedVersion);
+ expect(internal.cohortRefs).toContain(assignment.id);expect(internal.sourceRefs).toContain(result.id);
  const restored=await decodeDemoStore(await encodeDemoStore(getStore()));
  expect(restored.psp.snapshots![0].contentDigest).toBe(snap.contentDigest);
  const wrongType=structuredClone(getStore()),copy=wrongType.psp.snapshots![0];
- const witness=copy.evidence.find(e=>e.scope==='aggregate'&&e.metricKey==='contact_early_completed')!.cohortQualifications.find(q=>q.ref===assignment.id)!;
- if(witness.basis!=='historical_result')throw new Error('Historical result qualification expected');
- witness.sourceRef=assignment.id;
+ const witness=copy.evidence.find(e=>e.scope==='aggregate'&&e.metricKey==='contact_early_completed')!.cohortQualifications[0];
+ Object.assign(witness,{basis:'historical_result',sourceRef:assignment.id});
  const {contentDigest,...body}=copy;void contentDigest;copy.contentDigest=snapshotDigest(body);
  expect(await encodeDemoStore(wrongType).then(()=>false,()=>true)).toBe(true);
 });
 
-it('accepts verified reached correction as historical aggregate result before same-clock withdrawal',async()=>{
+it('excludes old-interval verified correction from a new aggregate freeze while retaining the internal correction',async()=>{
  process.env.DEMO_FIXED_NOW='2026-10-02T02:00:00.000Z';
  const assignment=getStore().psp.assignments.find(a=>a.id===`${projectId}:ENR-01:CONTACT:2026-10`)!;
  const call=recordInteraction({enrollmentId:'ENR-01',assignmentId:assignment.id,channel:'phone',outcome:'no_answer',alertIds:[]},{seedVersion:getStore().seedVersion,expectedVersion:assignment.version,clientRequestId:'corrected-call',role:'case_manager',actorId:'case-manager-chen'}).data;
@@ -261,13 +262,15 @@ it('accepts verified reached correction as historical aggregate result before sa
  recordPermission('ENR-01','aggregate','withdraw',{seedVersion:getStore().seedVersion,expectedVersion:getStore().psp.enrollments.find(e=>e.id==='ENR-01')!.version,clientRequestId:'corrected-withdraw',role:'patient',actorId:'P-A'});
  const snap=freezePspSnapshot(projectId,{...window,cutoffAt:'2026-10-02T10:00:00+08:00'},meta('corrected-history-freeze')).data;
  const evidence=getMetricEvidence(snap.id,'contact_early_completed','aggregate','project_manager','project-manager-psp',getStore().seedVersion);
- expect(evidence.cohortQualifications.find(q=>q.ref===assignment.id)).toEqual({ref:assignment.id,basis:'historical_result',sourceRef:correction.id});
- expect(evidence.sources.map(s=>s.ref)).toEqual(expect.arrayContaining([correction.id,call.id]));
+ expect(evidence.cohortQualifications.find(q=>q.ref===assignment.id)).toBeUndefined();
+ expect(evidence.metric).toMatchObject({sampleN:13,value:0});
+ const internal=getMetricEvidence(snap.id,'contact_early_completed','internal','project_manager','project-manager-psp',getStore().seedVersion);
+ expect(internal.sources.map(s=>s.ref)).toEqual(expect.arrayContaining([correction.id,call.id]));
  const restored=await decodeDemoStore(await encodeDemoStore(getStore()));
  expect(restored.psp.snapshots![0].contentDigest).toBe(snap.contentDigest);
 });
 
-it('preserves an aggregate early legacy questionnaire gap as unknown after authorization withdrawal',async()=>{
+it('excludes a withdrawn old-interval aggregate legacy gap and preserves internal uncertainty',async()=>{
  process.env.DEMO_FIXED_NOW='2026-10-02T02:00:00.000Z';
  const assignmentId=`${projectId}:ENR-01:PRO:2026-10`;
  submitProjectPro({assignmentId,patientId:'P-A',scaleId:'endocrine_monthly_v1',items:Object.fromEntries(SCALE_SYMPTOMS.endocrine_monthly_v1.map(symptom=>[symptom,1])),flags:{stopIntent:false}},{seedVersion:getStore().seedVersion,expectedVersion:1,clientRequestId:'legacy-first-response',role:'patient',actorId:'P-A'});
@@ -277,10 +280,11 @@ it('preserves an aggregate early legacy questionnaire gap as unknown after autho
  installPspTestStore(legacy);
  const snap=freezePspSnapshot(projectId,{...window,cutoffAt:'2026-10-02T10:00:00+08:00'},meta('legacy-gap-freeze')).data;
  const evidence=getMetricEvidence(snap.id,'questionnaire_early_completed','aggregate','project_manager','project-manager-psp',getStore().seedVersion);
- expect(evidence.metric.status).toBe('unknown');
- expect(evidence.cohortRefs).toContain(assignment.id);
- expect(evidence.cohortQualifications.find(q=>q.ref===assignment.id)).toMatchObject({ref:assignment.id,basis:'legacy_gap',firstValidSubmittedAt:assignment.firstValidSubmittedAt});
- expect(evidence.sources.find(s=>s.ref===assignment.id)?.value).toMatchObject({legacyFirstValidSubmittedAt:assignment.firstValidSubmittedAt,legacyEvidenceGap:true});
+ expect(evidence.metric).toMatchObject({status:'available',sampleN:13,value:0});
+ expect(evidence.cohortRefs).not.toContain(assignment.id);
+ expect(evidence.cohortQualifications.find(q=>q.ref===assignment.id)).toBeUndefined();
+ const internal=getMetricEvidence(snap.id,'questionnaire_early_completed','internal','project_manager','project-manager-psp',getStore().seedVersion);
+ expect(internal.metric.status).toBe('unknown');expect(internal.cohortRefs).toContain(assignment.id);
  await decodeDemoStore(await encodeDemoStore(getStore()));
 });
 

@@ -4,6 +4,7 @@ import {PspQuestionnaireEvidence,PspAssignmentCancellation} from './metricEviden
 import {PspServiceSnapshotSchema} from './snapshotTypes';
 import {validatePspSnapshots} from './snapshotValidation';
 import {ReportActionEventSchema} from './reviewTypes';
+import {DeliveryArtifactSchema} from './deliveryTypes';
 import {PspReportVersionSchema} from './reportTypes';
 import {validatePspReports} from './reportValidation';
 export {PspQuestionnaireEvidence,PspAssignmentCancellation} from './metricEvidenceTypes';
@@ -30,7 +31,7 @@ export const PspEducationEvent = z.object({...event,projectId:id,assignmentId:id
 export type PspAlertActionEvent = z.infer<typeof PspAlertActionEvent>;
 export type PspEducationEvent = z.infer<typeof PspEducationEvent>;
 export const CommandReceipt = z.object({id,scopeKey:id,bodyDigest:id,result:z.unknown(),objectVersion:version,ledgerRevision:z.number().int().nonnegative()}).strict();
-export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt),alertActions:z.array(PspAlertActionEvent).optional(),educationEvents:z.array(PspEducationEvent).optional(),selfReportRevisions:z.array(PspSelfReportRevision).optional(),corrections:z.array(PspCorrection).optional(),questionnaireEvidence:z.array(PspQuestionnaireEvidence).optional(),assignmentCancellations:z.array(PspAssignmentCancellation).optional(),snapshots:z.array(PspServiceSnapshotSchema).optional(),reportVersions:z.array(PspReportVersionSchema).optional(),reportActions:z.array(ReportActionEventSchema).optional()}).strict();
+export const PspState = z.object({fixtureVersion:id,checksum:z.string().regex(/^[a-f0-9]{64}$/),ledgerRevision:z.number().int().nonnegative(),authorizationVersion:version,project:PspProject,enrollments:z.array(PspEnrollment),membershipEvents:z.array(PspMembershipEvent),permissionEvents:z.array(PspPermissionEvent),assignments:z.array(PspAssignment),serviceEvents:z.array(PspServiceEvent),educationContents:z.array(EducationContentVersion),educationResults:z.array(EducationAssignmentResult),commandReceipts:z.array(CommandReceipt),alertActions:z.array(PspAlertActionEvent).optional(),educationEvents:z.array(PspEducationEvent).optional(),selfReportRevisions:z.array(PspSelfReportRevision).optional(),corrections:z.array(PspCorrection).optional(),questionnaireEvidence:z.array(PspQuestionnaireEvidence).optional(),assignmentCancellations:z.array(PspAssignmentCancellation).optional(),snapshots:z.array(PspServiceSnapshotSchema).optional(),reportVersions:z.array(PspReportVersionSchema).optional(),reportActions:z.array(ReportActionEventSchema).optional(),deliveryArtifacts:z.array(DeliveryArtifactSchema).optional()}).strict();
 export type PspProject = z.infer<typeof PspProject>;
 export type PspEnrollment = z.infer<typeof PspEnrollment>;
 export type PspMembershipEvent = z.infer<typeof PspMembershipEvent>;

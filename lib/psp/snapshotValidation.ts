@@ -8,6 +8,8 @@ import {PspServiceSnapshotSchema} from './snapshotTypes';
 import type {SnapshotSourceKind} from './snapshotTypes';
 import {protectMetricGroups,PSP_PROTECTION_VERSION} from './protection';
 import {createSnapshotSourceGraph} from './snapshotSourceGraph';
+import {resolveAggregateGrantProjection} from './aggregateGrantProjection';
+import {snapshotAggregateUsability} from './snapshotAuthorization';
 const canonicalJson=(value:unknown):string=>{
  if(Array.isArray(value))return `[${value.map(canonicalJson).join(',')}]`;
  if(value!==null&&typeof value==='object')return `{${Object.entries(value).filter(([,v])=>v!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>`${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
@@ -86,11 +88,12 @@ export function validatePspSnapshots(state:PspState,seedVersion?:number):void {
   for(const source of snapshot.sources)validateSource(source,snapshot,sourceByRef);
   const graph=createSnapshotSourceGraph(snapshot.sources,{projectId:snapshot.projectId,projectStartsAt:snapshot.project.startsAt,projectEndsAt:snapshot.project.endsAt,window:snapshot.window,sourceLedgerRevision:snapshot.sourceLedgerRevision});
   graph.validateAll();
+  const selected=snapshot.aggregateAuthorizationPolicy==='current_grants_v1'?new Set(resolveAggregateGrantProjection(state,{asOf:snapshot.createdAt,maxSequence:snapshot.sourceLedgerRevision}).permissionEvents.filter(e=>e.scope==='aggregate'&&e.action==='grant').map(e=>e.id)):null;
   const cutoff=Date.parse(snapshot.window.cutoffAt),projectStart=Date.parse(snapshot.project.startsAt),projectEnd=Date.parse(snapshot.project.endsAt);
   const qualified=(id:string,at:string,revision:number,scope:'internal'|'aggregate')=>{
    const time=Date.parse(at);
    if(time<projectStart||time>projectEnd||time>cutoff||!sourceByRef.has(id))return false;
-   const latest=(kind:'membership'|'permission',permissionScope?:'service'|'aggregate')=>snapshot.sources.filter(s=>s.kind===kind&&s.value.enrollmentId===id&&(permissionScope===undefined||s.value.scope===permissionScope)&&Number(s.value.sequence)<=revision&&Date.parse(String(s.value.occurredAt))<=time&&Date.parse(String(s.value.recordedAt))<=time).sort((a,b)=>Date.parse(String(b.value.occurredAt))-Date.parse(String(a.value.occurredAt))||Number(b.value.sequence)-Number(a.value.sequence))[0]?.value;
+   const latest=(kind:'membership'|'permission',permissionScope?:'service'|'aggregate')=>snapshot.sources.filter(s=>s.kind===kind&&s.value.enrollmentId===id&&(!selected||scope==='internal'||kind!=='permission'||permissionScope!=='aggregate'||s.value.action!=='grant'||selected.has(s.ref))&&(permissionScope===undefined||s.value.scope===permissionScope)&&Number(s.value.sequence)<=revision&&Date.parse(String(s.value.occurredAt))<=time&&Date.parse(String(s.value.recordedAt))<=time).sort((a,b)=>Date.parse(String(b.value.occurredAt))-Date.parse(String(a.value.occurredAt))||Number(b.value.sequence)-Number(a.value.sequence))[0]?.value;
    return latest('membership')?.status==='active'&&latest('permission','service')?.action==='grant'&&(scope==='internal'||latest('permission','aggregate')?.action==='grant');
   };
   const assignmentKnown=(v:Record<string,unknown>)=>{
@@ -157,6 +160,7 @@ export function validatePspSnapshots(state:PspState,seedVersion?:number):void {
    }
    evidencePairs.add(key);
   }
+  if(snapshot.aggregateAuthorizationPolicy==='current_grants_v1'&&!snapshotAggregateUsability(snapshot,{...state,ledgerRevision:snapshot.sourceLedgerRevision},snapshot.createdAt).usable)throw new Error('Invalid PSP snapshot aggregate grant qualification');
   if(!same(graph.closure(snapshot.evidence.flatMap(e=>[...e.sourceRefs,...e.cohortRefs,...e.cohortQualifications.flatMap(q=>q.basis==='historical_result'?[q.sourceRef]:q.basis==='legacy_gap'&&q.firstTypedSourceRef?[q.firstTypedSourceRef]:[])])),snapshot.sources.map(s=>s.ref).sort()))throw new Error('Unreferenced PSP snapshot source');
  }
 }

@@ -51,13 +51,14 @@ it('rejects unauthorized callers/stale seed/CAS and cross-period parents',()=>{
  const r=createReportDraft(s.id,{nextActions:[]},request).data;expect(()=>readInternalReport(r.id,'patient','P-A',getStore().seedVersion)).toThrow();expect(()=>readInternalReport(r.id,'project_manager','project-manager-psp',getStore().seedVersion+1)).toThrow();
  const other=freezePspSnapshot(projectId,{...window,periodEnd:'2026-12-01T00:00:00Z'},meta('other')).data;expect(()=>createReportDraft(other.id,{parentVersionId:r.id,nextActions:[]},meta('wrong'))).toThrow();
 });
-it('blocks new drafts from withdrawn used intervals even after regrant or refreeze; retains exact receipt/history',async()=>{
+it('blocks old withdrawn intervals after regrant while new refreeze excludes them and preserves receipt/history',async()=>{
  const s=freeze(),request=meta('one'),first=createReportDraft(s.id,{nextActions:[]},request);
  const e=getStore().psp.enrollments.find(e=>e.patientId==='P-A')!;
  const permission=(id:string,action:'grant'|'withdraw')=>recordPermission(e.id,'aggregate',action,meta(id,{role:'patient',actorId:e.patientId,expectedVersion:getStore().psp.enrollments.find(x=>x.id===e.id)!.version}));
  permission('withdraw','withdraw');expect(createReportDraft(s.id,{nextActions:[]},request)).toEqual(first);
  expect(()=>createReportDraft(s.id,{parentVersionId:first.data.id,nextActions:[]},meta('new'))).toThrow();permission('regrant','grant');
- const fresh=freeze('again');expect(()=>createReportDraft(fresh.id,{parentVersionId:first.data.id,nextActions:[]},meta('still-old'))).toThrow();
+ const fresh=freeze('again');expect(createReportDraft(fresh.id,{parentVersionId:first.data.id,nextActions:[]},meta('new-scope')).data).toMatchObject({status:'draft',revision:2,parentVersionId:first.data.id});
+ expect(()=>createReportDraft(s.id,{parentVersionId:first.data.id,nextActions:[]},meta('still-old'))).toThrow();
  const restored=await decodeDemoStore(await encodeDemoStore(getStore()));expect(restored.psp.reportVersions![0]).toEqual(first.data);
 });
 it('service-only withdrawal and unrelated authorization version changes preserve historical aggregate usability',()=>{

@@ -11,7 +11,7 @@ export type DurableRequestDependencies<State,Args extends unknown[]> = {
 /** Call inside the coordinator's sequential lock. The durable value is authoritative. */
 export function createDurableRequest<State,Args extends unknown[]>(deps:DurableRequestDependencies<State,Args>):(...args:Args)=>Promise<Response>{
  let recoveryPending=false;
- const unavailable=()=>Response.json({error:recoveryPending?'Durable state recovery pending':'Demo persistence unavailable'},{status:503});
+ const unavailable=()=>Response.json({error:recoveryPending?'Durable state recovery pending':'Demo persistence unavailable'},{status:503,headers:{'Cache-Control':'no-store'}});
  const install=async(saved:Uint8Array|undefined)=>deps.setState(saved===undefined?undefined:await deps.decode(saved));
  const recover=async()=>{
   try {await install(await deps.read());recoveryPending=false;return true;}

@@ -12,7 +12,7 @@ const report={id:'R1',projectId:'PSP-1',seedVersion:1,batchId:'B1',revision:1,sn
 const summary={id:'R1',projectId:'PSP-1',batchId:'B1',revision:1,snapshotId:'S1',window,createdAt:project.cutoffAt,createdBy:'project-manager-psp',status:'draft',contentDigest:'body-digest'};
 const list={project,seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt,summaries:[summary]};
 const snapshots={project,seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt,authorizationVersion:2,summaries:[{id:'S1',projectId:'PSP-1',window,createdAt:project.cutoffAt,createdBy:'project-manager-psp',sourceLedgerRevision:11}]};
-const workflow:ReportWorkflowMetadata={status:'draft',label:'模板草稿，待人工审核',submission:null,dataReview:null,medicalReview:null,returnReview:null,missingReviews:['data','medical'],history:[],delivery:null,acceptance:null};
+const workflow:ReportWorkflowMetadata={status:'draft',label:'模板草稿，待人工审核',submission:null,dataReview:null,medicalReview:null,returnReview:null,missingReviews:['data','medical'],history:[],delivery:null,acceptance:null,clientFeedback:null};
 const detail={report,workflow,createGate:{canCreate:true,reason:null},warnings:['下一期服务安排尚未补充，待人工审核'],seedVersion:1,ledgerRevision:12,serverNow:project.cutoffAt};
 const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status});
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
