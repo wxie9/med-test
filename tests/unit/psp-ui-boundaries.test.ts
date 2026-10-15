@@ -14,7 +14,7 @@ it("pharma page and mode badge fetch only protected pharma projection and show a
  const fetcher = vi.fn((url: string) => Promise.resolve(json(url === "/api/pharma/projects" ? { projects: [], seedVersion: 1, agentMode: "deterministic" } : { project, allowedMembers: { status: "available", value: 14 }, metrics: [], reports: [], seedVersion: 1 })));
  vi.stubGlobal("fetch", fetcher); render(createElement("div", {}, createElement(ModeBadge), createElement(PharmaProjects, { projectId: project.id })));
  await waitFor(() => expect(screen.getByText("当前允许汇总人数：14 人")).toBeTruthy());
- expect(screen.getByText(/暂无报告/)).toBeTruthy(); expect(screen.getByTestId("mode-badge").textContent).toBe("本地演示模式");
+ expect(screen.getByText('本阶段尚无已交付报告。完成双审核并由项目经理交付后可在此查看。')).toBeTruthy(); expect(screen.getByTestId("mode-badge").textContent).toBe("本地演示模式");
  expect(fetcher.mock.calls.every(([url]) => url.startsWith("/api/pharma/projects"))).toBe(true);
  expect(screen.queryByText(/候选名单|当前有效服务/)).toBeNull();
 });

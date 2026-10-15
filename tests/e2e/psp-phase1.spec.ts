@@ -1,8 +1,9 @@
 import { test, expect, type APIRequestContext, type APIResponse } from "@playwright/test";
 import type { InternalProjectView, PatientProjectsView } from "@/lib/psp/views";
 import type { PharmaProjectView } from "@/lib/psp/pharmaView";
+import { AcceptanceApi } from './helpers/pspAcceptance';
 
-// Use the isolated PSP config baseURL (:3101 Next or :8787 Worker), never the original checkout server.
+// Use the isolated PSP config baseURL (:3112 Next or :8787 Worker), never the original checkout server.
 const projectId = "PSP-BC-ENDO-001";
 const deskPath = `/clinic/projects/${projectId}/services`;
 async function payload<T>(response: APIResponse): Promise<T> { expect(response.ok(), `${response.url()} -> ${response.status()}`).toBe(true); return await response.json() as T; }
@@ -15,13 +16,46 @@ test("pharma overview only requests authorized aggregate projections without ind
  const urls: string[] = []; page.on("request", req => { const pathname = new URL(req.url()).pathname; if (pathname.startsWith("/api/")) urls.push(pathname); });
  await page.goto(`/pharma/projects/${projectId}`);
  await expect(page.getByText("当前允许汇总人数：14 人")).toBeVisible();
- await expect(page.getByText(/暂无报告/)).toBeVisible(); await expect(page.getByTestId("mode-badge")).not.toHaveText("…");
+ await expect(page.getByText('本阶段尚无已交付报告。完成双审核并由项目经理交付后可在此查看。')).toBeVisible(); await expect(page.getByTestId("mode-badge")).not.toHaveText("…");
  expect(urls.length).toBeGreaterThan(0); expect(urls.every(url => url.startsWith("/api/pharma/projects"))).toBe(true);
  const dto = await payload<PharmaProjectView>(await request.get(`/api/pharma/projects/${projectId}`));
  expect(dto.metrics).toEqual([]); expect(dto.reports).toEqual([]); const serialized = JSON.stringify(dto);
  expect(serialized).not.toMatch(/patientId|displayName|enrollmentId|candidates|activeService|P-A|P-0040|ENR-/);
  await expect(page.getByText(/候选名单|当前有效服务/)).toHaveCount(0);
  await expect(page.getByRole("link", { name: "研究演示", exact: true })).toBeVisible();
+});
+
+test('pharma project scope and the exact delivered entry remain usable at four widths', async ({page, request}, info) => {
+ const api = new AcceptanceApi(request), {report} = await api.delivered();
+ const ledgerBefore = (await api.reports()).ledgerRevision;
+ const writes: string[] = [];
+ page.on('request', req => {if (req.method() === 'POST') writes.push(new URL(req.url()).pathname);});
+ for (const width of [390, 755, 1440, 1920]) {
+  await page.setViewportSize({width, height: 900});
+  await page.goto(`/pharma/projects/${projectId}`);
+  const overview = page.getByTestId('psp-pharma-project-overview');
+  await expect(overview).toBeVisible();
+  for (const name of ['本演示支持的服务内容', '周期与阶段', '本阶段交付构成', '项目报告', '当前汇总授权']) {
+   await expect(overview.getByRole('heading', {name, exact: true})).toBeVisible();
+  }
+  await expect(overview).toContainText('当前汇总授权人数不等于本版报告的统计分母');
+  const entry = overview.getByRole('link', {name: '查看本次交付 · 修订 1', exact: true});
+  await expect(entry).toHaveAttribute('href', `/pharma/projects/${projectId}/reports/${encodeURIComponent(report.id)}`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  const clipped = await overview.locator('a,button').evaluateAll(nodes => nodes.filter(node => {
+   const box = node.getBoundingClientRect();
+   return box.width > 0 && (box.left < -1 || box.right > innerWidth + 1);
+  }).map(node => node.textContent));
+  expect(clipped).toEqual([]);
+  await page.screenshot({path: info.outputPath(`project-overview-${width}.png`), fullPage: true});
+  await entry.focus();
+  await expect(entry).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(`/pharma/projects/${projectId}/reports/${encodeURIComponent(report.id)}`);
+  await expect(page.getByTestId('psp-pharma-report-content')).toBeVisible();
+ }
+ expect(writes).toEqual([]);
+ expect((await api.reports()).ledgerRevision).toBe(ledgerBefore);
 });
 
 test("PA independently withdraws aggregate then service and service withdrawal pauses membership", async ({ page, request }) => {
