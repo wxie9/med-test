@@ -155,14 +155,17 @@ test('PM submits an empty plan, medical returns it, and a structured revision re
  }
 });
 
-test('two browser reviewers race the same report CAS, then the loser acknowledges fresh state and adds the second signature',async({page,context,request})=>{
+test('two browser reviewers race the same report CAS, then the loser acknowledges fresh state and adds the second signature',async({browser,baseURL,request})=>{
+ const contexts=await Promise.all([browser.newContext({baseURL}),browser.newContext({baseURL})]);
+ const [page,other]=await Promise.all(contexts.map(context=>context.newPage()));
+ let releaseRace=()=>{};
+ try{
  const {snapshot,receipt}=await setup(request),first=receipt.data;
  await submit(request,first);
- const other=await context.newPage();
  const dataDesk=await openReport(page,first.id,'data_reviewer'),medicalDesk=await openReport(other,first.id,'medical_reviewer');
  const attempts:{body:ActionBody;status:number}[]=[];
  let arrivals=0,release!:()=>void;
- const bothArrived=new Promise<void>(resolve=>{release=resolve;});
+ const bothArrived=new Promise<void>(resolve=>{release=resolve;releaseRace=resolve;});
  const race=async(route:Route)=>{
   const body=route.request().postDataJSON() as ActionBody;
   if(++arrivals===2)release();
@@ -195,7 +198,7 @@ test('two browser reviewers race the same report CAS, then the loser acknowledge
  sameSubmission(final);
  expect(final.workflow.history).toHaveLength(3);
  unchangedBody(final.report,first);
- await other.close();
+ }finally{releaseRace();await Promise.all(contexts.map(context=>context.close()));}
 });
 
 test('a committed submit with a lost 503 response locks all report writes and retries the exact historical receipt',async({page,request})=>{

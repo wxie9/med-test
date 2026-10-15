@@ -15,7 +15,8 @@
     "prebuild": "npm run seed",
     "build:worker": "tsx scripts/build-worker-safe.ts",
     "preview:worker": "npm run build:worker && wrangler dev",
-    "deploy:worker": "npm run build:worker && wrangler deploy"
+    "deploy:worker": "npm run build:worker && wrangler deploy",
+    "test:worker-state": "node --import tsx tests/integration/worker-state/run.mjs"
   },
   "dependencies": {
     "next": "15.5.27",
