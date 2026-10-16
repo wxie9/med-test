@@ -121,5 +121,13 @@ it('list read failure suppresses comparison and keeps exact pending report retry
  await mount();expect(screen.getByTestId('psp-report-revision-review')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'提交报告审核'}));await screen.findByRole('button',{name:'重试同一次操作'});fail=true;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await screen.findByText('加载失败（403），请重试。');expect(screen.queryByTestId('psp-report-revision-review')).toBeNull();expect(screen.queryByTestId('psp-report-content')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(bodies[0]).toBe(bodies[1]);
 });
 it('snapshot read failure disables creation without leaving a stale review pack visible',async()=>{
- let fail=false;vi.stubGlobal('fetch',(url:string)=>Promise.resolve(fail&&url.includes('/snapshots?')?json({},503):json(read(url,{...detail,revisionComparison:{status:'initial'}}))));await mount();fail=true;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await waitFor(()=>expect(screen.queryByTestId('psp-report-revision-review')).toBeNull());expect(screen.getByRole('button',{name:'生成模板草稿'}).matches(':disabled')).toBe(true);
+ let fail=false;vi.stubGlobal('fetch',(url:string)=>Promise.resolve(fail&&url.includes('/snapshots?')?json({},503):json(read(url,{...detail,revisionComparison:{status:'initial'}}))));await mount();fail=true;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await waitFor(()=>expect(screen.queryByTestId('psp-report-revision-review')).toBeNull());expect(screen.getByRole('button',{name:'生成模板草稿'}).matches(':disabled')).toBe(true);expect(screen.getByText('加载失败（503），请重试。')).toBeTruthy();expect(screen.getByText('冻结快照读取失败，请点击“刷新报告状态”重新读取；成功后再核对报告与创建条件。')).toBeTruthy();fail=false;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await screen.findByTestId('psp-report-revision-review');expect(screen.queryByText('加载失败（503），请重试。')).toBeNull();
+});
+
+it('starts selected report with review context before metadata and revision/navigation controls',async()=>{
+ vi.stubGlobal('fetch',(url:string)=>Promise.resolve(json(read(url,{...detail,revisionComparison:{status:'initial'}}))));await mount();
+ const section=screen.getByTestId('psp-report-detail'),pack=screen.getByTestId('psp-report-revision-review');
+ expect(section.firstElementChild).toBe(pack);
+ const metadata=screen.getByText('正文摘要：immutable-digest').closest('details');expect(metadata).not.toBeNull();expect(metadata?.hasAttribute('open')).toBe(false);
+ for(const target of [screen.getByText('正文摘要：immutable-digest'),screen.getByRole('button',{name:'以此版本创建修订'}),screen.getByRole('navigation',{name:'报告章节导航'})])expect(pack.compareDocumentPosition(target)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

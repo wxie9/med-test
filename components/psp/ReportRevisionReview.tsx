@@ -284,7 +284,7 @@ export function ReportRevisionReview({
               />
             </div>
             <p>
-              固定正文{comparison.contentChanged ? '有变化' : '未变'} ·
+              章标题与段落{comparison.contentChanged ? '有变化' : '未变'} ·
               模板、算法与保护规则{comparison.rulesChanged ? '有变化' : '未变'}
             </p>
             {comparison.rulesChanged && (

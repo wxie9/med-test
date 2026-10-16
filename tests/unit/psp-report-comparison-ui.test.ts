@@ -259,3 +259,8 @@ it('distinguishes customer feedback and double-sign completion waiting for deliv
   expect(screen.getByText('客户请核对期间')).toBeTruthy();
   expect(screen.getByText(/本角色审核已完成，等待项目经理交付/)).toBeTruthy();
 });
+
+it('labels unchanged chapter prose precisely when only a protected metric changes',()=>{
+ render(createElement(ReportRevisionReview,{detail:detail({revisionComparison:{...comparison,contentChanged:false,metrics:[{metricKey:'metric',change:'changed',before:{label:'指标',status:'available',value:1},after:{label:'指标',status:'available',value:2}}]}}),role:'data_reviewer',locked:false}));
+ expect(screen.getByText(/受保护指标实际变化 1 项/)).toBeTruthy();expect(screen.getByText(/章标题与段落未变/)).toBeTruthy();expect(screen.queryByText(/固定正文未变/)).toBeNull();
+});
