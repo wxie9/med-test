@@ -236,7 +236,7 @@ export function projectExceptions(
           kind: "pending_review",
           responsibleRole: "doctor",
           sourceAt: submitted.occurredAt,
-          reason: "个案管理师已提交本预警处置，待医生复核；关闭不代表症状改善",
+          reason: `${a.kind === "symptom" ? "症状" : "依从性"}预警 · ${a.rule}；个案管理师已提交本预警处置，待医生复核；关闭不代表症状改善`,
           target: target("alert", a.id),
           additionalTargets: [],
         });

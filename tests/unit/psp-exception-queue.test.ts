@@ -109,3 +109,11 @@ it.each(['recordedAt','sequence'] as const)('keeps education followup actionable
  expect(rows().find(r=>r.id===help.id)).toMatchObject({reason:expect.stringContaining('关联跟进尚未完成')});
  expect(rows().find(r=>r.id===help.id)!.blockedReason).toBeUndefined();
 });
+it('distinguishes each pending review using its actual alert kind and rule',()=>{
+ const ids=trigger(),e=getStore().psp.enrollments.find(e=>e.patientId==='P-A')!;
+ const contact=recordInteraction({enrollmentId:e.id,alertIds:ids,channel:'phone',outcome:'reached'},meta(e.id));
+ for(const id of ids){actOnProjectAlert(id,{action:'accept'},meta(id));actOnProjectAlert(id,{action:'start'},meta(id));actOnProjectAlert(id,{action:'submit_review',disposition:{category:'contacted',summary:'已联系',interactionIds:[contact.data.interactionId]}},meta(id));}
+ const pending=rows().filter(r=>r.kind==='pending_review');expect(pending).toHaveLength(2);
+ for(const row of pending){const alert=getStore().alerts.find(a=>a.id===row.target.id)!;expect(row.reason).toContain(alert.rule);expect(row.reason).toContain(alert.kind==='symptom'?'症状':'依从性');expect(row.dueAt).toBeUndefined();}
+ expect(new Set(pending.map(row=>row.reason)).size).toBe(2);
+});

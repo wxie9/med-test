@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import type { ProResponse, FollowUpTask } from "@/lib/domain/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useClinicIdentity } from "@/lib/client/clinicIdentity";
 import { usePspState } from "@/lib/client/usePspState";
 import type { PatientServiceView, ProjectAlertSummary } from "@/lib/psp/serviceView";
@@ -33,6 +33,34 @@ function AlertService({ alert, view, doctor, disabled, onAction, clinical }: { a
  </article>;
 }
 export function ServiceWorkflow({ patientId, projectId, onProjectAlerts, onChanged, clinicalContext }: { clinicalContext?:ClinicalContext; patientId: string; projectId: string; onProjectAlerts?: (ids: string[]) => void; onChanged?: () => void | Promise<void> }) {
+ const workflowRoot = useRef<HTMLElement>(null);
+ // Native hash navigation runs before the asynchronous service targets exist.
+ // Observe only this patient's workflow until the requested target appears;
+ // disconnect after restoration so refreshes and role changes never steal focus.
+ useEffect(() => {
+  let observer: MutationObserver | undefined;
+  const restore = () => {
+   observer?.disconnect();
+   let id: string;
+   try { id = decodeURIComponent(window.location.hash.slice(1)); } catch { return; }
+   if (!/^(assignment|alert|contact|task|pro)-/.test(id)) return;
+   const reveal = () => {
+    const target = document.getElementById(id), root = workflowRoot.current;
+    if (!target || !root?.contains(target)) return false;
+    target.scrollIntoView({ block: "start" });
+    target.focus({ preventScroll: true });
+    observer?.disconnect();
+    return true;
+   };
+   if (!reveal() && workflowRoot.current) {
+    observer = new MutationObserver(() => { reveal(); });
+    observer.observe(workflowRoot.current, { childList: true, subtree: true });
+   }
+  };
+  restore();
+  window.addEventListener("hashchange", restore);
+  return () => { observer?.disconnect(); window.removeEventListener("hashchange", restore); };
+ }, [patientId, projectId]);
  const { identity } = useClinicIdentity(), doctor = identity === "张医生";
  const role = doctor ? "doctor" : "case_manager", actorId = doctor ? "doctor-zhang" : "case-manager-chen";
  const state = usePspState<PatientServiceView>(`/api/psp/projects/${encodeURIComponent(projectId)}/services?patientId=${encodeURIComponent(patientId)}&role=${role}&actorId=${actorId}`);
@@ -41,7 +69,7 @@ export function ServiceWorkflow({ patientId, projectId, onProjectAlerts, onChang
  useEffect(() => { if (view && view.patientId === patientId) { onProjectAlerts?.(view.alerts.map(a => a.id)); void onChanged?.(); } }, [view, patientId, onProjectAlerts, onChanged]);
  const active = !!view && view.enrollment.status === "active" && view.permissions.service && Date.parse(view.serverNow) >= Date.parse(view.project.startsAt) && Date.parse(view.serverNow) <= Date.parse(view.project.endsAt);
  const disabled = state.busy || state.canRetry || !active;
- return <section id="psp-service-workflow" data-testid="psp-service-workflow" className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 space-y-3"><h2 className="font-semibold">PSP 联系、复核与教育</h2><p className="text-sm text-gray-600">模拟身份：{identity} · 合成数据服务演示</p><Feedback {...state} /><button className={buttonClass} disabled={state.busy} onClick={() => void state.refresh()}>刷新服务状态</button>{!view ? <p role="status" className="text-sm">{state.notice ? "本患者的项目服务暂时不可用，请核对成员或重新加载。" : "正在加载本患者项目服务…"}</p> : <div key={`${patientId}:${projectId}:${role}:${view.seedVersion}`} className="space-y-4"><Link className="inline-block text-sm text-pink-700 underline" href={`/clinic/projects/${encodeURIComponent(view.project.id)}/services`}>返回本项目服务台</Link><p className="font-medium">当前患者：{view.displayName} · {view.patientId}</p><p className="text-sm">{view.project.title} · {ENROLLMENT_LABEL[view.enrollment.status]} · 服务授权：{view.permissions.service ? "已授权" : "未授权"}</p>{!active && <p className="text-sm text-gray-600">当前服务只读，保留既有联系、复核与教育记录。</p>}
+ return <section ref={workflowRoot} id="psp-service-workflow" data-testid="psp-service-workflow" className="min-w-0 rounded-xl border border-gray-200 bg-white p-4 space-y-3"><h2 className="font-semibold">PSP 联系、复核与教育</h2><p className="text-sm text-gray-600">模拟身份：{identity} · 合成数据服务演示</p><Feedback {...state} /><button className={buttonClass} disabled={state.busy} onClick={() => void state.refresh()}>刷新服务状态</button>{!view ? <p role="status" className="text-sm">{state.notice ? "本患者的项目服务暂时不可用，请核对成员或重新加载。" : "正在加载本患者项目服务…"}</p> : <div key={`${patientId}:${projectId}:${role}:${view.seedVersion}`} className="space-y-4"><Link className="inline-block text-sm text-pink-700 underline" href={`/clinic/projects/${encodeURIComponent(view.project.id)}/services`}>返回本项目服务台</Link><p className="font-medium">当前患者：{view.displayName} · {view.patientId}</p><p className="text-sm">{view.project.title} · {ENROLLMENT_LABEL[view.enrollment.status]} · 服务授权：{view.permissions.service ? "已授权" : "未授权"}</p>{!active && <p className="text-sm text-gray-600">当前服务只读，保留既有联系、复核与教育记录。</p>}
  {!doctor && active && <ContactForm view={view} disabled={disabled} onRecord={(body, version) => state.command(`/api/psp/projects/${encodeURIComponent(projectId)}/interactions`, body, { role, actorId }, version)} />}
  <section><h3 className="font-semibold">项目预警（{view.alerts.length}）</h3>{view.alerts.length ? view.alerts.map(alert => <AlertService key={`${role}:${view.seedVersion}:${alert.id}:${alert.version}`} alert={alert} view={view} doctor={doctor} disabled={disabled} clinical={clinical} onAction={body => state.command(`/api/psp/alerts/${encodeURIComponent(alert.id)}/actions`, body, { role, actorId }, alert.version)} />) : <p className="py-2 text-sm text-gray-600">暂无项目问卷预警。</p>}</section>
  <section><h3 className="font-semibold">实际联系与背景记录</h3><p className="my-2 text-sm text-gray-600">实际联系 {view.contacts.filter(c => !c.background).length} 次，按联系事实计数。</p>{view.contacts.map(c => <article key={c.id} id={refAnchor("contact",c.id)} tabIndex={-1} className="space-y-2 border-t border-gray-100 py-2 text-sm"><p>{c.background ? "合成背景记录" : c.channel === "phone" ? "一次电话" : "一次消息联系"} · {contactOutcomeLabel[c.outcome] ?? c.outcome} · {formatPspTime(c.occurredAt)}{!c.background && ` · 覆盖 ${c.alertIds.length} 个预警`}</p><p className="break-all">记录：{c.id} · interaction：{c.interactionId}</p><div className="flex flex-wrap gap-3">{c.assignmentId&&<RecordRef kind="联系计划" id={c.assignmentId} target={refAnchor("assignment",c.assignmentId)} available={view.assignments.some(a=>a.id===c.assignmentId)}/>}{c.alertIds.map(id=><RecordRef key={id} kind="预警" id={id} target={refAnchor("alert",id)} available={view.alerts.some(a=>a.id===id)}/>)}</div></article>)}</section>

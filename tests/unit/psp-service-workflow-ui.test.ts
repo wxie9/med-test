@@ -95,3 +95,17 @@ it('retains exact POST retry when a subsequent GET fails and hides old service e
  failRead=false;fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(screen.queryByText('当前患者：王女士 · P-A')).toBeNull();expect(document.getElementById('assignment-contact-plan')).toBeNull();finishRetry(json({}));await screen.findByText('操作已保存。');await screen.findByText('当前患者：王女士 · P-A');
  expect(bodies).toHaveLength(2);expect(bodies[1]).toBe(bodies[0]);expect(document.getElementById('assignment-contact-plan')).toBeTruthy();
 });
+it('restores delayed workflow hash once, ignores refresh and outside targets, and handles a new hash', async () => {
+ const {ServiceWorkflow}=await import('@/components/psp/ServiceWorkflow');
+ const scroll=vi.fn();Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:scroll});
+ let resolve!: (response:Response)=>void;let first=true;
+ vi.stubGlobal('fetch',vi.fn(()=>first?(first=false,new Promise<Response>(done=>{resolve=done;})):Promise.resolve(json(service))));
+ window.history.replaceState(null,'','#alert-alert-0');
+ render(createElement(ServiceWorkflow,{patientId:'P-A',projectId:'project'}));expect(scroll).not.toHaveBeenCalled();
+ resolve(json(service));await waitFor(()=>expect(scroll).toHaveBeenCalledTimes(1));expect(document.activeElement?.id).toBe('alert-alert-0');
+ fireEvent.click(screen.getByRole('button',{name:'刷新服务状态'}));await screen.findByText('当前患者：王女士 · P-A');expect(scroll).toHaveBeenCalledTimes(1);
+ window.history.replaceState(null,'','#alert-alert-1');window.dispatchEvent(new HashChangeEvent('hashchange'));expect(scroll).toHaveBeenCalledTimes(2);expect(document.activeElement?.id).toBe('alert-alert-1');
+ const external=document.createElement('div');external.id='alert-external';document.body.append(external);window.history.replaceState(null,'','#alert-external');window.dispatchEvent(new HashChangeEvent('hashchange'));expect(scroll).toHaveBeenCalledTimes(2);
+ window.history.replaceState(null,'','#%broken');window.dispatchEvent(new HashChangeEvent('hashchange'));expect(scroll).toHaveBeenCalledTimes(2);
+ external.remove();cleanup();delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;window.history.replaceState(null,'','/');vi.restoreAllMocks();
+});
