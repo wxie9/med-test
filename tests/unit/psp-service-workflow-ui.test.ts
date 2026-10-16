@@ -109,3 +109,10 @@ it('restores delayed workflow hash once, ignores refresh and outside targets, an
  window.history.replaceState(null,'','#%broken');window.dispatchEvent(new HashChangeEvent('hashchange'));expect(scroll).toHaveBeenCalledTimes(2);
  external.remove();cleanup();delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;window.history.replaceState(null,'','/');vi.restoreAllMocks();
 });
+it('restores its own workflow bridge after mounting and never restores it again on data refresh',async()=>{
+ const {ServiceWorkflow}=await import('@/components/psp/ServiceWorkflow');const scroll=vi.fn();Object.defineProperty(HTMLElement.prototype,'scrollIntoView',{configurable:true,value:scroll});
+ vi.stubGlobal('fetch',vi.fn(()=>Promise.resolve(json(service))));window.history.replaceState(null,'','#psp-service-workflow');
+ render(createElement(ServiceWorkflow,{patientId:'P-A',projectId:'project'}));expect(scroll).toHaveBeenCalledTimes(1);expect(document.activeElement?.id).toBe('psp-service-workflow');await screen.findByText('当前患者：王女士 · P-A');expect(scroll).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'刷新服务状态'}));await screen.findByText('当前患者：王女士 · P-A');expect(scroll).toHaveBeenCalledTimes(1);
+ cleanup();delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;window.history.replaceState(null,'','/');
+});
