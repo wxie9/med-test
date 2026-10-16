@@ -63,7 +63,7 @@ it('keeps blocked obligations and permits internal service after aggregate-only 
 it('shows unlinked historical help for verification and isolates return values',()=>{
  const s=getStore(),a=s.psp.assignments.find(a=>a.kind==='education'&&a.enrollmentId.endsWith('01'))!;
  s.psp.educationResults.push({assignmentId:a.id,contentVersionId:s.psp.educationContents[0].id,sentAt:a.assignedAt,openedAt:a.assignedAt,feedbackAt:a.assignedAt,understood:false,needsHelp:true,actorId:'P-A',sequence:1});
- const help=rows().find(r=>r.kind==='education_help'&&r.patientId==='P-A')!;expect(help.reason).toContain('需核对跟进记录');expect(help.blockedReason).toBeTruthy();
+ const help=rows().find(r=>r.kind==='education_help'&&r.patientId==='P-A')!;expect(help.reason).toContain('需核对跟进记录');expect(help.blockedReason).toBeTruthy();expect(help.verificationTarget).toEqual(help.target);
  help.target.id='mutated';expect(rows().find(r=>r.id===help.id)!.target.id).toBe(a.id);
  expect(rows().every(r=>s.psp.enrollments.some(e=>e.patientId===r.patientId&&e.projectId===projectId))).toBe(true);
 });
@@ -78,7 +78,8 @@ it('keeps cancelled help followup visible for verification and paused member obl
  const a=getStore().psp.assignments.find(a=>a.kind==='education'&&a.enrollmentId.endsWith('01'))!;
  sendEducation(a.id,getStore().psp.educationContents[0].id,meta(a.id));recordEducationOpened(a.id,meta(a.id,'patient'));recordEducationFeedback(a.id,{understood:false,needsHelp:true},meta(a.id,'patient'));
  const help=rows().find(r=>r.kind==='education_help'&&r.patientId==='P-A')!;getStore().psp.assignments.find(a=>a.id===help.target.id)!.status='cancelled';
- expect(rows().find(r=>r.id===help.id)!.blockedReason).toContain('需核对');
+ expect(rows().find(r=>r.id===help.id)!.blockedReason).toContain('需核对');expect(rows().find(r=>r.id===help.id)!.verificationTarget).toEqual(help.target);
+ getStore().psp.assignments.find(a=>a.id===help.target.id)!.status='paused';expect(rows().find(r=>r.id===help.id)!.verificationTarget).toEqual(help.target);
  const e=getStore().psp.enrollments.find(e=>e.patientId==='P-A')!;recordEnrollmentState(e.id,{state:'paused',reason:'暂停'},meta(e.id));expect(rows().filter(r=>r.patientId==='P-A').every(r=>!!r.blockedReason)).toBe(true);
 });
 it('orders attempts by occurrence before ledger order and excludes future evidence',()=>{
@@ -88,4 +89,23 @@ it('orders attempts by occurrence before ledger order and excludes future eviden
  getStore().psp.serviceEvents.push({...c,id:'backdated',interactionId:'backdated',outcome:'reached',occurredAt:'2026-10-12T00:00:00Z',sequence:++getStore().psp.ledgerRevision});
  expect(rows().find(r=>r.kind==='failed_contact')!.additionalTargets).toHaveLength(2);
  c.recordedAt='2026-10-14T00:00:00Z';expect(rows().some(r=>r.kind==='failed_contact')).toBe(false);
+});
+
+it.each(['occurredAt','recordedAt','sequence'] as const)('keeps questionnaire open until original completion %s is visible',field=>{
+ const a=getStore().psp.assignments.find(a=>a.kind==='questionnaire'&&a.enrollmentId.endsWith('01'))!;
+ trigger();
+ getStore().psp.questionnaireEvidence=getStore().psp.questionnaireEvidence!.map(x=>({...x}));
+ const evidence=getStore().psp.questionnaireEvidence!.find(x=>x.assignmentId===a.id)!;
+ if(field==='sequence')evidence.sequence=getStore().psp.ledgerRevision+1;else evidence[field]='2026-10-14T00:00:00Z';
+ expect(rows().some(r=>r.id===`questionnaire:${a.id}`)).toBe(true);
+});
+it.each(['recordedAt','sequence'] as const)('keeps education followup actionable when reached %s is future',field=>{
+ const a=getStore().psp.assignments.find(a=>a.kind==='education'&&a.enrollmentId.endsWith('01'))!;
+ sendEducation(a.id,getStore().psp.educationContents[0].id,meta(a.id));recordEducationOpened(a.id,meta(a.id,'patient'));recordEducationFeedback(a.id,{understood:false,needsHelp:true},meta(a.id,'patient'));
+ const help=rows().find(r=>r.kind==='education_help'&&r.patientId==='P-A')!;
+ recordInteraction({enrollmentId:a.enrollmentId,assignmentId:help.target.id,alertIds:[],channel:'phone',outcome:'reached'},meta(help.target.id));
+ const event=getStore().psp.serviceEvents.find(x=>x.assignmentId===help.target.id&&x.outcome==='reached')!;
+ if(field==='sequence')event.sequence=getStore().psp.ledgerRevision+1;else event.recordedAt='2026-10-14T00:00:00Z';
+ expect(rows().find(r=>r.id===help.id)).toMatchObject({reason:expect.stringContaining('关联跟进尚未完成')});
+ expect(rows().find(r=>r.id===help.id)!.blockedReason).toBeUndefined();
 });

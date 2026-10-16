@@ -8,7 +8,7 @@ afterEach(cleanup);
 const row:PspException={id:'review:a',kind:'pending_review',patientId:'P-A',displayName:'王女士',responsibleRole:'doctor',sourceAt:'2026-10-13T02:00:00Z',overdue:false,reason:'待复核',target:{kind:'alert',id:'a',href:'/clinic/patients/P-A#alert-a'},additionalTargets:[]};
 it('shows server time, unknown review deadline, names and precise href; filters explicitly',()=>{
  render(createElement(ExceptionQueue,{rows:[row],serverNow:row.sourceAt,role:'case_manager',locked:false}));
- expect(screen.getByText('王女士')).toBeTruthy();expect(screen.getByText(/尚未设定复核时限/)).toBeTruthy();expect(screen.getByRole('link',{name:'进入医生复核'}).getAttribute('href')).toBe(row.target.href);
+ expect(screen.queryByText(/未逾期/)).toBeNull();expect(screen.getByText(/期限未知/)).toBeTruthy();expect(screen.getByText('王女士')).toBeTruthy();expect(screen.getByText(/尚未设定复核时限/)).toBeTruthy();expect(screen.getByRole('link',{name:'进入医生复核'}).getAttribute('href')).toBe(row.target.href);
  expect(screen.getByText(/当前运营待办，截至/).textContent).toContain('上海时间');
  fireEvent.click(screen.getByLabelText('与当前角色相关'));expect(screen.getByText('当前筛选下没有事项')).toBeTruthy();
 });
@@ -57,4 +57,12 @@ it('type and overdue controls preserve explicit selection and current filtering'
  fireEvent.change(screen.getByLabelText('事项类型'),{target:{value:'pending_review'}});expect(screen.getByText('王女士')).toBeTruthy();expect(screen.queryByText('李女士')).toBeNull();
  fireEvent.click(screen.getByLabelText('仅看逾期'));expect(screen.getByText('当前筛选下没有事项')).toBeTruthy();
  fireEvent.change(screen.getByLabelText('事项类型'),{target:{value:'all'}});expect(screen.getByText('李女士')).toBeTruthy();expect(screen.queryByText('王女士')).toBeNull();
+});
+
+it.each(['历史帮助需求','计划已取消','计划已暂停','成员已暂停'])('keeps distinct read-only education verification for %s while continuation is blocked',blockedReason=>{
+ const help:PspException={...row,kind:'education_help',blockedReason,verificationTarget:row.target};
+ const view=render(createElement(ExceptionQueue,{rows:[help],serverNow:row.sourceAt,role:'doctor',locked:false}));
+ expect(screen.getByRole('link',{name:'只读核对来源／跟进计划'}).getAttribute('href')).toBe(row.target.href);
+ expect(screen.queryByRole('link',{name:'核对教育跟进'})).toBeNull();
+ view.rerender(createElement(ExceptionQueue,{rows:[help],serverNow:row.sourceAt,role:'doctor',locked:true}));expect(screen.queryByRole('link')).toBeNull();
 });
