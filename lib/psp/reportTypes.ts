@@ -22,4 +22,13 @@ export type ReportTimelineEntry={reportVersionId:string;revision:number;action:"
 export type ReportWorkbenchSummary={workflow:ReportWorkflowMetadata;actionGates:ReportActionGates;createGate:ReportCreateGate;authorizationGate:import("./reportGates").ReportAuthorizationGate};
 export type PspReportSummary=Pick<PspReportVersion,'id'|'projectId'|'batchId'|'revision'|'parentVersionId'|'snapshotId'|'window'|'createdAt'|'createdBy'|'status'|'contentDigest'>&ReportWorkbenchSummary;
 export type PspReportList={project:PspProject;seedVersion:number;ledgerRevision:number;serverNow:string;draftGates:(ReportCreateGate&{snapshotId:string;parentVersionId?:string})[];summaries:PspReportSummary[]};
-export type PspReportDetail={timeline:ReportTimelineEntry[];authorizationGate:import("./reportGates").ReportAuthorizationGate;report:PspReportVersion;workflow:ReportWorkflowMetadata;actionGates:ReportActionGates;createGate:ReportCreateGate;warnings:string[];seedVersion:number;ledgerRevision:number;serverNow:string};
+export type ReportComparedFact=Omit<ReportFact,'id'>;
+export type ReportRevisionComparison={status:'initial'}|{status:'unavailable';reason:string}|{
+ status:'compared';parent:{id:string;revision:number;workflow:ReportWorkflowMetadata};
+ snapshot:{idChanged:boolean;digestChanged:boolean;beforeId:string;afterId:string};
+ windowChanged:boolean;window:{before:PspReportVersion['window'];after:PspReportVersion['window']};
+ contentChanged:boolean;rulesChanged:boolean;rules:{before:Pick<PspReportVersion,'templateVersion'|'algorithmVersion'|'protectionVersion'>;after:Pick<PspReportVersion,'templateVersion'|'algorithmVersion'|'protectionVersion'>};
+ metrics:{metricKey:string;before:ReportComparedFact|null;after:ReportComparedFact|null;change:'added'|'removed'|'changed'|'unchanged'}[];
+ nextActions:{added:NextAction[];removed:NextAction[];unchanged:NextAction[]};
+};
+export type PspReportDetail={revisionComparison:ReportRevisionComparison;timeline:ReportTimelineEntry[];authorizationGate:import("./reportGates").ReportAuthorizationGate;report:PspReportVersion;workflow:ReportWorkflowMetadata;actionGates:ReportActionGates;createGate:ReportCreateGate;warnings:string[];seedVersion:number;ledgerRevision:number;serverNow:string};

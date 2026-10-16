@@ -105,3 +105,21 @@ it.each([503,409])('detail action %s locks report row navigation until recovery'
  expect(screen.queryByRole('link',{name:'打开修订 1'})).toBeNull();expect(screen.getByRole('button',{name:'打开修订 1'}).matches(':disabled')).toBe(true);
  await waitFor(()=>expect(recovery.matches(':disabled')).toBe(false));fireEvent.click(recovery);await screen.findByRole('link',{name:'打开修订 1'});
 });
+
+it('retains a manually selected report through role switch and retires the old role request',async()=>{
+ const calls:string[]=[];vi.stubGlobal('fetch',(url:string)=>{calls.push(url);return Promise.resolve(json(read(url)));});
+ const {ReportDraftDesk}=await import('@/components/psp/ReportDraftDesk');render(createElement(ReportDraftDesk,{projectId:project.id}));fireEvent.change(await screen.findByLabelText('选择报告版本'),{target:{value:'R1'}});await screen.findByText('正文摘要：immutable-digest');
+ fireEvent.change(screen.getByLabelText('报告工作身份'),{target:{value:'data_reviewer'}});await screen.findByText('数据审核者 · 草稿安排只读');await screen.findByText('正文摘要：immutable-digest');expect((screen.getByLabelText('选择报告版本') as HTMLSelectElement).value).toBe('R1');expect(calls.some(url=>url.includes('/reports/R1?role=data_reviewer'))).toBe(true);
+});
+it('failed read hides comparison and sources but preserves exact pending 503 retry',async()=>{
+ let fail=false;const bodies:string[]=[];vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return Promise.resolve(json({},503));}return Promise.resolve(fail&&url.includes('/api/psp/reports/')?json({},503):json(read(url,{...detail,revisionComparison:{status:'initial'}})));});
+ await mount();fireEvent.click(screen.getByRole('button',{name:'提交报告审核'}));await screen.findByRole('button',{name:'重试同一次操作'});fail=true;fireEvent.click(screen.getByRole('button',{name:'刷新审核状态'}));await screen.findByText('加载失败（503），请重试。');expect(screen.queryByTestId('psp-report-revision-review')).toBeNull();expect(screen.queryByTestId('psp-report-content')).toBeNull();expect(screen.queryByLabelText('选择报告指标的内部来源')).toBeNull();expect(screen.getByRole('button',{name:'提交报告审核'}).matches(':disabled')).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(bodies[0]).toBe(bodies[1]);
+});
+it('list read failure suppresses comparison and keeps exact pending report retry ownership',async()=>{
+ let fail=false;const bodies:string[]=[];vi.stubGlobal('fetch',(url:string,options?:RequestInit)=>{if(options?.method==='POST'){bodies.push(options.body as string);return Promise.resolve(json({},503));}return Promise.resolve(fail&&url.includes('/projects/')&&url.includes('/reports?')?json({},403):json(read(url,{...detail,revisionComparison:{status:'initial'}})));});
+ await mount();expect(screen.getByTestId('psp-report-revision-review')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'提交报告审核'}));await screen.findByRole('button',{name:'重试同一次操作'});fail=true;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await screen.findByText('加载失败（403），请重试。');expect(screen.queryByTestId('psp-report-revision-review')).toBeNull();expect(screen.queryByTestId('psp-report-content')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));await waitFor(()=>expect(bodies).toHaveLength(2));expect(bodies[0]).toBe(bodies[1]);
+});
+it('snapshot read failure disables creation without leaving a stale review pack visible',async()=>{
+ let fail=false;vi.stubGlobal('fetch',(url:string)=>Promise.resolve(fail&&url.includes('/snapshots?')?json({},503):json(read(url,{...detail,revisionComparison:{status:'initial'}}))));await mount();fail=true;fireEvent.click(screen.getByRole('button',{name:'刷新报告状态'}));await waitFor(()=>expect(screen.queryByTestId('psp-report-revision-review')).toBeNull());expect(screen.getByRole('button',{name:'生成模板草稿'}).matches(':disabled')).toBe(true);
+});
