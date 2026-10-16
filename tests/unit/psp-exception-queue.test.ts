@@ -117,3 +117,44 @@ it('distinguishes each pending review using its actual alert kind and rule',()=>
  for(const row of pending){const alert=getStore().alerts.find(a=>a.id===row.target.id)!;expect(row.reason).toContain(alert.rule);expect(row.reason).toContain(alert.kind==='symptom'?'症状':'依从性');expect(row.dueAt).toBeUndefined();}
  expect(new Set(pending.map(row=>row.reason)).size).toBe(2);
 });
+
+function submitReviewThenClose(later = PSP_TEST_NOW) {
+ const id=trigger()[0],e=getStore().psp.enrollments.find(e=>e.patientId==='P-A')!;
+ const contact=recordInteraction({enrollmentId:e.id,alertIds:[id],channel:'phone',outcome:'reached'},meta(e.id));
+ actOnProjectAlert(id,{action:'accept'},meta(id));actOnProjectAlert(id,{action:'start'},meta(id));
+ actOnProjectAlert(id,{action:'submit_review',disposition:{category:'contacted',summary:'已联系',interactionIds:[contact.data.interactionId]}},meta(id));
+ expect(rows().some(r=>r.id===`review:${id}`)).toBe(true);
+ process.env.DEMO_FIXED_NOW=later;
+ actOnProjectAlert(id,{action:'close',note:'已核对',followupTask:{type:'复评',owner:'张医生',dueAt:'2026-10-20T00:00:00Z'}},meta(id,'doctor'));
+ expect(getStore().alerts.find(a=>a.id===id)!.status).toBe('closed');
+ return id;
+}
+it('retains submitted review at an as-of read before the real later doctor closure',()=>{
+ const later='2026-10-14T02:00:00.000Z',id=submitReviewThenClose(later);
+ expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+ process.env.DEMO_FIXED_NOW='2026-10-13T03:00:00.000Z';
+ expect(rows().find(r=>r.id===`review:${id}`)).toMatchObject({kind:'pending_review',sourceAt:PSP_TEST_NOW});
+ process.env.DEMO_FIXED_NOW=later;expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+});
+it.each(['occurredAt','recordedAt','sequence'] as const)('retains submitted review until close %s is visible',field=>{
+ const id=submitReviewThenClose(),s=getStore(),close=s.psp.alertActions!.find(x=>x.alertId===id&&x.action==='close')!;
+ expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+ const original=close[field];
+ if(field==='sequence')close.sequence=s.psp.ledgerRevision+1;else close[field]='2026-10-14T00:00:00Z';
+ expect(rows().find(r=>r.id===`review:${id}`)).toMatchObject({kind:'pending_review',sourceAt:PSP_TEST_NOW});
+ if(field==='sequence')close.sequence=original as number;else close[field]=original as string;
+ expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+});
+it('requires visible project submission and preserves genuinely closed legacy alerts',()=>{
+ const id=submitReviewThenClose(),s=getStore();
+ s.psp.alertActions=s.psp.alertActions!.filter(x=>x.alertId!==id||x.action!=='close');
+ expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+ s.alerts.find(a=>a.id===id)!.status='pending_review';
+ const submitted=s.psp.alertActions!.find(x=>x.alertId===id&&x.action==='submit_review')!;
+ submitted.projectId='unrelated';expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+ submitted.projectId=projectId;submitted.enrollmentId='unrelated';expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+ submitted.enrollmentId=s.psp.enrollments.find(e=>e.patientId==='P-A')!.id;submitted.recordedAt='2026-10-14T00:00:00Z';
+ expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+ s.alerts.find(a=>a.id===id)!.status='closed';s.psp.alertActions=s.psp.alertActions!.filter(x=>x.alertId!==id);
+ expect(rows().some(r=>r.id===`review:${id}`)).toBe(false);
+});

@@ -221,9 +221,9 @@ export function projectExceptions(
           : {}),
       });
     }
-    for (const a of alerts.filter(
-      (a) => a.status === "pending_review" && alertOpen(a.id),
-    )) {
+    // Stored status may already include a closure beyond this read boundary.
+    // Visible structured submission and effective closure determine review work.
+    for (const a of alerts.filter((a) => alertOpen(a.id))) {
       const submitted = actions
         .filter(
           (x) =>
