@@ -25,7 +25,7 @@ export function PharmaProjects({projectId}: {projectId?: string}) {
     {state.notice && <p role="status">{state.notice}</p>}
     {"reports" in data ? <PharmaProjectOverview view={data}/> : <>
       {data.projects.length === 0 && <p>当前没有可展示的项目。</p>}
-      {data.projects.map(({project, allowedMembers}) => <section key={project.id} className="min-w-0 space-y-4 rounded-lg border border-gray-200 p-4">
+      {data.projects.map(({project, allowedMembers}) => <section key={project.id} className="ui-panel space-y-5">
         <h2 className="font-semibold"><Link className="text-pink-700 underline" href={`/pharma/projects/${encodeURIComponent(project.id)}`}>{project.title}</Link></h2>
         <ProjectDetails project={project}/>
         <Link className={`${buttonClass} inline-block`} href={`/clinic/projects/${encodeURIComponent(project.id)}/services`}>切换到院内服务演示</Link>

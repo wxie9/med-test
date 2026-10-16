@@ -27,7 +27,7 @@ export default function PatientsPage() {
   const cur = Math.min(page, pages - 1);
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold">患者列表</h1>
         <label className="flex items-center gap-2 text-sm">
           <span className="text-gray-500">阶段</span>
@@ -37,8 +37,9 @@ export default function PatientsPage() {
           </select>
         </label>
       </div>
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <table className="w-full text-sm">
+      <section className="ui-panel">
+        <div role="region" aria-label="患者数据表，可横向滚动" tabIndex={0} className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-gray-50 text-left text-xs text-gray-500">
             <tr>{["患者", "年龄", "阶段", "HR", "HER2", "当前治疗", "最近联系", "未关闭预警"].map(h => <th key={h} className="px-2 py-2 font-medium">{h}</th>)}</tr>
           </thead>
@@ -60,7 +61,8 @@ export default function PatientsPage() {
             ))}
           </tbody>
         </table>
-        <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
           <span>共 {filtered.length} 名患者</span>
           <span className="flex items-center gap-2">
             <button type="button" disabled={cur === 0} onClick={() => setPage(cur - 1)} className="rounded border border-gray-300 px-2 py-0.5 disabled:opacity-40">上一页</button>

@@ -1,19 +1,19 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 const VIEWS = [
-  { href: "/patient", label: "患者端", prefix: "/patient" },
-  { href: "/clinic/alerts", label: "医生工作台", prefix: "/clinic" },
-  { href: "/governance", label: "数据治理", prefix: "/governance" },
-  { href: "/pharma/projects", label: "药企项目", prefix: "/pharma" },
-];
+  { href: "/patient", label: "患者端", prefix: "/patient", icon: "patient" },
+  { href: "/clinic/alerts", label: "医生工作台", prefix: "/clinic", icon: "clinic" },
+  { href: "/governance", label: "数据治理", prefix: "/governance", icon: "data" },
+  { href: "/pharma/projects", label: "药企项目", prefix: "/pharma", icon: "project" },
+] satisfies { href: string; label: string; prefix: string; icon: IconName }[];
 
 export function ViewSwitcher() {
   const pathname = usePathname() ?? "/";
   return (
-    <nav aria-label="演示视角切换" className="flex flex-wrap items-center gap-2 text-sm">
-      <Link href="/" className="font-semibold mr-2">演示视角切换</Link>
+    <nav aria-label="演示视角切换" className="view-switcher">
       {VIEWS.map(v => {
         const active = pathname === v.prefix || pathname.startsWith(`${v.prefix}/`) || (v.prefix === "/pharma" && pathname.startsWith("/research"));
         return (
@@ -21,9 +21,9 @@ export function ViewSwitcher() {
             key={v.href}
             href={v.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded px-3 py-1 border ${active ? "bg-pink-600 text-white border-pink-600" : "border-gray-300 hover:bg-gray-100"}`}
+            className="view-link"
           >
-            {v.label}
+            <Icon name={v.icon} size={16}/>{v.label}
           </Link>
         );
       })}

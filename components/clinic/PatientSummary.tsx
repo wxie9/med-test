@@ -13,7 +13,7 @@ export function PatientSummary({ p }: { p: Patient }) {
     ["基因检测", `BRCA ${GENO[p.genomics.brca]} · PIK3CA ${GENO[p.genomics.pik3ca]} · ESR1 ${GENO[p.genomics.esr1]}`],
   ];
   return (
-    <div className="grid grid-cols-2 gap-6 text-sm">
+    <div className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2">
       <div>
         <p className="mb-2 text-base font-semibold">{displayName(p.id)} <span className="text-sm font-normal text-gray-400">{p.id}</span>{p.anchorKey !== null && <span className="ml-2 rounded bg-pink-100 px-1.5 py-0.5 text-xs text-pink-700">锚点</span>}</p>
         <dl className="grid grid-cols-[5.5rem_1fr] gap-y-1">{rows.map(([k, v]) => <div key={k} className="contents"><dt className="text-gray-500">{k}</dt><dd>{v}</dd></div>)}</dl>

@@ -1,14 +1,15 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-const LINKS = [{ href: "/governance", label: "候选队列" }, { href: "/governance/snapshots", label: "研究快照" }, { href: "/governance/his", label: "HIS 接口" }, { href: "/governance/projects/PSP-BC-ENDO-001/reports", label: "PSP 月报工作台" }];
+import { Icon, type IconName } from "@/components/ui/Icon";
+const LINKS = [{ href: "/governance", label: "候选队列", icon: "people" }, { href: "/governance/snapshots", label: "研究快照", icon: "data" }, { href: "/governance/his", label: "HIS 接口", icon: "clinic" }, { href: "/governance/projects/PSP-BC-ENDO-001/reports", label: "PSP 月报工作台", icon: "form" }] satisfies { href: string; label: string; icon: IconName }[];
 export function GovernanceNav() {
   const pathname = usePathname() ?? "";
   return (
-    <nav aria-label="数据治理导航" className="flex flex-col gap-1 text-sm">
+    <nav aria-label="数据治理导航" className="sidebar-nav">
       {LINKS.map(l => {
-        const active = pathname === l.href;
-        return <Link key={l.href} href={l.href} aria-current={active ? "page" : undefined} className={`rounded px-3 py-2 ${active ? "bg-pink-50 font-semibold text-pink-700" : "text-gray-700 hover:bg-gray-100"}`}>{l.label}</Link>;
+        const active = pathname === l.href || (l.href !== "/governance" && pathname.startsWith(`${l.href}/`));
+        return <Link key={l.href} href={l.href} aria-current={active ? "page" : undefined} className="sidebar-link"><Icon name={l.icon} size={18}/>{l.label}</Link>;
       })}
     </nav>
   );

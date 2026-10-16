@@ -3,18 +3,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClinicIdentity } from "@/lib/client/clinicIdentity";
 import { IDENTITIES, type ClinicIdentity } from "@/lib/clinic/labels";
+import { Icon, type IconName } from "@/components/ui/Icon";
 const LINKS = [
-  { href: "/clinic/projects/PSP-BC-ENDO-001/services", label: "PSP 服务台" },
-  { href: "/clinic/alerts", label: "预警队列" }, { href: "/clinic/patients", label: "患者列表" }, { href: "/clinic/tasks", label: "随访任务" },
-  { href: "/clinic/cohorts", label: "队列圈选" }, { href: "/clinic/candidates", label: "候选核查" },
-];
+  { href: "/clinic/projects/PSP-BC-ENDO-001/services", label: "PSP 服务台", icon: "project" },
+  { href: "/clinic/alerts", label: "预警队列", icon: "alert" }, { href: "/clinic/patients", label: "患者列表", icon: "people" }, { href: "/clinic/tasks", label: "随访任务", icon: "calendar" },
+  { href: "/clinic/cohorts", label: "队列圈选", icon: "filter" }, { href: "/clinic/candidates", label: "候选核查", icon: "search" },
+] satisfies { href: string; label: string; icon: IconName }[];
 export function ClinicNav() {
   const pathname = usePathname() ?? "";
   return (
-    <nav aria-label="医生工作台导航" className="flex flex-wrap gap-1 text-sm lg:flex-col">
+    <nav aria-label="医生工作台导航" className="sidebar-nav">
       {LINKS.map(l => {
         const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
-        return <Link key={l.href} href={l.href} aria-current={active ? "page" : undefined} className={`rounded px-3 py-2 ${active ? "bg-pink-50 font-semibold text-pink-700" : "text-gray-700 hover:bg-gray-100"}`}>{l.label}</Link>;
+        return <Link key={l.href} href={l.href} aria-current={active ? "page" : undefined} className="sidebar-link"><Icon name={l.icon} size={18}/>{l.label}</Link>;
       })}
     </nav>
   );

@@ -11,9 +11,9 @@ export function AlertMetricsCards({ alerts, nowIso }: { alerts: Alert[]; nowIso:
     { label: "本周关闭", value: String(m.closedThisWeek), unit: "条" },
   ];
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map(c => (
-        <div key={c.label} className="rounded-xl border border-gray-200 bg-white p-4">
+        <div key={c.label} className="ui-panel">
           <p className="text-xs text-gray-500">{c.label}</p>
           <p className={`mt-1 text-2xl font-semibold tabular-nums ${c.warn ? "text-red-600" : "text-gray-900"}`}>{c.value}<span className="ml-1 text-sm font-normal text-gray-500">{c.unit}</span></p>
         </div>

@@ -2,9 +2,9 @@ import Link from "next/link";
 import type { AssignmentSummary, ProjectSummary } from "@/lib/psp/views";
 export const ENROLLMENT_LABEL = { invited: "待加入", active: "服务中", paused: "已暂停", exited: "已退出" };
 export const formatPspTime = (value: string) => new Date(value).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
-export const buttonClass = "rounded border border-pink-600 px-3 py-1.5 text-sm text-pink-700 hover:bg-pink-50 disabled:opacity-50 disabled:cursor-not-allowed";
+export const buttonClass = "ui-button";
 export function ProjectDetails({ project }: { project: ProjectSummary }) {
-  return <div className="space-y-2 text-sm text-gray-700"><p>{project.sponsor} · 虚构项目 · 合成数据</p><p>{project.scope} · {project.population}</p><p>项目期间：{formatPspTime(project.startsAt)} — {formatPspTime(project.endsAt)}</p><p>阶段：{project.period} · 数据截止：{formatPspTime(project.cutoffAt)}</p><p>联系目标（模拟自然小时）：高 {project.contactTargets.high} 小时 / 中 {project.contactTargets.medium} 小时</p></div>;
+  return <div className="project-details"><p>{project.sponsor} · 虚构项目 · 合成数据</p><p>{project.scope} · {project.population}</p><p>项目期间：{formatPspTime(project.startsAt)} — {formatPspTime(project.endsAt)}</p><p>阶段：{project.period} · 数据截止：{formatPspTime(project.cutoffAt)}</p><p>联系目标（模拟自然小时）：高 {project.contactTargets.high} 小时 / 中 {project.contactTargets.medium} 小时</p></div>;
 }
 export const planTitle = (item: AssignmentSummary) => item.kind === "questionnaire" ? item.title.replace("（后续阶段开放）", "") : item.title;
 export function Plans({ assignments, patientId, canSubmit = false, education }: { assignments: AssignmentSummary[]; patientId?: string; canSubmit?: boolean; education?: { assignmentId: string; sentAt: string | null }[] }) {

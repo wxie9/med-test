@@ -9,6 +9,7 @@ import { buildFollowUpPlan } from "@/lib/plan/followup";
 import { displayName, stageLabel, currentTreatments } from "@/lib/patient/display";
 import { PatientStatus } from "@/components/patient/PatientStatus";
 import { Section } from "@/components/patient/Section";
+import { Icon } from "@/components/ui/Icon";
 export default function PatientHome() {
   const id = usePatientId();
   const { data, error } = usePatient(id);
@@ -22,10 +23,10 @@ export default function PatientHome() {
   const drugs = currentTreatments(patient);
   return (
     <div>
-      <div className="bg-pink-600 px-4 pb-5 pt-4 text-white">
-        <p className="text-xs opacity-80">您好</p>
-        <h1 className="text-xl font-semibold">{displayName(id)}</h1>
-        <p className="mt-1 text-sm opacity-90">{stageLabel(patient.stage)}</p>
+      <div className="patient-greeting">
+        <p>您好，欢迎回来</p>
+        <h1>{displayName(id)}</h1>
+        <p className="mt-2">{stageLabel(patient.stage)}</p>
       </div>
       <PatientService patientId={id} />
       <Section title="当前治疗">
@@ -49,8 +50,8 @@ export default function PatientHome() {
         )}
       </Section>
       <div className="mx-3 grid grid-cols-2 gap-3">
-        <Link href="/patient/pro" className="rounded-xl bg-white p-4 text-center text-sm shadow-sm">填写症状问卷</Link>
-        <Link href="/patient/adherence" className="rounded-xl bg-white p-4 text-center text-sm shadow-sm">今日服药打卡</Link>
+        <Link href="/patient/pro" className="patient-shortcut"><Icon name="form" size={23}/>填写症状问卷</Link>
+        <Link href="/patient/adherence" className="patient-shortcut"><Icon name="check" size={23}/>今日服药打卡</Link>
       </div>
       <div data-testid="aid-program-later" className="mx-3 mt-3 rounded-xl border border-dashed border-gray-300 bg-white/60 p-3 text-sm text-gray-500">
         援助项目 <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">[后续]</span>

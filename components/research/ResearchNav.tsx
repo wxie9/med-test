@@ -8,7 +8,7 @@ function snapshotFromPath(pathname: string): string | null {
   const m = pathname.match(/^\/research\/([^/]+)\/[^/]+/);
   return m && m[1] !== "sandbox" ? decodeURIComponent(m[1]) : null;
 }
-const linkCls = (active: boolean) => `inline-flex min-h-11 items-center rounded px-3 py-2 lg:min-h-0 ${active ? "bg-pink-50 font-semibold text-pink-700" : "text-gray-700 hover:bg-gray-100"}`;
+const linkCls = "sidebar-link";
 export function ResearchNav() {
   const pathname = usePathname() ?? "";
   const current = snapshotFromPath(pathname);
@@ -17,16 +17,16 @@ export function ResearchNav() {
   if (current && current !== last) setLast(current);
   const selected = current ?? last;
   return (
-    <nav aria-label="药企研究导航" className="flex flex-wrap gap-1 text-sm lg:flex-col">
-      <Link href="/research" aria-current={pathname === "/research" ? "page" : undefined} className={linkCls(pathname === "/research")}>快照列表</Link>
+    <nav aria-label="药企研究导航" className="sidebar-nav">
+      <Link href="/research" aria-current={pathname === "/research" ? "page" : undefined} className={linkCls}>快照列表</Link>
       <p className="mt-2 w-full px-3 text-xs text-gray-500 lg:w-auto">{selected ? "当前快照" : "请先选择快照"}</p>
       {SECTIONS.map(s => {
         if (!selected) return <span key={s.seg} className="px-3 py-2 text-gray-300">{s.label}</span>;
         const href = `/research/${encodeURIComponent(selected)}/${s.seg}`;
         const active = pathname === href;
-        return <Link key={s.seg} href={href} aria-current={active ? "page" : undefined} className={linkCls(active)}>{s.label}</Link>;
+        return <Link key={s.seg} href={href} aria-current={active ? "page" : undefined} className={linkCls}>{s.label}</Link>;
       })}
-      <Link href="/research/sandbox" aria-current={pathname === "/research/sandbox" ? "page" : undefined} className={`mt-2 ${linkCls(pathname === "/research/sandbox")}`}>分析沙箱 <span className="text-xs text-gray-400">[后续]</span></Link>
+      <Link href="/research/sandbox" aria-current={pathname === "/research/sandbox" ? "page" : undefined} className={`mt-2 ${linkCls}`}>分析沙箱 <span className="text-xs text-gray-400">[后续]</span></Link>
     </nav>
   );
 }

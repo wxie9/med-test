@@ -89,11 +89,15 @@ export function AlertQueue({ alerts, today, onChanged }: { alerts: Alert[]; toda
   return (
     <div>
       {error && !closing && <p role="alert" className="mb-2 text-sm text-red-600">{error}</p>}
-      <table className="w-full table-fixed text-sm">{head}<tbody>{main.length ? main.map(row) : <tr><td colSpan={8} className="px-2 py-6 text-center text-gray-400">暂无待处理预警</td></tr>}</tbody></table>
+      <div role="region" aria-label="预警数据表，可横向滚动" tabIndex={0} className="overflow-x-auto">
+        <table className="w-full min-w-[760px] table-fixed text-sm">{head}<tbody>{main.length ? main.map(row) : <tr><td colSpan={8} className="px-2 py-6 text-center text-gray-400">暂无待处理预警</td></tr>}</tbody></table>
+      </div>
       {collapsed.length > 0 && (
         <details className="mt-4">
           <summary className="cursor-pointer text-sm text-gray-600">已关闭（{collapsed.length}）</summary>
-          <table className="mt-2 w-full table-fixed text-sm text-gray-600">{head}<tbody>{collapsed.map(row)}</tbody></table>
+          <div role="region" aria-label="已关闭预警数据表，可横向滚动" tabIndex={0} className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[760px] table-fixed text-sm text-gray-600">{head}<tbody>{collapsed.map(row)}</tbody></table>
+          </div>
         </details>
       )}
       {closing && <CloseAlertDialog today={today} defaultOwner={identity} busy={busyId !== null} error={error} onCancel={() => setClosing(null)} onConfirm={v => void confirmClose(v)} />}

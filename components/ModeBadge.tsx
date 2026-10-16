@@ -10,7 +10,7 @@ type ModeData = { agentMode: AgentMode };
 function ModeLabel({ data }: { data: ModeData | null }) {
   const label = data ? MODE_LABELS[data.agentMode] : "…";
   return (
-    <span data-testid="mode-badge" className="rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-700">
+    <span data-testid="mode-badge" className="mode-badge">
       {label}
     </span>
   );

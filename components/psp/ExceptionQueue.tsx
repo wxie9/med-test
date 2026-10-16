@@ -38,14 +38,14 @@ export function ExceptionQueue({
   return (
     <section
       aria-label="待处理事项"
-      className="space-y-3 rounded-lg border border-gray-200 p-4"
+      className="ui-panel space-y-4"
     >
       <h2 className="font-semibold">待处理事项（{rows.length}）</h2>
       <p className="text-sm text-gray-600">
         当前运营待办，截至 {formatPspTime(serverNow)}
         （上海时间）。同一患者可能有多项待办；条数不是患者人数或月报分母。固定快照与当前待办用途不同。
       </p>
-      <div className="flex flex-wrap gap-4 text-sm">
+      <div className="exception-filters flex flex-wrap gap-4 text-sm">
         <label>
           事项类型{" "}
           <select
