@@ -6,6 +6,8 @@
 
 **Architecture:** 服务端在既有内部读取中派生队列和明确父版差异，不建立新写入账本。展示层复用既有处理命令、身份与错误恢复规则；药企专用读取保持独立。
 
+**Execution status (2026-10-16):** Task 1/2 已完成并分别复审通过；最终代码 `e6e21e0` 整体复审通过。Task 3 的最终单测、lint、类型、Next、安全 Worker 构建、dry-run 和完整 Worker 重跑均已通过（先前会话中断的部分运行不算通过）。应用代码已快进整合至本地 main，合入后两项领域测试共 29 项通过；本次收尾提交补齐文档与记录。最终记录见 `docs/superpowers/sdd-ledger/2026-10-16-psp-operations-review-report.md`。
+
 **Tech Stack:** Next 15.5.27、React 19、TypeScript、Vitest、Testing Library、Playwright、OpenNext Cloudflare Worker。
 
 ## Global Constraints
@@ -38,7 +40,7 @@
 - Queue kinds: `overdue_questionnaire`, `failed_contact`, `pending_review`, `education_help`.
 - Each item exposes stable `id`, kind, `patientId`, `displayName`, role responsibility, optional known `dueAt`, source time, `overdue`, reason, blocked reason and precise existing workflow navigation target. Additional target refs support one interaction covering multiple still-open targets.
 
-- [ ] **Step 1: Write failing domain tests.** Use `buildPspTestStore`/`installPspTestStore` and real PSP commands for representative flows. Start with the baseline overdue questionnaire assertion:
+- [x] **Step 1: Write failing domain tests.** Use `buildPspTestStore`/`installPspTestStore` and real PSP commands for representative flows. Start with the baseline overdue questionnaire assertion:
 
 ```ts
 const rows = getInternalProjectView(projectId, 'case_manager', 'case-manager-chen').exceptions;
@@ -47,11 +49,11 @@ expect(rows.some(row => row.kind === 'overdue_questionnaire' && row.patientId ==
 
 Add cases from design §2: exact due boundary/future evidence; failure covering two alerts deduplicates, partial recovery keeps remaining targets; pending review requires project disposition and does not invent deadline; needsHelp follows explicit future contact through completion; background help without link needs verification; service withdrawal/member pause/exit/project end block and explain, aggregate withdrawal alone allows; correction flags leave original completion unchanged; no unrelated project/seed or unauthorized public access. Assertions must check real conditions, not only row totals.
 
-- [ ] **Step 2: Run RED.** `npm test -- tests/unit/psp-exception-queue.test.ts`. Record expected missing-feature failures before production changes.
-- [ ] **Step 3: Implement the projection and internal read integration.** Keep one small module for rule derivation. Reuse original contact and education associations; deterministic sorting; clone data rather than returning mutable aliases. No per-patient HTTP fanout. Do not modify commands or persisted records.
-- [ ] **Step 4: Write and observe failing UI tests, then integrate.** Render `ExceptionQueue` with representative domain rows. Assert type/role/overdue filters, explicit empty states and server timestamp, unknown reviewer deadline, blocked actions, names and working target hrefs. Mount ServiceDesk to test pending command navigation locks, read-error hiding and role/reset stale-response barriers. Retain original request/retry ownership; add refresh with `clearOnReadError` semantics appropriate for new patient data.
-- [ ] **Step 5: GREEN and self-review.** Run focused tests plus original service/view/workflow tests, `npm run lint`, `npx tsc --noEmit`, then full `npm test -- --maxWorkers=4` before commit. Record real output, including pre-existing warnings. Do not start shared live servers.
-- [ ] **Step 6: Commit.** Stage only Task 1 files. `git commit -m "feat(psp): add internal service exception queue"`. Report RED/GREEN, exact changed files and commit to controller for task review.
+- [x] **Step 2: Run RED.** `npm test -- tests/unit/psp-exception-queue.test.ts`. Record expected missing-feature failures before production changes.
+- [x] **Step 3: Implement the projection and internal read integration.** Keep one small module for rule derivation. Reuse original contact and education associations; deterministic sorting; clone data rather than returning mutable aliases. No per-patient HTTP fanout. Do not modify commands or persisted records.
+- [x] **Step 4: Write and observe failing UI tests, then integrate.** Render `ExceptionQueue` with representative domain rows. Assert type/role/overdue filters, explicit empty states and server timestamp, unknown reviewer deadline, blocked actions, names and working target hrefs. Mount ServiceDesk to test pending command navigation locks, read-error hiding and role/reset stale-response barriers. Retain original request/retry ownership; add refresh with `clearOnReadError` semantics appropriate for new patient data.
+- [x] **Step 5: GREEN and self-review.** Run focused tests plus original service/view/workflow tests, `npm run lint`, `npx tsc --noEmit`, then full `npm test -- --maxWorkers=4` before commit（后续 Task 2/3 按实际资源约束改为 maxWorkers=2 单独运行，未放宽测试超时或重试）. Record real output, including pre-existing warnings. Do not start shared live servers.
+- [x] **Step 6: Commit.** Stage only Task 1 files. `git commit -m "feat(psp): add internal service exception queue"`. Report RED/GREEN, exact changed files and commit to controller for task review.
 
 ### Task 2: 审核修订对照
 
@@ -66,7 +68,7 @@ Add cases from design §2: exact due boundary/future evidence; failure covering 
 - Produces: `compareReportRevision(current: PspReportVersion, versions: PspReportVersion[], events: ReportActionEvent[]): ReportRevisionComparison`; exported comparison type; internal `PspReportDetail.revisionComparison`; `ReportRevisionReview` component.
 - Comparison distinguishes initial/unavailable/compared. A compared result identifies the explicit parent and its return/client-change feedback; separate snapshot/window/content/rule changes; metric changes aligned by `metricKey`; multiset added/removed/unchanged nextActions preserving duplicate counts and timestamp precision. It never uses internal raw metrics as an input.
 
-- [ ] **Step 1: RED domain tests.** Build report versions via existing snapshot/report/review commands. Verify r1→r2 only changes arrangements, preserves frozen facts and old bytes; new snapshot with identical visible facts does not mark all fact IDs as changed; status/value/definition changes are actual metric changes; duplicate arrangements and precise instants; first/unavailable/wrong seed/project/batch; explicit parent feedback and own signatures. Start with:
+- [x] **Step 1: RED domain tests.** Build report versions via existing snapshot/report/review commands. Verify r1→r2 only changes arrangements, preserves frozen facts and old bytes; new snapshot with identical visible facts does not mark all fact IDs as changed; status/value/definition changes are actual metric changes; duplicate arrangements and precise instants; first/unavailable/wrong seed/project/batch; explicit parent feedback and own signatures. Start with:
 
 ```ts
 const detail = readInternalReport(revised.id, 'data_reviewer', 'data-reviewer-psp', seedVersion);
@@ -74,11 +76,11 @@ expect(detail.revisionComparison.status).toBe('compared');
 expect(detail.revisionComparison.parent.id).toBe(original.id);
 ```
 
-- [ ] **Step 2: Run RED.** `npm test -- tests/unit/psp-report-comparison.test.ts`; record failures before production changes.
-- [ ] **Step 3: Implement pure comparison and internal detail integration.** Parent lookup must match explicit id+project+seed+batch. Use protected fixed facts only; do not recalculate or rewrite any report. Keep workflow events local to their version. Return fresh values in same authorized response.
-- [ ] **Step 4: RED UI tests, then UI integration.** Show review pack before action panel; status and current/parent feedback clearly distinct; differences readable without raw JSON; current submission and double-sign handoff. Update workspace title. Retain report context when switching staff, while old response/write scope retires. Verify 503 exact retry,409 explicit acknowledgement and no enabled gate override. Test source revoked, stale revision and post-sign waiting states.
-- [ ] **Step 5: GREEN and self-review.** Run comparison/UI tests and original report/review/delivery/public-boundary tests, lint/typecheck, full unit suite before commit. Include public DTO negative assertions that internal comparison and notes are absent.
-- [ ] **Step 6: Commit.** `git commit -m "feat(psp): add revision comparison and review handoff"`; report exact evidence and concerns for task review.
+- [x] **Step 2: Run RED.** `npm test -- tests/unit/psp-report-comparison.test.ts`; record failures before production changes.
+- [x] **Step 3: Implement pure comparison and internal detail integration.** Parent lookup must match explicit id+project+seed+batch. Use protected fixed facts only; do not recalculate or rewrite any report. Keep workflow events local to their version. Return fresh values in same authorized response.
+- [x] **Step 4: RED UI tests, then UI integration.** Show review pack before action panel; status and current/parent feedback clearly distinct; differences readable without raw JSON; current submission and double-sign handoff. Update workspace title. Retain report context when switching staff, while old response/write scope retires. Verify 503 exact retry,409 explicit acknowledgement and no enabled gate override. Test source revoked, stale revision and post-sign waiting states.
+- [x] **Step 5: GREEN and self-review.** Run comparison/UI tests and original report/review/delivery/public-boundary tests, lint/typecheck, full unit suite before commit. Include public DTO negative assertions that internal comparison and notes are absent.
+- [x] **Step 6: Commit.** `git commit -m "feat(psp): add revision comparison and review handoff"`; report exact evidence and concerns for task review.
 
 ### Task 3: 端到端验收与交接
 
@@ -94,7 +96,7 @@ expect(detail.revisionComparison.parent.id).toBe(original.id);
 
 - [x] **Step 1: Add meaningful E2E.** Reset only owned runtime. Exercise questionnaire/failure/recovery/doctor-review/education-help queue transitions and unchanged other tasks. Exercise r1 return→r2 arrangement→comparison→data+medical sign→delivery→client acceptance. Use real commands to prepare preconditions and UI for new feature interactions and key workflow steps. Assert API values plus rendered state, no fabricated reviewer deadline, explicit targets, public projection exclusion and immutable old version.
 - [x] **Step 2: Run focused Next E2E.** `npx playwright test tests/e2e/psp-operations-review.spec.ts`. Fix reproducible product/test defects with regression tests; no increased timeouts/retries for concealment.
-- [ ] **Step 3: Full checks after code freeze.** `npm test -- --maxWorkers=2`（按本轮资源约束单独运行）, `npm run lint`, `npx tsc --noEmit`, `npm run e2e`, `npm run build:worker`, `npx wrangler deploy --dry-run --outdir /tmp/med-psp-operations-review-dry-run`, `npx playwright test --config playwright.worker.config.ts`. Use bundled Node24.19 and owned isolated runtimes. Do not re-run passed gates without a changed source/failure/unresolved risk.
+- [x] **Step 3: Full checks after code freeze.** `npm test -- --maxWorkers=2`（按本轮资源约束单独运行）, `npm run lint`, `npx tsc --noEmit`, `npm run e2e`, `npm run build:worker`, `npx wrangler deploy --dry-run --outdir /tmp/med-psp-operations-review-dry-run`, `npx playwright test --config playwright.worker.config.ts`. Use bundled Node24.19 and owned isolated runtimes. Do not re-run passed gates without a changed source/failure/unresolved risk.
 - [x] **Step 4: Inspect representative screenshots.** 390px and1440px widths show full names, reasons, controls and comparisons without horizontal overflow; review focus/semantics and long feedback. Preserve evidence outside Playwright output directories before any later run overwrites them.
-- [ ] **Step 5: Documentation and whole-branch review.** Record precise results, limits and source commits, update demonstration script. Fresh review covers spec+quality and public/privacy/immutable boundaries. Fix important findings and run covering checks before re-review.
-- [ ] **Step 6: Commit and integrate locally.** `git commit -m "test(psp): verify operations and revision review workflow"`; confirm main remains clean/expected before fast-forward. No push/deploy. Preserve ignored QA evidence in the managed checkout.
+- [x] **Step 5: Documentation and whole-branch review.** Record precise results, limits and source commits, update demonstration script. Fresh review covers spec+quality and public/privacy/immutable boundaries. Fix important findings and run covering checks before re-review.
+- [x] **Step 6: Commit and integrate locally.** `git commit -m "test(psp): verify operations and revision review workflow"`; confirm main remains clean/expected before fast-forward. No push/deploy. Preserve ignored QA evidence in the managed checkout.
