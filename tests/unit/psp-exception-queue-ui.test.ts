@@ -66,3 +66,41 @@ it.each(['历史帮助需求','计划已取消','计划已暂停','成员已暂�
  expect(screen.queryByRole('link',{name:'核对教育跟进'})).toBeNull();
  view.rerender(createElement(ExceptionQueue,{rows:[help],serverNow:row.sourceAt,role:'doctor',locked:true}));expect(screen.queryByRole('link')).toBeNull();
 });
+
+it.each([503,403])('ServiceDesk preserves exact pending retry after polling GET %s and restores only fresh data',async status=>{
+ const {ServiceDesk}=await import('@/components/psp/ServiceDesk');
+ const originalInterval=globalThis.setInterval;let poll!:()=>void;
+ const interval=vi.spyOn(globalThis,'setInterval').mockImplementation((handler,timeout,...args)=>{if(timeout===10000)poll=handler as ()=>void;return originalInterval(handler,timeout,...args);});
+ const requests:string[]=[];let failRead=false;
+ vi.stubGlobal('fetch',vi.fn((_url:string,opts?:RequestInit)=>{
+  if(opts?.method==='POST'){requests.push(opts.body as string);return Promise.resolve(requests.length===1?json({},503):json({}));}
+  return Promise.resolve(failRead?json({},status):json(dto));
+ }));
+ try{
+  render(createElement(ServiceDesk,{projectId:'project'}));await screen.findByRole('link',{name:'进入医生复核'});
+  fireEvent.change(screen.getByLabelText('王女士操作理由'),{target:{value:'暂停核对'}});fireEvent.click(screen.getByRole('button',{name:'暂停服务'}));
+  await screen.findByRole('button',{name:'重试同一次操作'});
+  failRead=true;await act(async()=>poll());await screen.findByText('项目成员暂时无法加载。');expect(screen.queryByText('王女士')).toBeNull();
+  expect(screen.getByRole('button',{name:'重试同一次操作'})).toBeTruthy();
+  failRead=false;fireEvent.click(screen.getByRole('button',{name:'重试同一次操作'}));
+  await screen.findByRole('link',{name:'进入医生复核'});expect(requests).toHaveLength(2);expect(requests[1]).toBe(requests[0]);
+ }finally{interval.mockRestore();}
+});
+it('ServiceDesk requires fresh read and a fresh manual acknowledgement for each 409',async()=>{
+ const {ServiceDesk}=await import('@/components/psp/ServiceDesk');let resolveRead!:(r:Response)=>void;let posts=0;
+ vi.stubGlobal('fetch',vi.fn((_url:string,opts?:RequestInit)=>{
+  if(opts?.method==='POST'){posts++;return Promise.resolve(json({},409));}
+  return posts?new Promise<Response>(resolve=>{resolveRead=resolve;}):Promise.resolve(json(dto));
+ }));
+ render(createElement(ServiceDesk,{projectId:'project'}));await screen.findByRole('link',{name:'进入医生复核'});
+ fireEvent.change(screen.getByLabelText('王女士操作理由'),{target:{value:'暂停核对'}});
+ for(let attempt=1;attempt<=2;attempt++){
+  fireEvent.click(screen.getByRole('button',{name:'暂停服务'}));await waitFor(()=>expect(posts).toBe(attempt));
+  const ack=await screen.findByRole('button',{name:'已核对最新状态，继续操作'});
+  expect(ack.hasAttribute('disabled')).toBe(true);expect(screen.queryByRole('link',{name:'进入医生复核'})).toBeNull();
+  expect(screen.getByRole('button',{name:'暂停服务'}).hasAttribute('disabled')).toBe(true);
+  await act(async()=>resolveRead(json(dto)));
+  expect(ack.hasAttribute('disabled')).toBe(false);expect(screen.queryByRole('link',{name:'进入医生复核'})).toBeNull();
+  fireEvent.click(ack);expect(screen.getByRole('link',{name:'进入医生复核'})).toBeTruthy();
+ }
+});
