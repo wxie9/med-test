@@ -6,11 +6,12 @@ import { requireIdentity } from './transaction';
 import { PspError } from './errors';
 import type { PspProject,PspPermissionEvent,PspEnrollment,PspAssignment } from './types';
 import {assignmentCompletion,educationFor,type EducationSummary} from './serviceSummary';
+import {projectExceptions,type PspException} from './exceptionQueue';
 export type ProjectSummary=PspProject;
 export type AssignmentSummary=Pick<PspAssignment,'id'|'kind'|'title'|'assignedAt'|'dueAt'|'status'|'version'|'firstValidSubmittedAt'|'latestValidResponseId'>&{actionable:boolean;completion?:{at:string;background:boolean}};
 type Permissions={service:boolean;aggregate:boolean};
 export type PatientProjectsView={patientId:string;displayName:string;projects:{project:ProjectSummary;enrollment:Pick<PspEnrollment,'id'|'status'|'version'|'eligibilityConfirmed'>;permissions:Permissions;permissionHistory:PspPermissionEvent[];assignments:AssignmentSummary[];education?:EducationSummary[]}[];seedVersion:number;serverNow:string};
-export type InternalProjectView={project:ProjectSummary;counts:{candidates:number;activeService:number;aggregateAllowed:number};enrollments:(Pick<PspEnrollment,'id'|'patientId'|'status'|'version'|'eligibilityConfirmed'>&{displayName:string;permissions:Permissions;assignments:AssignmentSummary[]})[];seedVersion:number;serverNow:string};
+export type InternalProjectView={exceptions:PspException[];project:ProjectSummary;counts:{candidates:number;activeService:number;aggregateAllowed:number};enrollments:(Pick<PspEnrollment,'id'|'patientId'|'status'|'version'|'eligibilityConfirmed'>&{displayName:string;permissions:Permissions;assignments:AssignmentSummary[]})[];seedVersion:number;serverNow:string};
 export function projectSummary(p:PspProject):ProjectSummary {
   return {id:p.id,title:p.title,sponsor:p.sponsor,scope:p.scope,population:p.population,startsAt:p.startsAt,endsAt:p.endsAt,period:p.period,cutoffAt:p.cutoffAt,configVersion:p.configVersion,status:p.status,contactTargets:{high:p.contactTargets.high,medium:p.contactTargets.medium}};
 }
@@ -30,5 +31,5 @@ export function getInternalProjectView(projectId:string,role:string|null,actorId
   const s=getStore(),at=now();
   if(projectId!==s.psp.project.id) throw new PspError(404,'not_found','项目不存在');
   const enrollments=s.psp.enrollments.map(e=>({id:e.id,patientId:e.patientId,status:e.status,version:e.version,eligibilityConfirmed:e.eligibilityConfirmed,displayName:displayName(e.patientId),permissions:currentPermissions(s,e.id,at),assignments:assignments(s,e,at)}));
-  return {project:projectSummary(s.psp.project),counts:{candidates:enrollments.length,activeService:enrollments.filter(e=>e.status==='active'&&e.permissions.service).length,aggregateAllowed:enrollments.filter(e=>e.status==='active'&&e.permissions.service&&e.permissions.aggregate).length},enrollments,seedVersion:s.seedVersion,serverNow:at};
+  return {exceptions:projectExceptions(s,at),project:projectSummary(s.psp.project),counts:{candidates:enrollments.length,activeService:enrollments.filter(e=>e.status==='active'&&e.permissions.service).length,aggregateAllowed:enrollments.filter(e=>e.status==='active'&&e.permissions.service&&e.permissions.aggregate).length},enrollments,seedVersion:s.seedVersion,serverNow:at};
 }
