@@ -1,9 +1,0 @@
-"use client";
-import { useState } from "react";
-import type { EducationSummary, PatientServiceView } from "@/lib/psp/serviceView";
-import { buttonClass, formatPspTime } from "./Common";
-import { fieldClass } from "./ContactForm";
-export function EducationCard({ item, contents, disabled, canSend, onSend }: { item: EducationSummary; contents: PatientServiceView["approvedContents"]; disabled: boolean; canSend: boolean; onSend: (contentId: string) => void }) {
- const [contentId, setContentId] = useState(contents[0]?.id ?? ""); const selected = contents.find(c => c.id === contentId);
- return <article data-testid={`psp-education-${item.assignmentId}`} className="space-y-2 border-t border-gray-200 py-3 text-sm"><h4 className="font-medium">{item.title}</h4><p className="text-gray-600">固定截止：{formatPspTime(item.dueAt)}</p>{item.sentAt ? <><p>{item.background ? "合成背景发送" : "已发送"} · {formatPspTime(item.sentAt)}</p><p>{item.openedAt ? `已阅读 · ${formatPspTime(item.openedAt)}` : "尚未确认阅读"}</p><p>{item.feedbackAt ? `已反馈 · ${item.understood ? "已理解" : "尚未理解"} · ${item.needsHelp ? item.background ? "背景反馈：仍需帮助" : "仍需帮助，已建立未来联系计划" : "暂不需要帮助"}` : "尚未提交反馈"}</p></> : <><p>尚未发送</p>{canSend && item.status === "open" && <fieldset disabled={disabled} className="space-y-2"><label className="block">已批准的合成内容版本<select aria-label="已批准的合成内容版本" className={fieldClass} value={selected?.id ?? ""} onChange={e => setContentId(e.target.value)}>{!contents.length && <option value="">暂无已批准内容</option>}{contents.map(c => <option key={c.id} value={c.id}>{c.title} · v{c.version}</option>)}</select></label>{selected && <p className="text-gray-600">来源：{selected.sourceNote} · 批准：{formatPspTime(selected.approvedAt)}</p>}<button type="button" className={buttonClass} disabled={disabled || !selected} onClick={() => selected && onSend(selected.id)}>发送教育资料</button></fieldset>}</>}</article>;
-}

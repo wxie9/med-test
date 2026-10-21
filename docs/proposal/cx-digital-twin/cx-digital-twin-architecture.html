@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="generator" content="archify 2.10.0">
+  <title>CX 数字孪生架构深度分析 Diagram</title>
+  <script>
+    // Resolve the theme before first paint so light-preference users don't
+    // see a dark flash. The toolbar script below re-applies with UI state.
+    (function () {
+      try {
+        var theme = null;
+        try {
+          var param = new URLSearchParams(window.location.search).get('theme');
+          if (param === 'light' || param === 'dark') theme = param;
+        } catch (_) {}
+        if (!theme) {
+          try { theme = localStorage.getItem('archify-theme'); } catch (_) {}
+        }
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (_) {}
+    })();
+  </script>
+  <!-- Async font load: a blackholed network must not block first paint.
+       The body font stack falls back to system monospace until it lands. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </noscript>
+  <style>
+    /* ==========================================================
+       THEME VARIABLES — switch by toggling [data-theme] on <html>
+       ========================================================== */
+    :root,
+    [data-theme="dark"] {
+      --bg: #020617;
+      --grid: #1e293b;
+      --text: #ffffff;
+      --text-muted: #94a3b8;
+      --text-dim: #475569;
+      /* UI chrome (menu hints, footer) needs more contrast than SVG .t-dim accents */
+      --text-faint: #7d8da1;
+
+      --panel: rgba(15, 23, 42, 0.5);
+      --panel-border: #1e293b;
+      --lane-fill: rgba(15, 23, 42, 0.22);
+      --lane-stroke: #334155;
+
+      --arrow: #64748b;
+      --arrow-emphasis: #34d399;
+
+      /* Opaque mask color used behind semi-transparent component fills
+         so the arrows drawn underneath are properly hidden. */
+      --mask: #0f172a;
+
+      --frontend-fill:    rgba(8, 51, 68, 0.4);
+      --frontend-stroke:  #22d3ee;
+      --backend-fill:     rgba(6, 78, 59, 0.4);
+      --backend-stroke:   #34d399;
+      --database-fill:    rgba(76, 29, 149, 0.4);
+      --database-stroke:  #a78bfa;
+      --cloud-fill:       rgba(120, 53, 15, 0.3);
+      --cloud-stroke:     #fbbf24;
+      --security-fill:    rgba(136, 19, 55, 0.4);
+      --security-stroke:  #fb7185;
+      --messagebus-fill:  rgba(251, 146, 60, 0.3);
+      --messagebus-stroke:#fb923c;
+      --external-fill:    rgba(30, 41, 59, 0.5);
+      --external-stroke:  #94a3b8;
+
+      --toolbar-bg:       rgba(15, 23, 42, 0.8);
+      --toolbar-border:   #334155;
+      --toolbar-text:     #e2e8f0;
+      --toolbar-hover:    rgba(15, 23, 42, 0.95);
+      --toolbar-menu-bg:  #0f172a;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --grid: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --text-faint: #64748b;
+
+      --panel: #ffffff;
+      --panel-border: #e2e8f0;
+      --lane-fill: rgba(248, 250, 252, 0.65);
+      --lane-stroke: #cbd5e1;
+
+      --arrow: #94a3b8;
+      --arrow-emphasis: #059669;
+
+      --mask: #ffffff;
+
+      --frontend-fill:    rgba(34, 211, 238, 0.15);
+      --frontend-stroke:  #0891b2;
+      --backend-fill:     rgba(52, 211, 153, 0.18);
+      --backend-stroke:   #059669;
+      --database-fill:    rgba(167, 139, 250, 0.2);
+      --database-stroke:  #7c3aed;
+      --cloud-fill:       rgba(251, 191, 36, 0.18);
+      --cloud-stroke:     #d97706;
+      --security-fill:    rgba(251, 113, 133, 0.15);
+      --security-stroke:  #e11d48;
+      --messagebus-fill:  rgba(251, 146, 60, 0.15);
+      --messagebus-stroke:#ea580c;
+      --external-fill:    rgba(148, 163, 184, 0.18);
+      --external-stroke:  #64748b;
+
+      --toolbar-bg:       rgba(255, 255, 255, 0.92);
+      --toolbar-border:   #cbd5e1;
+      --toolbar-text:     #334155;
+      --toolbar-hover:    #ffffff;
+      --toolbar-menu-bg:  #ffffff;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', monospace;
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 2rem;
+      color: var(--text);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; }
+
+    .header { margin-bottom: 2rem; }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      background: var(--frontend-stroke);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-left: 1.75rem;
+    }
+
+    .diagram-container {
+      background: var(--panel);
+      border-radius: 1rem;
+      border: 1px solid var(--panel-border);
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    svg {
+      width: 100%;
+      min-width: min(900px, 100%);
+      display: block;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    .card {
+      background: var(--panel);
+      border-radius: 0.75rem;
+      border: 1px solid var(--panel-border);
+      padding: 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .card-dot.cyan     { background: var(--frontend-stroke); }
+    .card-dot.emerald  { background: var(--backend-stroke); }
+    .card-dot.violet   { background: var(--database-stroke); }
+    .card-dot.amber    { background: var(--cloud-stroke); }
+    .card-dot.rose     { background: var(--security-stroke); }
+    .card-dot.orange   { background: var(--messagebus-stroke); }
+    .card-dot.slate    { background: var(--external-stroke); }
+
+    .card h3 { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+
+    .card ul {
+      list-style: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .card li { margin-bottom: 0.375rem; }
+
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      color: var(--text-faint);
+      font-size: 0.75rem;
+    }
+
+    /* ==========================================================
+       Print stylesheet — hide interactive controls, force light,
+       drop the grid so the diagram doesn't waste ink, use landscape
+       so wide diagrams fit, pack summary cards into 2 columns to
+       avoid an orphan card on a trailing page.
+       ========================================================== */
+    @page { size: landscape; margin: 1.5cm; }
+
+    @media print {
+      /* Force the FULL light palette — including component fills/strokes and
+         lane/arrow colors — so printing from dark theme doesn't put neon
+         strokes and translucent dark fills on white paper. */
+      :root, [data-theme="dark"], [data-theme="light"] {
+        --bg: #ffffff;
+        --grid: transparent;
+        --panel: #ffffff;
+        --panel-border: #e2e8f0;
+        --text: #0f172a;
+        --text-muted: #475569;
+        --text-dim: #94a3b8;
+        --text-faint: #64748b;
+        --mask: #ffffff;
+        --lane-fill: rgba(248, 250, 252, 0.65);
+        --lane-stroke: #cbd5e1;
+        --arrow: #94a3b8;
+        --arrow-emphasis: #059669;
+        --frontend-fill:    rgba(34, 211, 238, 0.15);
+        --frontend-stroke:  #0891b2;
+        --backend-fill:     rgba(52, 211, 153, 0.18);
+        --backend-stroke:   #059669;
+        --database-fill:    rgba(167, 139, 250, 0.2);
+        --database-stroke:  #7c3aed;
+        --cloud-fill:       rgba(251, 191, 36, 0.18);
+        --cloud-stroke:     #d97706;
+        --security-fill:    rgba(251, 113, 133, 0.15);
+        --security-stroke:  #e11d48;
+        --messagebus-fill:  rgba(251, 146, 60, 0.15);
+        --messagebus-stroke:#ea580c;
+        --external-fill:    rgba(148, 163, 184, 0.18);
+        --external-stroke:  #64748b;
+      }
+      body { background: #ffffff !important; padding: 0; }
+      .container { max-width: none; }
+      .toolbar, .archify-toast, .no-print { display: none !important; }
+      .diagram-container, .card { box-shadow: none; border-color: #e2e8f0; }
+      .cards { grid-template-columns: 1fr 1fr; }
+      /* Ensure elements break sensibly across pages */
+      .card { break-inside: avoid; page-break-inside: avoid; }
+      .diagram-container { break-inside: avoid; page-break-inside: avoid; }
+      h1, .subtitle { color: #0f172a; }
+    }
+
+    /* ==========================================================
+       TOOLBAR (theme toggle + export menu)
+       ========================================================== */
+    .toolbar {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      z-index: 100;
+    }
+    .toolbar button {
+      background: var(--toolbar-bg);
+      color: var(--toolbar-text);
+      border: 1px solid var(--toolbar-border);
+      padding: 0.5rem 0.875rem;
+      border-radius: 0.5rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background 0.15s, border-color 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    .toolbar button:hover {
+      background: var(--toolbar-hover);
+      border-color: var(--arrow);
+    }
+    .toolbar button:focus-visible {
+      outline: 2px solid var(--frontend-stroke);
+      outline-offset: 2px;
+    }
+    .toolbar .export-wrap { position: relative; }
+    .toolbar .export-menu {
+      position: absolute;
+      top: calc(100% + 0.375rem);
+      right: 0;
+      background: var(--toolbar-menu-bg);
+      border: 1px solid var(--toolbar-border);
+      border-radius: 0.5rem;
+      padding: 0.375rem;
+      min-width: 160px;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .toolbar .export-menu.open { display: flex; }
+    .toolbar .export-menu button {
+      background: transparent;
+      border: 0;
+      justify-content: space-between;
+      width: 100%;
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+    }
+    .toolbar .export-menu button:hover {
+      background: var(--toolbar-hover);
+    }
+    .toolbar .export-menu .hint {
+      color: var(--text-faint);
+      font-size: 0.625rem;
+    }
+    .toolbar .export-menu hr {
+      border: 0;
+      border-top: 1px solid var(--toolbar-border);
+      margin: 0.25rem 0.375rem;
+      opacity: 0.5;
+    }
+
+    /* Toast — brief feedback for actions like "copied" */
+    .archify-toast {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      background: var(--toolbar-menu-bg);
+      color: var(--text);
+      border: 1px solid var(--toolbar-border);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-family: inherit;
+      font-size: 0.75rem;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 200;
+      pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .archify-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 1rem; }
+      .toolbar {
+        position: static;
+        justify-content: flex-end;
+        margin-bottom: 1rem;
+      }
+      .header { margin-bottom: 1.25rem; }
+      .header-row {
+        gap: 0.75rem;
+        align-items: flex-start;
+      }
+      h1 {
+        font-size: 1.25rem;
+        line-height: 1.25;
+      }
+      .subtitle {
+        margin-left: 0;
+        font-size: 0.8125rem;
+        line-height: 1.55;
+      }
+      .diagram-container {
+        padding: 0.75rem;
+        border-radius: 0.75rem;
+      }
+      .cards {
+        grid-template-columns: 1fr;
+        margin-top: 1rem;
+      }
+    }
+
+    /* ==========================================================
+       SVG SEMANTIC CLASSES — use these instead of inline fill/stroke
+       ========================================================== */
+    .c-grid       { stroke: var(--grid); fill: none; }
+    .c-mask       { fill: var(--mask); stroke: none; }
+
+    .c-frontend   { fill: var(--frontend-fill);   stroke: var(--frontend-stroke); }
+    .c-backend    { fill: var(--backend-fill);    stroke: var(--backend-stroke); }
+    .c-database   { fill: var(--database-fill);   stroke: var(--database-stroke); }
+    .c-cloud      { fill: var(--cloud-fill);      stroke: var(--cloud-stroke); }
+    .c-security   { fill: var(--security-fill);   stroke: var(--security-stroke); }
+    .c-messagebus { fill: var(--messagebus-fill); stroke: var(--messagebus-stroke); }
+    .c-external   { fill: var(--external-fill);   stroke: var(--external-stroke); }
+
+    /* Text helpers */
+    .t-primary { fill: var(--text); }
+    .t-muted   { fill: var(--text-muted); }
+    .t-dim     { fill: var(--text-dim); }
+    .t-frontend   { fill: var(--frontend-stroke); }
+    .t-backend    { fill: var(--backend-stroke); }
+    .t-database   { fill: var(--database-stroke); }
+    .t-cloud      { fill: var(--cloud-stroke); }
+    .t-security   { fill: var(--security-stroke); }
+    .t-messagebus { fill: var(--messagebus-stroke); }
+    .t-external   { fill: var(--external-stroke); }
+
+    /* Arrows */
+    .a-default   { stroke: var(--arrow); fill: none; }
+    .a-emphasis  { stroke: var(--arrow-emphasis); fill: none; }
+    .a-security  { stroke: var(--security-stroke); fill: none; stroke-dasharray: 5,5; }
+    .a-dashed    { stroke: var(--database-stroke); fill: none; stroke-dasharray: 4,4; }
+
+    /* Arrowhead markers reference these */
+    .m-default   { fill: var(--arrow); }
+    .m-emphasis  { fill: var(--arrow-emphasis); }
+    .m-security  { fill: var(--security-stroke); }
+    .m-dashed    { fill: var(--database-stroke); }
+
+    /* Dashed boundary variants */
+    .c-security-group { fill: transparent; stroke: var(--security-stroke); stroke-dasharray: 4,4; }
+    .c-region         { fill: rgba(251, 191, 36, 0.05); stroke: var(--cloud-stroke); stroke-dasharray: 8,4; }
+    .c-lane           { fill: var(--lane-fill); stroke: var(--lane-stroke); stroke-dasharray: 6,6; }
+
+    /* Optional trace animation, enabled only by meta.animation = "trace".
+       Static diagrams do not carry data-animation and render exactly as before. */
+    svg[data-animation="trace"] [data-animate="edge"] {
+      stroke-dasharray: 10 8;
+      stroke-dashoffset: 54;
+      animation: archify-edge-flow 2.4s linear infinite;
+      animation-delay: calc(var(--step, 0) * 160ms);
+    }
+    svg[data-animation="trace"] [data-animate="node"] {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: archify-node-pulse 3.6s ease-in-out infinite;
+      animation-delay: calc(var(--step, 0) * 160ms);
+    }
+    @keyframes archify-edge-flow {
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes archify-node-pulse {
+      0%, 72%, 100% { filter: none; stroke-width: 1.5; }
+      18%, 36% {
+        filter: drop-shadow(0 0 8px var(--arrow-emphasis));
+        stroke-width: 2.4;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      svg[data-animation="trace"] [data-animate] {
+        animation: none !important;
+        stroke-dashoffset: 0;
+      }
+    }
+  </style>
+<style id="cx-deepdive-style">
+.dd-intro,.deep-dive,.dd-nav{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text)}
+.dd-intro{max-width:960px;font-size:17px;line-height:1.9;margin:0 0 28px}.dd-intro p+p{margin-top:10px;color:var(--text-muted);font-size:15px}
+.dd-nav{display:flex;flex-wrap:wrap;gap:10px 20px;margin:18px 0 30px;font-size:14px}.dd-nav a,.deep-dive a{color:var(--frontend-stroke);text-decoration:underline;text-underline-offset:3px}
+.deep-dive{font-size:16px;line-height:1.9;max-width:1000px;margin:65px auto 20px}.deep-dive section{margin-top:64px;scroll-margin-top:30px}.deep-dive h2{font-size:26px;line-height:1.4;margin-bottom:22px;letter-spacing:0;text-wrap:balance}.deep-dive h3{font-size:19px;line-height:1.5;margin:30px 0 12px}.deep-dive p{margin:15px 0;text-wrap:pretty}.deep-dive p,.deep-dive li{max-width:86ch}.deep-dive ul,.deep-dive ol{padding-left:1.5em;margin:15px 0}.deep-dive li{padding-left:5px;margin:10px 0}.table-scroll{overflow-x:auto;margin:24px 0}.deep-dive table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.75;min-width:650px;text-align:left}.deep-dive th,.deep-dive td{vertical-align:top;padding:15px 16px;border-bottom:1px solid var(--panel-border)}.deep-dive th{background:var(--panel);font-weight:650}.deep-dive td:first-child{font-weight:600;min-width:145px}.deep-dive td a{white-space:nowrap}.source-record{border-top:1px solid var(--panel-border);padding:17px 0}.source-record summary{cursor:pointer;font-weight:650;line-height:1.6}.source-record summary span{display:inline-block;margin-left:10px;font-size:12px;color:var(--text-muted);font-weight:400}.source-record dl{display:grid;grid-template-columns:135px 1fr;gap:12px 22px;margin:24px 0;font-size:14px}.source-record dt{font-weight:650}.source-record dd{min-width:0;overflow-wrap:anywhere}.deep-dive :target{scroll-margin-top:30px}.deep-dive a:focus-visible,.dd-nav a:focus-visible,.source-record summary:focus-visible{outline:2px solid var(--frontend-stroke);outline-offset:5px}
+@media(max-width:650px){.deep-dive{margin-top:42px;font-size:15px}.deep-dive h2{font-size:22px}.deep-dive section{margin-top:44px}.dd-intro{font-size:16px}.source-record dl{grid-template-columns:1fr;gap:6px}.source-record dd{margin-bottom:10px}.source-record summary span{margin-left:0;display:block}.dd-nav{gap:9px 15px}}
+@media print{.deep-dive{font-size:11px;line-height:1.6;max-width:none}.deep-dive section{margin-top:25px}.deep-dive h2{font-size:18px}.deep-dive h3{font-size:14px}.deep-dive table{font-size:10px;min-width:0}.deep-dive th,.deep-dive td{padding:8px}.deep-dive a,.dd-nav a{color:#0f172a}.table-scroll{overflow:visible}.source-record{break-inside:avoid}.dd-nav{display:none}}
+</style>
+</head>
+<body>
+  <!-- Toolbar: theme toggle + export menu (present on every generated diagram)
+       Keyboard: T toggles theme, E opens export menu (when no input focused) -->
+  <div class="toolbar" role="toolbar" aria-label="Diagram actions">
+    <button id="btn-theme" type="button"
+            title="Toggle theme (T)"
+            aria-label="Toggle color theme"
+            aria-pressed="false">
+      <span id="theme-icon" aria-hidden="true">&#9790;</span>
+      <span id="theme-label">Dark</span>
+    </button>
+    <div class="export-wrap">
+      <button id="btn-export" type="button"
+              title="Export diagram (E)"
+              aria-label="Export diagram"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="export-menu">
+        Export <span aria-hidden="true">&#9662;</span>
+      </button>
+      <div class="export-menu" id="export-menu" role="menu" aria-label="Export">
+        <button data-action="copy"  type="button" role="menuitem" tabindex="-1">Copy to clipboard <span class="hint">PNG</span></button>
+        <hr role="separator">
+        <button data-format="png"   type="button" role="menuitem" tabindex="-1">Download PNG</button>
+        <button data-format="jpeg"  type="button" role="menuitem" tabindex="-1">Download JPEG</button>
+        <button data-format="webp"  type="button" role="menuitem" tabindex="-1">Download WebP</button>
+        <hr role="separator">
+        <button data-format="svg"   type="button" role="menuitem" tabindex="-1">Download SVG <span class="hint">vector</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>CX 数字孪生架构深度分析</h1>
+      </div>
+      <p class="subtitle">v0.2 · 2026年10月21日｜患者模型、长期记忆与助理运行时分离；以证据和受控更新连接三者</p>
+    </div>
+
+<div class="dd-intro"><p><strong>首期范围说明：</strong>本页为总体参考架构。当前首期工作内容与交付物以同目录的 <a href="phase1-sow.md">CX 首期 SOW</a> 为准；本页描述的扩展能力不构成本期交付承诺。</p><p><strong>设计建议：患者模型是跨会话延续的主体表示，长期记忆提供它的依据，助理是按任务使用这些表示的服务代理。</strong>本次将三者拆开，通过统一身份、证据引用、版本和受控更新连接，保留未来预测与情景推演的扩展位置。</p><p>分析范围是逻辑架构与职责约定。患者数据字段、入口形式、业务功能和供应商尚未确定；以下对 CX 的设计均是建议，项目原文机制集中列在证据附录。</p></div><nav class="dd-nav" aria-label="分析目录"><a href="#objects">三个核心对象</a><a href="#learning">项目机制</a><a href="#model">患者模型</a><a href="#memory">长期记忆</a><a href="#context">助理与上下文</a><a href="#flows">更新与纠错</a><a href="#controls">权限与关系</a><a href="#decisions">决策与验证</a><a href="#sources">原文证据</a></nav>
+    <!-- Main Diagram -->
+    <div class="diagram-container">
+      <svg viewBox="0 0 1320 860" role="img" aria-label="CX 数字孪生架构深度分析 — v0.2 · 2026年10月21日｜患者模型、长期记忆与助理运行时分离；以证据和受控更新连接三者 (architecture diagram)">
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
+          </marker>
+          <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
+          </marker>
+          <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
+          </marker>
+          <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Boundaries (behind everything) -->
+        <rect x="770" y="370" width="240" height="330" rx="12" class="c-region" stroke-width="1"/>
+        <text x="778" y="388" class="t-cloud" font-size="9" font-weight="600">患者长期表示 · 独立于助理</text>
+
+        <!-- Connection paths (before components for correct z-order) -->
+        <path d="M 220 220 L 280 220" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path d="M 460 220 L 520 220" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path d="M 700 220 L 800 220" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path d="M 980 220 L 1080 220" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path d="M 610 400 L 610 260" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path d="M 800 440 L 700 440" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path d="M 800 640 L 748 640 Q 740 640 740 632 L 740 528 Q 740 520 732 520 L 618 520 Q 610 520 610 512 L 610 480" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path d="M 460 440 L 520 440" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path d="M 370 260 L 370 312 Q 370 320 362 320 L 258 320 Q 250 320 250 328 L 250 632 Q 250 640 258 640 L 280 640" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path d="M 370 680 L 370 772 Q 370 780 378 780 L 1162 780 Q 1170 780 1170 772 L 1170 680" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path d="M 1080 640 L 980 640" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path d="M 890 600 L 890 480" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path d="M 1080 640 L 1038 640 Q 1030 640 1030 632 L 1030 448 Q 1030 440 1022 440 L 980 440" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+
+        <!-- Components -->
+        <rect x="40" y="180" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="40" y="180" width="180" height="80" rx="6" class="c-frontend" stroke-width="1.5"/>
+        <text x="130" y="218" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">CX 交互入口</text>
+        <text x="130" y="234" class="t-muted" font-size="9" text-anchor="middle">既有前端与交互通道</text>
+
+        <rect x="280" y="180" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="280" y="180" width="180" height="80" rx="6" class="c-security" stroke-width="1.5"/>
+        <text x="370" y="218" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">接入与身份边界</text>
+        <text x="370" y="234" class="t-muted" font-size="9" text-anchor="middle">授权范围 / 请求路由</text>
+
+        <rect x="520" y="180" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="520" y="180" width="180" height="80" rx="6" class="c-backend" stroke-width="1.5"/>
+        <text x="610" y="218" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">助理运行时</text>
+        <text x="610" y="234" class="t-muted" font-size="9" text-anchor="middle">角色 / 会话 / 工作记忆</text>
+
+        <rect x="800" y="180" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="800" y="180" width="180" height="80" rx="6" class="c-security" stroke-width="1.5"/>
+        <text x="890" y="218" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">受控工具与输出</text>
+        <text x="890" y="234" class="t-muted" font-size="9" text-anchor="middle">能力授权 / 结果核验</text>
+
+        <rect x="1080" y="180" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="1080" y="180" width="180" height="80" rx="6" class="c-external" stroke-width="1.5"/>
+        <text x="1170" y="218" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">CX 业务系统</text>
+        <text x="1170" y="234" class="t-muted" font-size="9" text-anchor="middle">既有后端与执行回执</text>
+
+        <rect x="520" y="400" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="520" y="400" width="180" height="80" rx="6" class="c-backend" stroke-width="1.5"/>
+        <text x="610" y="438" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">上下文组装</text>
+        <text x="610" y="454" class="t-muted" font-size="9" text-anchor="middle">按任务与权限选择信息</text>
+
+        <rect x="800" y="400" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="800" y="400" width="180" height="80" rx="6" class="c-backend" stroke-width="1.5"/>
+        <text x="890" y="438" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">患者模型服务</text>
+        <text x="890" y="454" class="t-muted" font-size="9" text-anchor="middle">已知 / 假设 / 未知 / 版本</text>
+
+        <rect x="800" y="600" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="800" y="600" width="180" height="80" rx="6" class="c-database" stroke-width="1.5"/>
+        <text x="890" y="638" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">长期记忆服务</text>
+        <text x="890" y="654" class="t-muted" font-size="9" text-anchor="middle">可追溯经历与时序事实</text>
+
+        <rect x="280" y="600" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="280" y="600" width="180" height="80" rx="6" class="c-database" stroke-width="1.5"/>
+        <text x="370" y="638" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">原始证据与事件</text>
+        <text x="370" y="654" class="t-muted" font-size="9" text-anchor="middle">来源 / 原文 / 修订关系</text>
+
+        <rect x="1080" y="600" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="1080" y="600" width="180" height="80" rx="6" class="c-messagebus" stroke-width="1.5"/>
+        <text x="1170" y="638" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">记忆与模型更新</text>
+        <text x="1170" y="654" class="t-muted" font-size="9" text-anchor="middle">提取 / 冲突 / 失效 / 投影</text>
+
+        <rect x="280" y="400" width="180" height="80" rx="6" class="c-mask"/>
+        <rect x="280" y="400" width="180" height="80" rx="6" class="c-cloud" stroke-width="1.5"/>
+        <text x="370" y="438" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">共享知识与推理能力</text>
+        <text x="370" y="454" class="t-muted" font-size="9" text-anchor="middle">通用模型 / 版本化知识</text>
+
+        <!-- Connection labels -->
+
+
+
+
+        <rect x="636" y="335" width="58" height="14" rx="3" class="c-mask"/>
+        <text x="665" y="345" class="t-backend" font-size="8" text-anchor="middle">任务上下文</text>
+
+        <rect x="665.8" y="497" width="48.4" height="14" rx="3" class="c-mask"/>
+        <text x="690" y="507" class="t-muted" font-size="8" text-anchor="middle">相关记忆</text>
+
+
+        <rect x="726.6" y="758" width="86.8" height="14" rx="3" class="c-mask"/>
+        <text x="770" y="768" class="t-messagebus" font-size="8" text-anchor="middle">带来源的更新事件</text>
+
+        <rect x="925.8" y="540" width="48.4" height="14" rx="3" class="c-mask"/>
+        <text x="950" y="550" class="t-messagebus" font-size="8" text-anchor="middle">关联依据</text>
+        <rect x="1065.8" y="505" width="48.4" height="14" rx="3" class="c-mask"/>
+        <text x="1090" y="515" class="t-messagebus" font-size="8" text-anchor="middle">受控发布</text>
+
+        <!-- Legend -->
+        <text x="40" y="831" class="t-primary" font-size="9" font-weight="600">Legend</text>
+        <rect x="40" y="836" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
+        <text x="60" y="844" class="t-muted" font-size="8">Frontend</text>
+        <rect x="138" y="836" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
+        <text x="158" y="844" class="t-muted" font-size="8">Security</text>
+        <rect x="236" y="836" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
+        <text x="256" y="844" class="t-muted" font-size="8">Backend</text>
+        <rect x="329" y="836" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
+        <text x="349" y="844" class="t-muted" font-size="8">External</text>
+        <rect x="427" y="836" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+        <text x="447" y="844" class="t-muted" font-size="8">Database</text>
+        <rect x="525" y="836" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
+        <text x="545" y="844" class="t-muted" font-size="8">Message bus</text>
+        <rect x="638" y="836" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
+        <text x="658" y="844" class="t-muted" font-size="8">Cloud</text>
+      </svg>
+    </div>
+
+    <!-- Info Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>患者模型 · 我们如何理解此人</h3>
+        </div>
+        <ul>
+          <li>&bull; 按患者主体持续维护的版本化表示，包括可用事实、有限推断及未知项。</li>
+          <li>&bull; 当前视图与历史版本可追溯；模型输出保持来源和不确定性。</li>
+          <li>&bull; 更换 LLM、会话或助理角色，不应重建患者身份和历史。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>长期记忆 · 理解依据从何而来</h3>
+        </div>
+        <ul>
+          <li>&bull; 组织个人经历、来源声明、事实关系及其时间有效性。</li>
+          <li>&bull; 记忆可被检索、纠正、撤回和失效；原始证据另行保存。</li>
+          <li>&bull; 语义索引与图索引是实现选项，均不自动成为事实裁定者。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>助理交互 · 当次如何工作</h3>
+        </div>
+        <ul>
+          <li>&bull; 维护服务角色、会话状态、工作记忆与工具执行过程。</li>
+          <li>&bull; 由上下文服务提供患者模型和相关记忆，不加载全部历史。</li>
+          <li>&bull; 输出或工具回执先作为有类型的新事件，不直接覆盖患者状态。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot amber"></div>
+          <h3>两种速度 · 同一版本边界</h3>
+        </div>
+        <ul>
+          <li>&bull; 交互路径优先及时响应；长期更新可以在后台进行。</li>
+          <li>&bull; 新输入尚未被长期模型吸收时，以待处理输入显式补入当前上下文。</li>
+          <li>&bull; 上下文携带模型版本、记忆进度与策略版本，避免无提示混用新旧状态。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>跨层治理 · 必须由 CX 控制</h3>
+        </div>
+        <ul>
+          <li>&bull; 区分被描述的患者、实际发言者、执行代理和会话。</li>
+          <li>&bull; 授权同时覆盖写入、检索、上下文、工具、缓存与派生结果。</li>
+          <li>&bull; 纠错与撤回沿证据依赖链传播，并检查异步重算是否完成。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot slate"></div>
+          <h3>本图阅读范围</h3>
+        </div>
+        <ul>
+          <li>&bull; 箭头展示主要信息流；查询返回、CX 回执回流和更新门槛见下方时序与分析。</li>
+          <li>&bull; 具体患者字段、数据格式、功能和供应商均留待确认。</li>
+          <li>&bull; 这是 CX 的概念设计建议，尚未实现，也未验证临床效果。</li>
+        </ul>
+      </div>
+    </div>
+
+<article class="deep-dive" aria-label="CX 架构深度分析"><section id="objects"><h2>三个核心对象与各自的生命周期</h2><p>v0.1 把状态、历史、模型和编排连接成一个闭环，但没有充分说明谁拥有患者状态、谁拥有交互状态，也容易让人把长期记忆理解为存储模块。v0.2 将患者长期表示从助理运行时中抽出，并增加上下文组装与独立更新管线。</p><div class="table-scroll" tabindex="0" role="region" aria-label="架构比较表，可横向滚动"><table><thead><tr><th>对象</th><th>回答的问题</th><th>生命周期与权威边界</th></tr></thead><tbody><tr><td>患者模型 Patient Model</td><td>此刻我们在何种依据下如何理解这个人</td><td>按患者主体延续；事实锚点、当前描述、有限假设和未知项分别表达。它的版本由受控更新发布。</td></tr><tr><td>长期记忆 Long-term Memory</td><td>发生过什么、谁说过什么、哪些信息仍有效</td><td>跨会话累积，支持检索、纠正、失效和撤回。是理解依据的组织层，并不自动裁定临床真实性。</td></tr><tr><td>助理运行时 Assistant Runtime</td><td>本次应该怎样理解请求、表达和执行</td><td>按角色、会话和执行任务运行；拥有工作记忆、工具状态和服务约束。模型或助理可以替换，患者表示保持连续。</td></tr><tr><td>原始证据 Evidence</td><td>解释和结论最终依据哪个输入版本</td><td>按来源保存原文或引用、署名和修订关系；按保留及撤回策略管理。不能只留下 LLM 摘要。</td></tr><tr><td>任务上下文 Context</td><td>本轮允许模型看到哪些信息</td><td>一次任务或一轮交互的授权投影；包含必要状态、相关记忆、当前输入和策略版本，不是又一份完整患者档案。</td></tr></tbody></table></div><p><strong>这里的“患者模型”是一种可解释的数字表示，不等于某个 LLM，也不要求一个患者对应一个独立训练的模型。</strong>孪生实例可以由身份、版本化表示、历史依据及其可用计算能力共同构成。现阶段设计的是这种表示与演化机制；预测是否可用，要靠后续任务与证据验证。</p></section><section id="learning"><h2>从项目中借鉴机制，而不是拼装产品名称</h2><div class="table-scroll" tabindex="0" role="region" aria-label="架构比较表，可横向滚动"><table><thead><tr><th>参考项目</th><th>一手资料支持的机制</th><th>对 CX 的设计判断</th></tr></thead><tbody><tr><td>Letta / MemGPT</td><td>当前 MemFS：显式、分层、git 版本化记忆；与旧 v1 memory blocks 区分。<a href="#src-letta">原文</a></td><td>借鉴持续存在的代理与精简上下文；患者模型由 CX 单独管理。</td></tr><tr><td>Second Me</td><td>从原始资料、解释性表示到参数化个人模型的分层。<a href="#src-secondme">原文</a></td><td>保留个人上下文提供者这一角色；首期采用显式可修订表示，参数化作为后续可选路径。</td></tr><tr><td>Graphiti / Zep</td><td>episodes、来源、关系、时间有效性与历史查询。<a href="#src-graphiti">原文</a></td><td>借鉴时间与证据关系；图数据库是候选实现，不预设必选。</td></tr><tr><td>Mem0</td><td>记忆写入与检索分离，当前自动提取路径为追加式。<a href="#src-mem0">原文</a></td><td>应用需要自己规定冲突与事实晋升规则，不能把存储成功当成状态已确认。</td></tr><tr><td>Honcho</td><td>持续更新的 peer representation，及不同观察者的表示。<a href="#src-honcho">原文</a></td><td>患者理解应是一等对象；推断与来源声明分开，也要按访问者授权生成视图。</td></tr><tr><td>Hindsight</td><td>retain / recall / reflect 分工及派生表示的后台维护。<a href="#src-hindsight">原文</a></td><td>归纳、摘要和模型视图应可失效和重建，后台完成状态要被观测。</td></tr><tr><td>OpenClaw / Hermes</td><td>来源与晋升、用户模型、助手记忆和会话历史各有职责。<a href="#src-openclaw">原文</a></td><td>把患者信息、助手经验、公共知识和临时任务状态分别管理。</td></tr></tbody></table></div><p>Delphi、Personal AI 和 Future You 仍可用于观察个人化交互形态；本次关键决策涉及状态权威、时间、更新和隔离，因此以公开机制更清楚的上述资料作为主要证据。项目的通用记忆评测结果不能直接证明 CX 的患者建模质量。</p></section><section id="model"><h2>患者模型是带证据与不确定性的当前解释</h2><p>建议把患者模型定义为：在某个版本和授权范围内，对同一患者已有信息作出的组织化表示。它可以有多个视图，但都需要回到一致的主体身份、来源与版本。这里先定义表示类别，不定义病种字段。</p><div class="table-scroll" tabindex="0" role="region" aria-label="架构比较表，可横向滚动"><table><thead><tr><th>表示类别</th><th>意义</th><th>更新原则</th></tr></thead><tbody><tr><td>事实锚点</td><td>来自指定来源、具有声明类型与确认状态的已知信息</td><td>区分“有记录支持某个说法”和“该说法已被核实”；新的来源不能静默覆盖旧来源。</td></tr><tr><td>相对稳定的个人表示</td><td>在多次交互中逐步建立的偏好、目标和背景</td><td>稳定性是可修订假设；不能由单次交流固化为长期特征。</td></tr><tr><td>时变状态视图</td><td>在指定时间窗口内系统对当前情况的描述</td><td>同时表达发生时间与获知时间，支持迟到事件、历史回看与新旧状态替代。</td></tr><tr><td>解释与假设</td><td>由模型根据证据形成的归纳、关联或推测</td><td>显示其推断性质、依据、适用范围及生成版本；设定确认、过期或否定条件。</td></tr><tr><td>未知与冲突</td><td>资料缺失、多来源不一致、尚未确认的部分</td><td>保留缺口与竞争解释；不为了生成完整画像而强行补齐。</td></tr></tbody></table></div><p>患者模型中的描述性部分，可以先实现为受控发布、可重建的视图；更复杂的行为或状态估计模型作为后续可插拔能力加入。任何学习型表示都保留其支持的输入版本和适用边界。助理可以提出新的理解，但发布到长期患者模型，需要经过独立更新规则。</p><h3>患者表示、计算模型与数字孪生能力</h3><p>“患者模型”描述被服务的这个人；“计算模型”是处理信息的方法，例如共享 LLM、规则、统计模型或后续机理模型。一个计算模型可以服务很多患者，一个患者表示也可以被不同计算模型读取。助理的角色与表达方式则属于第三个维度，不应与患者身份绑定。</p><p>数字孪生可逐层具备三种能力：描述当前与历史状态；估计未直接观测的状态及其变化；在明确假设下预测或比较情景。v0.2 先建立描述与演化的基础，并为后两者保留输入快照、模型版本、结果类型和反馈接口。按时间更新档案不会自然产生预测能力；LLM 能生成未来叙述，也不代表已经建立有效的状态转移模型。</p><p>因此，患者模型与长期记忆不是两份互相竞争的“真相”。记忆保留可检索的依据与历史，患者模型提供当前任务更容易使用的组织化解释；确有权威来源的结构化更新也可以直接驱动视图，不必先经过 LLM 自由抽取。</p></section><section id="memory"><h2>长期记忆是管理依据的服务，而不是一个向量库</h2><p>建议在逻辑上区分四类内容，底层是否使用关系表、图、全文索引或向量索引后续再选。</p><div class="table-scroll" tabindex="0" role="region" aria-label="架构比较表，可横向滚动"><table><thead><tr><th>内容</th><th>角色</th><th>避免的混淆</th></tr></thead><tbody><tr><td>经历与来源记录</td><td>保留事件顺序、原始输入的引用和谁表达了什么</td><td>对话摘要不能替代来源证据；同一句话被多次召回不算多份证据。</td></tr><tr><td>语义与时序记忆</td><td>组织可复用声明、关系、有效时间与替代关系</td><td>检索相关度不是事实可信度；最新写入也未必代表最新发生。</td></tr><tr><td>归纳与汇总</td><td>把多次经历压缩成便于使用的摘要或模式</td><td>汇总属于派生表示，受源纠错和撤回影响；不能独立于证据永久有效。</td></tr><tr><td>个人意图与约定</td><td>记录已表达或已确认的意向及其当前状态</td><td>讨论过、建议过、同意了、执行了与完成了需要保持区别。</td></tr></tbody></table></div><p>辅助的管理元信息可以先确定：关联主体、来源、时间、版本、声明或推断类型、确认状态、权限范围及派生依赖。这些是系统治理约定，不是患者临床字段。置信度若由模型生成，只能作为辅助信号，不能被解释为已经校准的医学概率。</p><p>原始证据、记忆条目、患者模型视图可以由不同服务维护，但同一逻辑信息尽量只设一个明确写入责任方。索引和摘要保持派生性质；当来源变更，系统能找到其影响范围，而非依赖下一次问答碰巧纠正。</p></section><section id="context"><h2>助理通过上下文服务使用患者模型和记忆</h2><p>助理负责服务角色、当次请求理解、表达、计划与受控工具调用。它拥有运行状态，但患者的长期表示不应依赖某个助理进程或一份系统提示词。助理的操作经验也不进入患者特征空间。</p><p><strong>新增的上下文服务，是三者之间最关键的连接。</strong>它依据主体、当前发言者、角色、任务和授权，读取患者模型的适用视图，补充相关记忆与共享知识，再把当前输入和待处理变化清楚标记后提供给助理。</p><div class="table-scroll" tabindex="0" role="region" aria-label="架构比较表，可横向滚动"><table><thead><tr><th>上下文组成</th><th>为什么需要</th></tr></thead><tbody><tr><td>患者模型快照</td><td>为当前交互提供一致、精简的个人表示。</td></tr><tr><td>相关记忆与证据引用</td><td>补足当前请求需要的历史细节，并允许回查来源。</td></tr><tr><td>本轮工作记忆与待处理输入</td><td>新消息尚未进入长期模型时，当前交互仍能使用它，同时不把它伪装成已确认长期事实。</td></tr><tr><td>共享知识与能力说明</td><td>公共内容和通用推理能力具有自己的版本与访问规则，不记成某个患者的经历。</td></tr><tr><td>权限、版本及处理进度</td><td>说明这轮用了哪个患者视图、哪些资料以及怎样的授权；便于追溯和失效。</td></tr></tbody></table></div><p>不要求所有存储共享一个全局版本号，但需要一个兼容的版本清单：患者视图基于哪些输入进度、记忆覆盖到哪里、是否有尚未吸收的新事件、策略版本是什么。若检索命中旧记忆与当前视图冲突，上下文服务须保留差异并按规则处理，不能把冲突隐藏在自然语言摘要里。</p><p>助理更换基础模型或上下文压缩时，长期身份与表示仍然存在。多名助理访问同一患者，也应按角色读取授权视图，不能依靠复制聊天记录来同步。</p></section><section id="flows"><h2>交互、长期更新和纠错分别走什么路径</h2><p><a href="cx-interaction-update.html">打开交互与更新时序图</a>。图示是逻辑示例；不要求每次新输入同时更新全部存储，也不要求所有更新均等待 LLM 处理。</p><h3>当次交互路径</h3><ol><li>CX 接入层验证身份与授权，登记输入来源及事件标识。</li><li>助理向上下文服务请求本轮所需信息。</li><li>上下文服务读取患者视图和相关记忆，加入当前输入、共享知识及版本清单。</li><li>助理生成输出或工具调用请求；执行权限与结果核验经过统一边界。</li><li>系统记录交互输出与真正收到的执行结果，保持不同事件类型。</li></ol><h3>长期更新路径</h3><ol><li>更新管线从有来源的事件中筛选可长期复用的信息。</li><li>抽取只产生候选声明；区分新增、补充、状态变化、纠错和来源矛盾。</li><li>按类型与确认要求决定写入、搁置、替代或失效；保留更新依据。</li><li>发布受影响的记忆与患者模型版本，标记依赖的源进度。</li><li>通知上下文与缓存刷新；失败的异步作业可观测、重试，重复事件不重复计算为新证据。</li></ol><h3>纠错与撤回路径</h3><p>先定位源记录及其版本，再沿“源记录 → 声明 → 归纳 → 患者视图 → 缓存”检查影响范围。需要时撤销可访问性、使派生结论失效并重算。模型升级也采用类似重建路径，以区分患者本身发生变化，还是系统理解方法发生变化。</p><p>已经执行的外部动作不因记忆删除而自动撤销；已经交付的回答也不能被假定已收回。二者需要独立的业务处理与追溯规则。保留、撤回和审计之间采用明确策略；“可追溯”不意味着永久保留全部个人原文。</p></section><section id="controls"><h2>把主体、发言者、助理和会话分开</h2><p>一次对话可能谈及患者本人，也可能包含他人转述。因此至少有四个独立的身份维度：被描述的主体、实际发言者、执行服务的代理，以及本次会话或任务。它们的对应关系由 CX 确认，不能从文本中的自称直接取得。</p><p>同一患者具有共同的身份与版本体系，不意味着所有角色看到同样的信息。权限判断需要覆盖记忆读取、患者视图、上下文拼接、工具输入输出和派生缓存；撤销授权后，相应投影也要刷新。命名空间或 user_id 过滤有助于组织数据，但必须由服务端授权保证实际访问边界。</p><p>建议明确三类写入权限：助理可以提交候选记忆和修改会话工作区；记忆服务依据规则提交条目；患者模型服务依据受控更新发布长期视图。高影响的确认规则由 CX 指定，而非交给一次 LLM 评分。</p><h3>需要防止的三种循环</h3><ul><li><strong>回声变证据：</strong>助理推测先被写成摘要，下一轮又把摘要当作原始支持，反复强化同一推测。</li><li><strong>工具成功变现实成功：</strong>请求已发出或接口已接受，未经确认便被写成患者状态已改变。</li><li><strong>模拟变观察：</strong>生成的个人口吻或未来情景，被写回为患者已经表达的意愿或已发生的事件。</li></ul><p>未来如引入预测或情景推演，应读取指定版本的患者表示，在独立分支运行，记录假设、模型版本与适用范围。模拟结果回到分析空间，实际观察回到证据空间，两者的晋升规则保持独立。</p></section><section id="decisions"><h2>现在应确定的架构决策与验证边界</h2><div class="table-scroll" tabindex="0" role="region" aria-label="架构比较表，可横向滚动"><table><thead><tr><th>方案</th><th>好处</th><th>主要代价</th><th>当前建议</th></tr></thead><tbody><tr><td>患者信息全部绑定单个助理</td><td>结构少，容易验证交互体验</td><td>患者状态与代理角色、会话和框架耦合；更换代理与多角色协作困难</td><td>可作局部体验原型，不作长期架构依据。</td></tr><tr><td>独立记忆服务，患者模型隐含在提示词中</td><td>记忆可复用，接入较直接</td><td>不同助理可能临时重构出不同患者理解，难以追溯当前视图</td><td>可用于探索检索，但需要补足患者模型层。</td></tr><tr><td>患者模型、长期记忆、助理独立，受控更新连接</td><td>职责清楚，支持替换、重建、并发和多角色视图</td><td>增加版本协调、上下文组装和更新规则</td><td>推荐的 CX 逻辑架构；部署可以先保持模块化单体。</td></tr></tbody></table></div><p>首期不需要同时部署 Letta、Graphiti、Mem0、Honcho 和 Hindsight。它们是机制参考与候选组件；CX 先掌握身份映射、表示语义、证据依赖、权限和版本边界，再判断哪些能力适合委托给具体框架。</p><div class="table-scroll" tabindex="0" role="region" aria-label="架构比较表，可横向滚动"><table><thead><tr><th>可在数据未知时验证的事项</th><th>应观察的结果</th></tr></thead><tbody><tr><td>跨会话延续与基础模型替换</td><td>患者主体与长期视图保持连续，助理角色和会话工作区不串用。</td></tr><tr><td>单次推断与重复召回</td><td>候选保持推断标识；重复使用不会被计作新的独立支持来源。</td></tr><tr><td>迟到、重复或矛盾事件</td><td>能表达发生与获知时间；重复处理幂等，矛盾保留可解释结果。</td></tr><tr><td>后台更新尚未完成</td><td>本轮上下文展示处理进度，并能区分当前输入与已发布状态。</td></tr><tr><td>来源纠正或撤回</td><td>可定位派生项并确认失效及刷新范围，不能只验证删除按钮返回成功。</td></tr><tr><td>患者、角色及访问权限交叉</td><td>读写、检索、上下文与缓存均执行一致的授权边界。</td></tr><tr><td>实际结果与假设分支</td><td>工具回执、已确认观察和模拟输出各有类型，不互相晋升。</td></tr></tbody></table></div><p>这些检查使用抽象主体、事件与合成内容即可验证架构性质，不证明真实患者建模准确或改善生活质量。真实数据可用后，再确定表示字段、更新频率、适用任务、预测评价和业务效果。</p><p><strong>SOW 中可对应的阶段目标：</strong>完成 CX 患者数字孪生的总体架构及核心机制设计，明确患者模型、长期记忆、助理运行时的职责与生命周期，设计证据与版本体系、上下文组装、受控更新、纠错撤回及 CX 集成边界，并形成可用抽象事件验证的架构验收方案。</p></section><section id="sources"><h2>原文证据与可迁移边界</h2><p>以下为官方资料或作者论文的转述，检索日为 2026年10月21日。文档若未标发布日期，保留所见版本与核对日；原文入口用于后续核查，未嵌入非必要截图。所有对 CX 的迁移判断都是本次设计推论。</p><details class="source-record" id="src-letta"><summary>Letta MemFS <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>Letta · 当前主站；核对 2026-10-21</dd><dt>原文入口与定位</dt><dd><a href="https://docs.letta.com/concepts/memfs" target="_blank" rel="noopener noreferrer">Letta MemFS</a> · Memory structure / Versioning and synchronization</dd><dt>机制转述</dt><dd>每个代理的记忆由 git 仓库管理。根目录内容常驻上下文，深层文件按需读取；历史会话检索另有机制。</dd><dt>CX 架构推论</dt><dd>借鉴显式、分层和版本化记忆；将助理状态与患者长期表示分别命名。</dd><dt>不能推出</dt><dd>不能把早期 MemGPT 的具体存储方式当作当前唯一实现，也不能把代理的仓库直接当成患者的权威档案。</dd><dt>下一步验证</dt><dd>核实记忆与会话隔离、并发编辑和跨端同步的实际语义。</dd></dl></details><details class="source-record" id="src-secondme"><summary>AI-native Memory 2.0 Second Me <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>Wei 等 / Mindverse · 作者论文 v1；2025-03-11</dd><dt>原文入口与定位</dt><dd><a href="https://arxiv.org/html/2503.08102v1" target="_blank" rel="noopener noreferrer">AI-native Memory 2.0 Second Me</a> · 2.2 Overall Design / 3.1 Overview of Training</dd><dt>机制转述</dt><dd>作者保留原始资料、自然语言表示和参数化个人模型的层次，用 SFT、DPO 等训练个人化模型，并将其作为个人上下文提供者。</dd><dt>CX 架构推论</dt><dd>借鉴个人模型为外部专业服务提供背景的关系；显式表示和学习型表示可以共存。</dd><dt>不能推出</dt><dd>表达风格或偏好拟合不证明身体状态预测有效；该论文不能证明 CX 必须为每位患者微调一个 LLM。</dd><dt>下一步验证</dt><dd>有真实任务与数据后，再比较显式表示、检索和参数化的更新成本与可纠正性。</dd></dl></details><details class="source-record" id="src-graphiti"><summary>Graphiti Overview <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>Zep · 官方文档 v4；核对 2026-10-21</dd><dt>原文入口与定位</dt><dd><a href="https://help.getzep.com/graphiti/getting-started/overview" target="_blank" rel="noopener noreferrer">Graphiti Overview</a> · Graphiti and Zep / Why Graphiti</dd><dt>机制转述</dt><dd>Graphiti 通过 episodes 增量形成实体与关系，保留来源，支持双时间、历史关系失效和混合检索；Zep 是建立其上的托管产品。</dd><dt>CX 架构推论</dt><dd>借鉴来源、事实关系和时间有效性，支持当前视图与历史重建。</dd><dt>不能推出</dt><dd>开源库不等同于托管服务的完整治理；有时间字段不保证对事实变化的判断正确。</dd><dt>下一步验证</dt><dd>用纠错、迟到事件和多来源矛盾验证时间语义与重建结果。</dd></dl></details><details class="source-record" id="src-mem0"><summary>How Mem0 Works <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>Mem0 · 当前文档；核对 2026-10-21</dd><dt>原文入口与定位</dt><dd><a href="https://docs.mem0.ai/core-concepts/how-it-works" target="_blank" rel="noopener noreferrer">How Mem0 Works</a> · Messages vs memories / Extraction and retrieval</dd><dt>机制转述</dt><dd>应用将消息交给 add，再于模型调用前 search。默认保存抽取后的记忆；当前文档描述自动提取为追加式，纠错和移除使用明确的 update、delete。</dd><dt>CX 架构推论</dt><dd>将记忆写入与读取分别设计，抽取结果保留回到原始记录的引用。</dd><dt>不能推出</dt><dd>不能沿用旧版本描述，假定当前自动抽取一定会覆盖矛盾事实；应用仍需选择哪些结果进入上下文。</dd><dt>下一步验证</dt><dd>固定 OSS 或托管版本，验证更新、删除、分区和事件完成状态。</dd></dl></details><details class="source-record" id="src-honcho"><summary>Peer Representations <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>Plastic Labs / Honcho · 官方文档 v3；核对 2026-10-21</dd><dt>原文入口与定位</dt><dd><a href="https://honcho.dev/docs/v3/documentation/core-concepts/representation" target="_blank" rel="noopener noreferrer">Peer Representations</a> · What is in a Representation / Observation and Perspective-Taking</dd><dt>机制转述</dt><dd>用户表示包含 conclusions、summaries 和 peer cards。表示可来自显式信息和进一步推断，也能按不同 peer 实际观察到的交互分别形成。</dd><dt>CX 架构推论</dt><dd>把患者模型设为一等对象，并为不同角色提供有权限边界的视图。</dd><dt>不能推出</dt><dd>推断得到的特征仍是推断；所谓形式逻辑不能保证抽取的前提真实。</dd><dt>下一步验证</dt><dd>检查原文声明、推断与共享摘要能否分开查询，并能追溯支持来源。</dd></dl></details><details class="source-record" id="src-hindsight"><summary>Hindsight Quickstart 与 Operations <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>Vectorize · Quickstart / Operations 0.10；核对 2026-10-21</dd><dt>原文入口与定位</dt><dd><a href="https://hindsight.vectorize.io/cookbook/recipes/quickstart" target="_blank" rel="noopener noreferrer">Hindsight Quickstart 与 Operations</a> · Retain / Recall / Reflect</dd><dt>机制转述</dt><dd>接口将保存、检索和合成分开。其 Operations 文档还描述后台 consolidation、删除源后的 observation 失效及重算。</dd><dt>CX 架构推论</dt><dd>把归纳和缓存看作可重建的派生产物，跟踪后台作业而非只看 API 已接收。</dd><dt>不能推出</dt><dd>检索命中、归纳质量和患者模型正确性是不同问题；源删除后所有派生视图不一定同步刷新。</dd><dt>下一步验证</dt><dd>验证 observation 与预计算 mental model 的刷新和失效完成情况。</dd></dl></details><details class="source-record" id="src-openclaw"><summary>OpenClaw Memory architecture 与 User model <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>OpenClaw · 官方当前文档；核对 2026-10-21</dd><dt>原文入口与定位</dt><dd><a href="https://docs.openclaw.ai/concepts/memory-architecture" target="_blank" rel="noopener noreferrer">OpenClaw Memory architecture 与 User model</a> · Provenance / promotion；另见 User model</dd><dt>机制转述</dt><dd>官方架构区分来源与记忆晋升；User model 对较稳定偏好记录观察时间及 active、superseded 状态。</dd><dt>CX 架构推论</dt><dd>借鉴来源署名、状态替代关系和晋升规则，防止重复召回制造新证据。</dd><dt>不能推出</dt><dd>来源可信与内容真实是两种判断；患者本人自述也需要标明其声明性质。</dd><dt>下一步验证</dt><dd>验证来源标记由系统维护，外部文本不能把自己升级为受信指令。</dd></dl></details><details class="source-record" id="src-hermes"><summary>Hermes Persistent Memory <span>官方资料 / 作者原文</span></summary><dl><dt>来源与版本</dt><dd>Nous Research · 官方当前文档；核对 2026-10-21</dd><dt>原文入口与定位</dt><dd><a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/memory" target="_blank" rel="noopener noreferrer">Hermes Persistent Memory</a> · Persistent Memory / session_search vs memory</dd><dt>机制转述</dt><dd>内置长期记忆与历史会话检索分开，系统提示中的记忆以会话开始时的快照呈现；保存需要实际调用记忆工具。</dd><dt>CX 架构推论</dt><dd>借鉴助手经验与用户表示分离，以及写入必须有可检查结果。</dd><dt>不能推出</dt><dd>跨会话记住某事不保证本轮读取最新状态；不能用助手一句已经记住代替持久化结果。</dd><dt>下一步验证</dt><dd>测试跨会话、并发更新和当前状态读取的一致性。</dd></dl></details><h3>版本与工程边界的补充原文</h3><ul><li><a href="https://github.com/mem0ai/mem0/blob/main/skills/mem0/references/api-reference.md">Mem0 Platform API reference</a>：当前 v3 追加处理、异步状态与各范围参数；具体行为需固定版本复测。</li><li><a href="https://github.com/getzep/graphiti">Graphiti 官方 README</a>：参考 REST/MCP 服务的认证与授权边界；group_id 不能代替业务服务端授权。</li><li><a href="https://github.com/plastic-labs/honcho/blob/main/docs/v3/documentation/features/advanced/deleting-data.mdx">Honcho v3 Deleting Data</a>：删除 session 与跨会话派生结论的范围不同，不宜假定会话删除已清除全部影响。</li><li><a href="https://hindsight.vectorize.io/0.10/developer/api/operations">Hindsight Operations 0.10</a>：源删除后的派生维护属于异步工作，需检查作业完成与其他视图刷新。</li><li><a href="https://docs.openclaw.ai/concepts/user-model">OpenClaw User model</a>：用户表示的状态替代机制。</li><li><a href="https://docs.letta.com/v1-sdk/memory/memory-blocks">Letta v1 memory blocks</a>：用于理解早期机制，避免与当前 MemFS 混用。</li></ul></section></article>
+    <!-- Footer -->
+    <p class="footer">
+      Architecture diagram &bull; Built with Archify<span class="no-print"> &bull; Press <kbd>T</kbd> for theme and <kbd>E</kbd> for export</span>
+    </p>
+  </div>
+
+  <script>
+    /* ============================================================
+       Theme toggle — persists to localStorage, respects system pref
+       ============================================================ */
+    var Archify = {};
+
+    Archify.theme = (function () {
+      var STORAGE_KEY = 'archify-theme';
+      var html = document.documentElement;
+      var btn = document.getElementById('btn-theme');
+      var icon = document.getElementById('theme-icon');
+      var label = document.getElementById('theme-label');
+
+      // localStorage can throw (blocked cookies, sandboxed iframes); the whole
+      // script element dies on an uncaught error, so guard every access.
+      function readStored() {
+        try { return localStorage.getItem(STORAGE_KEY); } catch (_) { return null; }
+      }
+      function writeStored(value) {
+        try { localStorage.setItem(STORAGE_KEY, value); } catch (_) {}
+      }
+      function urlOverride() {
+        // URL param wins (useful for deterministic screenshots / share links)
+        try {
+          var param = new URLSearchParams(window.location.search).get('theme');
+          if (param === 'light' || param === 'dark') return param;
+        } catch (_) {}
+        return null;
+      }
+
+      function resolveInitial() {
+        var fromUrl = urlOverride();
+        if (fromUrl) return fromUrl;
+        var saved = readStored();
+        if (saved === 'light' || saved === 'dark') return saved;
+        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+
+      function apply(theme) {
+        html.setAttribute('data-theme', theme);
+        icon.textContent = theme === 'dark' ? '\u263E' : '\u263C';
+        label.textContent = theme === 'dark' ? 'Dark' : 'Light';
+        btn.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+      }
+
+      function toggle() {
+        var next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        apply(next);
+        writeStored(next);
+      }
+
+      apply(resolveInitial());
+      btn.addEventListener('click', toggle);
+
+      // Follow live OS theme changes while the user has no explicit preference.
+      try {
+        var media = window.matchMedia('(prefers-color-scheme: light)');
+        var onChange = function (e) {
+          var saved = readStored();
+          if (urlOverride() || saved === 'light' || saved === 'dark') return;
+          apply(e.matches ? 'light' : 'dark');
+        };
+        if (media.addEventListener) media.addEventListener('change', onChange);
+        else if (media.addListener) media.addListener(onChange);
+      } catch (_) {}
+
+      return { toggle: toggle };
+    })();
+
+    /* ============================================================
+       Export — PNG / JPEG / WebP / SVG (download) and Copy PNG (clipboard)
+
+       Raster exports are always rendered at 4x source resolution for
+       maximum sharpness. The trick: we set the serialized SVG's
+       `width`/`height` to viewBox * 4 so the browser rasterizes the
+       vectors at that resolution natively. drawImage then draws at
+       the image's natural size (no upscaling = no blur).
+
+       JPEG/WebP paint the current theme's background explicitly since
+       those formats have no alpha channel.
+       ============================================================ */
+    (function () {
+      var RASTER_SCALE = 4;
+
+      function diagramFilename() {
+        var title = (document.title || 'diagram')
+          .replace(/\s+Architecture(\s+Diagram)?$/i, '')
+          .replace(/\s+Diagram$/i, '')
+          .trim();
+        return title.replace(/[^a-z0-9_\-]+/gi, '-')
+                    .toLowerCase()
+                    .replace(/^-+|-+$/g, '') || 'diagram';
+      }
+
+      function currentBg() {
+        return getComputedStyle(document.body).backgroundColor || '#ffffff';
+      }
+
+      /**
+       * Serialize the main SVG into a standalone document.
+       *
+       * Two modes:
+       * - Default (opts.autoTheme=false) — locks the serialized SVG to the
+       *   viewer's current theme. Used by the raster pipeline
+       *   (PNG/JPEG/WebP/clipboard) because canvas rasterization needs
+       *   deterministic colors; a raster cannot react to
+       *   prefers-color-scheme after encoding.
+       * - autoTheme=true — emits BOTH dark and light variable sets plus a
+       *   `@media (prefers-color-scheme)` rule so the resulting SVG
+       *   self-themes when embedded in GitHub READMEs or other hosts that
+       *   expose a color scheme. Used for "Download SVG".
+       */
+      function serializeSvg(scale, opts) {
+        // scale: integer multiplier for intrinsic SVG pixel dimensions used by
+        // the raster path. Defaults to 1 (natural size) for SVG download.
+        scale = scale || 1;
+        opts = opts || {};
+        var autoTheme = opts.autoTheme === true;
+
+        var svg = document.querySelector('.diagram-container svg');
+        var clone = svg.cloneNode(true);
+
+        var vb = svg.viewBox.baseVal;
+        // Scale width/height so the browser rasterizes the vectors at target
+        // resolution directly. viewBox stays unchanged so coordinates don't
+        // shift. This is the key to sharp rasters — do NOT scale later via
+        // canvas upscaling.
+        clone.setAttribute('width', vb.width * scale);
+        clone.setAttribute('height', vb.height * scale);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+        // Only the SVG-relevant rules: semantic classes, markers, and the
+        // theme variable blocks. Toolbar/cards/print CSS can never apply
+        // inside a standalone SVG and would only bloat the export.
+        var hostStyle = (function () {
+          var out = [];
+          Array.prototype.forEach.call(document.styleSheets, function (sheet) {
+            var rules;
+            try { rules = sheet.cssRules; } catch (_) { return; } // cross-origin
+            if (!rules) return;
+            Array.prototype.forEach.call(rules, function (rule) {
+              if (rule.type !== 1) return; // plain style rules only
+              var sel = rule.selectorText || '';
+              if (/(^|,)\s*(svg|:root|\[data-theme|\.c-|\.t-|\.a-|\.m-)/.test(sel)) {
+                out.push(rule.cssText);
+              }
+            });
+          });
+          return out.join('\n');
+        })();
+
+        // Derive the variable list from the stylesheet so newly added theme
+        // variables can never be missed by the export pipeline again
+        // (--lane-fill/--lane-stroke once were).
+        var varNames = (function () {
+          var seen = {};
+          var names = [];
+          (hostStyle.match(/--[a-zA-Z0-9-]+(?=\s*:)/g) || []).forEach(function (n) {
+            if (!seen[n]) { seen[n] = true; names.push(n); }
+          });
+          return names;
+        })();
+
+        // Resolve the full variable set for a given data-theme via an
+        // off-DOM probe, independent of what the viewer is currently set to.
+        function resolveVars(themeAttr) {
+          var probe = document.createElement('div');
+          probe.setAttribute('data-theme', themeAttr);
+          probe.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;';
+          document.body.appendChild(probe);
+          try {
+            var c = getComputedStyle(probe);
+            return varNames.map(function (n) {
+              return n + ': ' + c.getPropertyValue(n).trim() + ';';
+            }).join(' ');
+          } finally {
+            document.body.removeChild(probe);
+          }
+        }
+
+        // Prepend a local()-only @font-face block for each weight so that the
+        // sandboxed image-rendering context used during PNG/JPEG/WebP export
+        // can find JetBrains Mono if the user has it installed locally, and
+        // falls through cleanly to the monospace stack otherwise. The usual
+        // Google-Fonts <link> in the host document is unreachable from the
+        // serialized SVG, so url()-sourced faces would just hang.
+        var fontFallback = [400, 500, 600, 700].map(function (w) {
+          return "@font-face { font-family: 'JetBrains Mono'; font-weight: " + w +
+                 "; src: local('JetBrains Mono'), local('JetBrainsMono-Regular'); }";
+        }).join('\n');
+
+        var style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        var bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+
+        if (autoTheme) {
+          // Dual-theme SVG. Dark is the default (so hosts without
+          // prefers-color-scheme still render), light swaps in via media
+          // query, and svg[data-theme="..."] still lets downstream
+          // consumers force a specific theme.
+          var darkVars = resolveVars('dark');
+          var lightVars = resolveVars('light');
+
+          style.textContent =
+            fontFallback + "\n" +
+            "svg { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', monospace; }\n" +
+            hostStyle + "\n" +
+            ":root, svg { " + darkVars + " }\n" +
+            "@media (prefers-color-scheme: light) { :root, svg { " + lightVars + " } }\n" +
+            "svg[data-theme=\"light\"] { " + lightVars + " }\n" +
+            "svg[data-theme=\"dark\"] { " + darkVars + " }\n" +
+            "rect.c-bg-rect { fill: var(--bg); }\n";
+
+          // Don't lock the serialized SVG to the viewer's current theme.
+          clone.removeAttribute('data-theme');
+          // Background follows the CSS variable, not a fixed color, so it
+          // swaps with the media query.
+          bgRect.setAttribute('class', 'c-bg-rect');
+        } else {
+          // Raster path: lock to the viewer's current theme.
+          var theme = document.documentElement.getAttribute('data-theme') || 'dark';
+          var themeHost = document.querySelector('[data-theme="' + theme + '"]') || document.documentElement;
+          var computed = getComputedStyle(themeHost);
+          var vars = varNames.map(function (n) {
+            return n + ': ' + computed.getPropertyValue(n).trim() + ';';
+          }).join(' ');
+
+          // IMPORTANT: inject the resolved variables AFTER hostStyle,
+          // otherwise hostStyle's ":root, [data-theme=\"dark\"] { ... }" rule
+          // overrides our chosen theme via later-in-cascade equal-specificity.
+          // Keep this order.
+          style.textContent =
+            fontFallback + "\n" +
+            "svg { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', monospace; }\n" +
+            hostStyle + "\n" +
+            ":root, svg { " + vars + " }\n";
+
+          bgRect.setAttribute('fill', computed.getPropertyValue('--bg').trim() || '#ffffff');
+        }
+
+        clone.insertBefore(style, clone.firstChild);
+        clone.insertBefore(bgRect, style.nextSibling);
+
+        return {
+          svgString: new XMLSerializer().serializeToString(clone),
+          width: vb.width * scale,
+          height: vb.height * scale
+        };
+      }
+
+      function download(blob, filename) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      }
+
+      // Conservative upper bound on total canvas pixels. Older Safari on iOS
+      // silently produces a blank canvas above ~16 Mpx; Chrome / Firefox /
+      // desktop Safari are far higher but start failing on memory-constrained
+      // devices. We pick the largest integer scale in {4,3,2,1} whose target
+      // pixel count fits under this cap.
+      var MAX_CANVAS_PIXELS = 16 * 1024 * 1024;
+
+      function pickSafeScale(vbW, vbH) {
+        for (var s = RASTER_SCALE; s >= 1; s--) {
+          if (vbW * s * vbH * s <= MAX_CANVAS_PIXELS) return s;
+        }
+        return 1;
+      }
+
+      function rasterize(format) {
+        // Serialize at a safe scale (RASTER_SCALE=4 by default, reduced if the
+        // resulting canvas would exceed MAX_CANVAS_PIXELS). The SVG itself is
+        // rasterized at target resolution natively; drawImage draws at natural
+        // size — no upsampling blur.
+        var svg = document.querySelector('.diagram-container svg');
+        var vb = svg.viewBox.baseVal;
+        var scale = pickSafeScale(vb.width, vb.height);
+        var data = serializeSvg(scale);
+        var svgBlob = new Blob([data.svgString], { type: 'image/svg+xml;charset=utf-8' });
+        var svgUrl = URL.createObjectURL(svgBlob);
+
+        return new Promise(function (resolve, reject) {
+          var img = new Image();
+          img.onload = function () {
+            var canvas = document.createElement('canvas');
+            canvas.width = data.width;
+            canvas.height = data.height;
+            var ctx = canvas.getContext('2d');
+            if (format === 'jpeg') {
+              ctx.fillStyle = currentBg();
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            // Draw at natural size — SVG was already rasterized at target res.
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(svgUrl);
+            var mime = format === 'jpeg' ? 'image/jpeg' :
+                       format === 'webp' ? 'image/webp' : 'image/png';
+            var quality = format === 'png' ? undefined : 0.95;
+            canvas.toBlob(function (blob) {
+              if (!blob) reject(new Error('toBlob returned null for ' + format));
+              else resolve(blob);
+            }, mime, quality);
+          };
+          img.onerror = function (e) {
+            URL.revokeObjectURL(svgUrl);
+            reject(e);
+          };
+          img.src = svgUrl;
+        });
+      }
+
+      var menu = document.getElementById('export-menu');
+      var btn = document.getElementById('btn-export');
+      var items = function () {
+        return Array.prototype.slice.call(menu.querySelectorAll('button[role="menuitem"]'));
+      };
+
+      // ---- Clipboard support ----------------------------------------------
+      function canCopyImage() {
+        return typeof ClipboardItem !== 'undefined' &&
+               navigator.clipboard &&
+               typeof navigator.clipboard.write === 'function';
+      }
+
+      // ---- Raster format detection ----------------------------------------
+      // canvas.toBlob('image/webp') silently returns a PNG on browsers without
+      // WebP encoding (older Safari), so detect explicitly.
+      function supports(format) {
+        if (format === 'svg' || format === 'png') return true;
+        var mime = format === 'jpeg' ? 'image/jpeg' : 'image/webp';
+        try {
+          var c = document.createElement('canvas');
+          c.width = c.height = 2;
+          return c.toDataURL(mime).indexOf('data:' + mime) === 0;
+        } catch (_) { return false; }
+      }
+
+      // Gray out unsupported items.
+      items().forEach(function (it) {
+        if (it.dataset.format && !supports(it.dataset.format)) {
+          it.disabled = true;
+          it.title = 'Not supported by this browser';
+          it.style.opacity = '0.5';
+        }
+        if (it.dataset.action === 'copy' && !canCopyImage()) {
+          it.disabled = true;
+          it.title = 'Clipboard image write not supported by this browser';
+          it.style.opacity = '0.5';
+        }
+      });
+
+      // ---- Toast ----------------------------------------------------------
+      // A live region only announces CHANGES to an existing node, so the toast
+      // element is created once up front and updated in place.
+      var toastEl = document.createElement('div');
+      toastEl.className = 'archify-toast';
+      toastEl.setAttribute('role', 'status');
+      document.body.appendChild(toastEl);
+      var toastTimer = null;
+
+      function toast(msg) {
+        toastEl.textContent = '';
+        requestAnimationFrame(function () {
+          toastEl.textContent = msg;
+          toastEl.classList.add('show');
+        });
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1500);
+      }
+
+      function open(focusLast) {
+        menu.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        var available = items().filter(function (i) { return !i.disabled; });
+        var target = focusLast ? available[available.length - 1] : available[0];
+        if (target) target.focus();
+      }
+      function close(focusTrigger) {
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+        if (focusTrigger) btn.focus();
+      }
+      function isOpen() { return menu.classList.contains('open'); }
+
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (isOpen()) close(false);
+        else open();
+      });
+      // APG menu-button pattern: ArrowDown/ArrowUp on the trigger opens the menu.
+      btn.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (!isOpen()) open(e.key === 'ArrowUp');
+        }
+      });
+      document.addEventListener('click', function (e) {
+        if (!menu.contains(e.target) && e.target !== btn) close(false);
+      });
+
+      // Keyboard navigation inside the menu.
+      //   Menu items: Up/Down, Home/End.
+      //   Esc closes + returns focus to trigger; Tab closes.
+      menu.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
+        if (e.key === 'Tab')    { close(false); return; }
+
+        var available = items().filter(function (i) { return !i.disabled; });
+        var current = available.indexOf(document.activeElement);
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault();
+            if (available.length) available[(current + 1 + available.length) % available.length].focus();
+            break;
+          case 'ArrowUp':
+            e.preventDefault();
+            if (available.length) available[(current - 1 + available.length) % available.length].focus();
+            break;
+          case 'Home':
+            e.preventDefault();
+            if (available[0]) available[0].focus();
+            break;
+          case 'End':
+            e.preventDefault();
+            if (available.length) available[available.length - 1].focus();
+            break;
+        }
+      });
+
+      function runExport(format) {
+        var base = diagramFilename();
+        close(true);
+        return (format === 'svg'
+          ? Promise.resolve(serializeSvg(1, { autoTheme: true })).then(function (d) {
+              download(new Blob([d.svgString], { type: 'image/svg+xml;charset=utf-8' }), base + '.svg');
+            })
+          : rasterize(format).then(function (blob) {
+              download(blob, base + '.' + format);
+            })
+        ).catch(function (err) {
+          console.error(err);
+          alert('Export failed: ' + (err && err.message ? err.message : format));
+        });
+      }
+
+      function runCopy() {
+        close(true);
+        if (!canCopyImage()) {
+          alert('Clipboard image write not supported in this browser.');
+          return;
+        }
+        // WebKit requires ClipboardItem to be constructed synchronously inside
+        // the user gesture — pass the pending Promise<Blob> as the item value.
+        // Browsers that reject promise values throw synchronously; fall back
+        // to awaiting the blob first (works in Chromium/Firefox).
+        var blobPromise = rasterize('png');
+        var writePromise;
+        try {
+          writePromise = navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
+        } catch (_) {
+          writePromise = blobPromise.then(function (blob) {
+            return navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          });
+        }
+        return writePromise.then(function () {
+          toast('Copied PNG to clipboard');
+        }).catch(function (err) {
+          console.error(err);
+          alert('Copy failed: ' + (err && err.message ? err.message : 'unknown'));
+        });
+      }
+
+      menu.addEventListener('click', function (e) {
+        var copyBtn = e.target.closest('button[data-action="copy"]');
+        if (copyBtn && !copyBtn.disabled) { runCopy(); return; }
+
+        var formatBtn = e.target.closest('button[data-format]');
+        if (formatBtn && !formatBtn.disabled) { runExport(formatBtn.dataset.format); }
+      });
+
+      Archify.exportMenu = { open: open, close: close, isOpen: isOpen, run: runExport };
+
+      // Auto-open on page load for demo/screenshot purposes: ?openExport=1
+      // Wait for fonts (so the menu doesn't flash before typography lands)
+      // and paint before opening. Fallback timeout for browsers without the
+      // Font Loading API.
+      try {
+        if (new URLSearchParams(window.location.search).get('openExport') === '1') {
+          var openWhenReady = function () {
+            requestAnimationFrame(function () { requestAnimationFrame(open); });
+          };
+          if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(openWhenReady);
+          } else {
+            setTimeout(openWhenReady, 200);
+          }
+        }
+      } catch (_) {}
+    })();
+
+    /* ============================================================
+       Global keyboard shortcuts
+         T -> toggle theme
+         E -> open export menu
+       Ignored when focus is inside an input/textarea/contenteditable.
+       ============================================================ */
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        Archify.theme.toggle();
+      } else if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        if (!Archify.exportMenu.isOpen()) Archify.exportMenu.open();
+      }
+    });
+  </script>
+</body>
+</html>

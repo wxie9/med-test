@@ -1,7 +1,0 @@
-[
-  {"key":"hrpos_evermet_cdk46","filter":{"hrPositive":true,"everMetastatic":true,"priorCdk46":true},"expectedCount":207},
-  {"key":"early_endocrine_ongoing","filter":{"hrPositive":true,"stage":["early_adjuvant"],"currentTreatmentType":["endocrine"]},"expectedCount":974},
-  {"key":"her2_positive_all","filter":{"her2":["positive"]},"expectedCount":357},
-  {"key":"metastatic_on_adc","filter":{"stage":["metastatic"],"currentTreatmentType":["adc"]},"expectedCount":37},
-  {"key":"survivorship","filter":{"stage":["survivorship"]},"expectedCount":134}
-]

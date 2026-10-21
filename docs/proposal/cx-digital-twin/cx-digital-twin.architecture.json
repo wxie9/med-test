@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "CX 数字孪生架构深度分析",
+    "subtitle": "v0.2 · 2026年10月21日｜患者模型、长期记忆与助理运行时分离；以证据和受控更新连接三者",
+    "output": "cx-digital-twin-architecture.html",
+    "viewBox": [
+      1320,
+      860
+    ]
+  },
+  "components": [
+    {
+      "id": "front",
+      "type": "frontend",
+      "label": "CX 交互入口",
+      "sublabel": "既有前端与交互通道",
+      "pos": [
+        40,
+        180
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "security",
+      "label": "接入与身份边界",
+      "sublabel": "授权范围 / 请求路由",
+      "pos": [
+        280,
+        180
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "assistant",
+      "type": "backend",
+      "label": "助理运行时",
+      "sublabel": "角色 / 会话 / 工作记忆",
+      "pos": [
+        520,
+        180
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "security",
+      "label": "受控工具与输出",
+      "sublabel": "能力授权 / 结果核验",
+      "pos": [
+        800,
+        180
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "back",
+      "type": "external",
+      "label": "CX 业务系统",
+      "sublabel": "既有后端与执行回执",
+      "pos": [
+        1080,
+        180
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "context",
+      "type": "backend",
+      "label": "上下文组装",
+      "sublabel": "按任务与权限选择信息",
+      "pos": [
+        520,
+        400
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "patient",
+      "type": "backend",
+      "label": "患者模型服务",
+      "sublabel": "已知 / 假设 / 未知 / 版本",
+      "pos": [
+        800,
+        400
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "memory",
+      "type": "database",
+      "label": "长期记忆服务",
+      "sublabel": "可追溯经历与时序事实",
+      "pos": [
+        800,
+        600
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "evidence",
+      "type": "database",
+      "label": "原始证据与事件",
+      "sublabel": "来源 / 原文 / 修订关系",
+      "pos": [
+        280,
+        600
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "update",
+      "type": "messagebus",
+      "label": "记忆与模型更新",
+      "sublabel": "提取 / 冲突 / 失效 / 投影",
+      "pos": [
+        1080,
+        600
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "knowledge",
+      "type": "cloud",
+      "label": "共享知识与推理能力",
+      "sublabel": "通用模型 / 版本化知识",
+      "pos": [
+        280,
+        400
+      ],
+      "size": [
+        180,
+        80
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "患者长期表示 · 独立于助理",
+      "wraps": [
+        "patient",
+        "memory"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "front",
+      "to": "gateway",
+      "variant": "emphasis"
+    },
+    {
+      "from": "gateway",
+      "to": "assistant",
+      "variant": "emphasis"
+    },
+    {
+      "from": "assistant",
+      "to": "tools",
+      "variant": "emphasis"
+    },
+    {
+      "from": "tools",
+      "to": "back",
+      "variant": "emphasis"
+    },
+    {
+      "from": "context",
+      "to": "assistant",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "label": "任务上下文",
+      "labelAt": [
+        665,
+        345
+      ],
+      "variant": "emphasis"
+    },
+    {
+      "from": "patient",
+      "to": "context",
+      "fromSide": "left",
+      "toSide": "right"
+    },
+    {
+      "from": "memory",
+      "to": "context",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          740,
+          640
+        ],
+        [
+          740,
+          520
+        ],
+        [
+          610,
+          520
+        ]
+      ],
+      "label": "相关记忆",
+      "labelAt": [
+        690,
+        507
+      ]
+    },
+    {
+      "from": "knowledge",
+      "to": "context"
+    },
+    {
+      "from": "gateway",
+      "to": "evidence",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          370,
+          320
+        ],
+        [
+          250,
+          320
+        ],
+        [
+          250,
+          640
+        ]
+      ],
+      "variant": "dashed"
+    },
+    {
+      "from": "evidence",
+      "to": "update",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          370,
+          780
+        ],
+        [
+          1170,
+          780
+        ]
+      ],
+      "label": "带来源的更新事件",
+      "labelAt": [
+        770,
+        768
+      ],
+      "variant": "dashed"
+    },
+    {
+      "from": "update",
+      "to": "memory",
+      "fromSide": "left",
+      "toSide": "right",
+      "variant": "dashed"
+    },
+    {
+      "from": "memory",
+      "to": "patient",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "label": "关联依据",
+      "labelAt": [
+        950,
+        550
+      ],
+      "variant": "dashed"
+    },
+    {
+      "from": "update",
+      "to": "patient",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          1030,
+          640
+        ],
+        [
+          1030,
+          440
+        ]
+      ],
+      "label": "受控发布",
+      "labelAt": [
+        1090,
+        515
+      ],
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "患者模型 · 我们如何理解此人",
+      "items": [
+        "按患者主体持续维护的版本化表示，包括可用事实、有限推断及未知项。",
+        "当前视图与历史版本可追溯；模型输出保持来源和不确定性。",
+        "更换 LLM、会话或助理角色，不应重建患者身份和历史。"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "长期记忆 · 理解依据从何而来",
+      "items": [
+        "组织个人经历、来源声明、事实关系及其时间有效性。",
+        "记忆可被检索、纠正、撤回和失效；原始证据另行保存。",
+        "语义索引与图索引是实现选项，均不自动成为事实裁定者。"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "助理交互 · 当次如何工作",
+      "items": [
+        "维护服务角色、会话状态、工作记忆与工具执行过程。",
+        "由上下文服务提供患者模型和相关记忆，不加载全部历史。",
+        "输出或工具回执先作为有类型的新事件，不直接覆盖患者状态。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "两种速度 · 同一版本边界",
+      "items": [
+        "交互路径优先及时响应；长期更新可以在后台进行。",
+        "新输入尚未被长期模型吸收时，以待处理输入显式补入当前上下文。",
+        "上下文携带模型版本、记忆进度与策略版本，避免无提示混用新旧状态。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "跨层治理 · 必须由 CX 控制",
+      "items": [
+        "区分被描述的患者、实际发言者、执行代理和会话。",
+        "授权同时覆盖写入、检索、上下文、工具、缓存与派生结果。",
+        "纠错与撤回沿证据依赖链传播，并检查异步重算是否完成。"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "本图阅读范围",
+      "items": [
+        "箭头展示主要信息流；查询返回、CX 回执回流和更新门槛见下方时序与分析。",
+        "具体患者字段、数据格式、功能和供应商均留待确认。",
+        "这是 CX 的概念设计建议，尚未实现，也未验证临床效果。"
+      ]
+    }
+  ]
+}

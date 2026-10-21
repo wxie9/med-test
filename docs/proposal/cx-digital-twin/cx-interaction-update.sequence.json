@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "CX 交互与长期更新的关系",
+    "subtitle": "逻辑时序：本轮上下文与跨轮长期状态分别管理；更新完成进度可追踪",
+    "viewBox": [
+      920,
+      1100
+    ]
+  },
+  "participants": [
+    {
+      "id": "cx",
+      "type": "frontend",
+      "label": "CX 接入",
+      "sublabel": "身份与事件"
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "助理",
+      "sublabel": "会话与工具"
+    },
+    {
+      "id": "ctx",
+      "type": "backend",
+      "label": "上下文",
+      "sublabel": "按权限组装"
+    },
+    {
+      "id": "patient",
+      "type": "backend",
+      "label": "患者模型",
+      "sublabel": "版本化视图"
+    },
+    {
+      "id": "memory",
+      "type": "database",
+      "label": "长期记忆",
+      "sublabel": "事件与事实"
+    },
+    {
+      "id": "update",
+      "type": "messagebus",
+      "label": "更新管线",
+      "sublabel": "校验与投影"
+    }
+  ],
+  "messages": [
+    {
+      "from": "cx",
+      "to": "update",
+      "y": 180,
+      "label": "登记输入事件",
+      "variant": "dashed"
+    },
+    {
+      "from": "cx",
+      "to": "agent",
+      "y": 220,
+      "label": "发起本轮交互",
+      "variant": "emphasis"
+    },
+    {
+      "from": "agent",
+      "to": "ctx",
+      "y": 260,
+      "label": "请求任务上下文",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ctx",
+      "to": "patient",
+      "y": 300,
+      "label": "查询授权快照",
+      "variant": "default"
+    },
+    {
+      "from": "patient",
+      "to": "ctx",
+      "y": 340,
+      "label": "状态与版本",
+      "variant": "return"
+    },
+    {
+      "from": "ctx",
+      "to": "memory",
+      "y": 385,
+      "label": "检索相关证据",
+      "variant": "default"
+    },
+    {
+      "from": "memory",
+      "to": "ctx",
+      "y": 425,
+      "label": "记忆与处理进度",
+      "variant": "return"
+    },
+    {
+      "from": "ctx",
+      "to": "agent",
+      "y": 475,
+      "label": "上下文与待处理输入",
+      "variant": "return"
+    },
+    {
+      "from": "agent",
+      "to": "cx",
+      "y": 535,
+      "label": "返回输出与调用请求",
+      "variant": "return"
+    },
+    {
+      "from": "cx",
+      "to": "update",
+      "y": 590,
+      "label": "记录输出及实际回执",
+      "variant": "dashed"
+    },
+    {
+      "from": "update",
+      "to": "memory",
+      "y": 700,
+      "label": "提交经校验的变更",
+      "variant": "dashed"
+    },
+    {
+      "from": "memory",
+      "to": "update",
+      "y": 750,
+      "label": "记忆版本已提交",
+      "variant": "return"
+    },
+    {
+      "from": "update",
+      "to": "patient",
+      "y": 805,
+      "label": "重建受影响视图",
+      "variant": "dashed"
+    },
+    {
+      "from": "patient",
+      "to": "update",
+      "y": 855,
+      "label": "患者模型版本已发布",
+      "variant": "return"
+    },
+    {
+      "from": "update",
+      "to": "ctx",
+      "y": 940,
+      "label": "通知失效与刷新",
+      "variant": "dashed"
+    }
+  ],
+  "segments": [
+    {
+      "from": 155,
+      "to": 650,
+      "label": "当次交互"
+    },
+    {
+      "from": 675,
+      "to": 995,
+      "label": "长期更新"
+    }
+  ],
+  "cards": []
+}

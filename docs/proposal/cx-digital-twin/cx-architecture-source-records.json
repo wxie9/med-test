@@ -1,0 +1,98 @@
+[
+  {
+    "id": "letta",
+    "title": "Letta MemFS",
+    "publisher": "Letta",
+    "version": "当前主站；核对 2026-10-21",
+    "url": "https://docs.letta.com/concepts/memfs",
+    "locator": "Memory structure / Versioning and synchronization",
+    "summary": "每个代理的记忆由 git 仓库管理。根目录内容常驻上下文，深层文件按需读取；历史会话检索另有机制。",
+    "inference": "借鉴显式、分层和版本化记忆；将助理状态与患者长期表示分别命名。",
+    "boundary": "不能把早期 MemGPT 的具体存储方式当作当前唯一实现，也不能把代理的仓库直接当成患者的权威档案。",
+    "nextCheck": "核实记忆与会话隔离、并发编辑和跨端同步的实际语义。"
+  },
+  {
+    "id": "secondme",
+    "title": "AI-native Memory 2.0 Second Me",
+    "publisher": "Wei 等 / Mindverse",
+    "version": "作者论文 v1；2025-03-11",
+    "url": "https://arxiv.org/html/2503.08102v1",
+    "locator": "2.2 Overall Design / 3.1 Overview of Training",
+    "summary": "作者保留原始资料、自然语言表示和参数化个人模型的层次，用 SFT、DPO 等训练个人化模型，并将其作为个人上下文提供者。",
+    "inference": "借鉴个人模型为外部专业服务提供背景的关系；显式表示和学习型表示可以共存。",
+    "boundary": "表达风格或偏好拟合不证明身体状态预测有效；该论文不能证明 CX 必须为每位患者微调一个 LLM。",
+    "nextCheck": "有真实任务与数据后，再比较显式表示、检索和参数化的更新成本与可纠正性。"
+  },
+  {
+    "id": "graphiti",
+    "title": "Graphiti Overview",
+    "publisher": "Zep",
+    "version": "官方文档 v4；核对 2026-10-21",
+    "url": "https://help.getzep.com/graphiti/getting-started/overview",
+    "locator": "Graphiti and Zep / Why Graphiti",
+    "summary": "Graphiti 通过 episodes 增量形成实体与关系，保留来源，支持双时间、历史关系失效和混合检索；Zep 是建立其上的托管产品。",
+    "inference": "借鉴来源、事实关系和时间有效性，支持当前视图与历史重建。",
+    "boundary": "开源库不等同于托管服务的完整治理；有时间字段不保证对事实变化的判断正确。",
+    "nextCheck": "用纠错、迟到事件和多来源矛盾验证时间语义与重建结果。"
+  },
+  {
+    "id": "mem0",
+    "title": "How Mem0 Works",
+    "publisher": "Mem0",
+    "version": "当前文档；核对 2026-10-21",
+    "url": "https://docs.mem0.ai/core-concepts/how-it-works",
+    "locator": "Messages vs memories / Extraction and retrieval",
+    "summary": "应用将消息交给 add，再于模型调用前 search。默认保存抽取后的记忆；当前文档描述自动提取为追加式，纠错和移除使用明确的 update、delete。",
+    "inference": "将记忆写入与读取分别设计，抽取结果保留回到原始记录的引用。",
+    "boundary": "不能沿用旧版本描述，假定当前自动抽取一定会覆盖矛盾事实；应用仍需选择哪些结果进入上下文。",
+    "nextCheck": "固定 OSS 或托管版本，验证更新、删除、分区和事件完成状态。"
+  },
+  {
+    "id": "honcho",
+    "title": "Peer Representations",
+    "publisher": "Plastic Labs / Honcho",
+    "version": "官方文档 v3；核对 2026-10-21",
+    "url": "https://honcho.dev/docs/v3/documentation/core-concepts/representation",
+    "locator": "What is in a Representation / Observation and Perspective-Taking",
+    "summary": "用户表示包含 conclusions、summaries 和 peer cards。表示可来自显式信息和进一步推断，也能按不同 peer 实际观察到的交互分别形成。",
+    "inference": "把患者模型设为一等对象，并为不同角色提供有权限边界的视图。",
+    "boundary": "推断得到的特征仍是推断；所谓形式逻辑不能保证抽取的前提真实。",
+    "nextCheck": "检查原文声明、推断与共享摘要能否分开查询，并能追溯支持来源。"
+  },
+  {
+    "id": "hindsight",
+    "title": "Hindsight Quickstart 与 Operations",
+    "publisher": "Vectorize",
+    "version": "Quickstart / Operations 0.10；核对 2026-10-21",
+    "url": "https://hindsight.vectorize.io/cookbook/recipes/quickstart",
+    "locator": "Retain / Recall / Reflect",
+    "summary": "接口将保存、检索和合成分开。其 Operations 文档还描述后台 consolidation、删除源后的 observation 失效及重算。",
+    "inference": "把归纳和缓存看作可重建的派生产物，跟踪后台作业而非只看 API 已接收。",
+    "boundary": "检索命中、归纳质量和患者模型正确性是不同问题；源删除后所有派生视图不一定同步刷新。",
+    "nextCheck": "验证 observation 与预计算 mental model 的刷新和失效完成情况。"
+  },
+  {
+    "id": "openclaw",
+    "title": "OpenClaw Memory architecture 与 User model",
+    "publisher": "OpenClaw",
+    "version": "官方当前文档；核对 2026-10-21",
+    "url": "https://docs.openclaw.ai/concepts/memory-architecture",
+    "locator": "Provenance / promotion；另见 User model",
+    "summary": "官方架构区分来源与记忆晋升；User model 对较稳定偏好记录观察时间及 active、superseded 状态。",
+    "inference": "借鉴来源署名、状态替代关系和晋升规则，防止重复召回制造新证据。",
+    "boundary": "来源可信与内容真实是两种判断；患者本人自述也需要标明其声明性质。",
+    "nextCheck": "验证来源标记由系统维护，外部文本不能把自己升级为受信指令。"
+  },
+  {
+    "id": "hermes",
+    "title": "Hermes Persistent Memory",
+    "publisher": "Nous Research",
+    "version": "官方当前文档；核对 2026-10-21",
+    "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/memory",
+    "locator": "Persistent Memory / session_search vs memory",
+    "summary": "内置长期记忆与历史会话检索分开，系统提示中的记忆以会话开始时的快照呈现；保存需要实际调用记忆工具。",
+    "inference": "借鉴助手经验与用户表示分离，以及写入必须有可检查结果。",
+    "boundary": "跨会话记住某事不保证本轮读取最新状态；不能用助手一句已经记住代替持久化结果。",
+    "nextCheck": "测试跨会话、并发更新和当前状态读取的一致性。"
+  }
+]
