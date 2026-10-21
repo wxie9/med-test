@@ -9,4 +9,6 @@
 
 详细单项范围见 [CX 首期 SOW](../cx-digital-twin/phase1-sow.md) 和 [DX 首期 SOW](../dx-self-improvement/phase1-sow.md)。两份单项 SOW 已采用统一的五项工作内容、四类顾问交付物与责任分工。后续范围变化需同步更新单项 SOW 与对应推进版本。
 
+两版说明书均附 [CX 首期概念架构图](figures/cx-phase1-architecture.png) 和 [DX 共用改进底座图](figures/dx-phase1-architecture.png)；两图共用同一首期边界，仅推进节奏不同。
+
 基础 SOW 范围文档不列时间与费用；进度评估附件按资源假设提供相对周序和周期窗口，不安排实际开工及截止日期。未实施工程验证，文中工程包为拟约定交付要求。
